@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "@xyflow/react/dist/style.css";
+
+@theme {
+  --color-bda-bg: #050608;
+  --color-bda-bg-elevated: #07090d;
+  --color-bda-panel: #101216;
+  --color-bda-panel-hover: #171a20;
+  --color-bda-border: #2c323d;
+  --color-bda-text: #f5f7fb;
+  --color-bda-muted: #9aa4b2;
+  --color-bda-cyan: #39d2d8;
+  --color-bda-green: #28d17c;
+  --color-bda-amber: #f7b84b;
+  --color-bda-blue: #35a2ff;
+  --color-bda-red: #f56565;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, sans-serif;
+  background: var(--color-bda-bg);
+  color: var(--color-bda-text);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-bda-border);
+  border-radius: 4px;
+}
+
+.molstar-viewer-host {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #0a0c10;
+}
+
+.molstar-viewer-host .msp-plugin {
+  border: none !important;
+}

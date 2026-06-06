@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BDA Workbench</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="#experiments" data-route="experiments">
+        <span>BDA Workbench</span>
+      </a>
+      <nav class="nav">
+        <a href="#experiments" data-route="experiments" class="active">Experiments</a>
+        <a href="#workflow" data-route="workflow">Workflow</a>
+        <a href="#candidates" data-route="candidates">Candidates</a>
+        <a href="#results" data-route="results">Results</a>
+      </nav>
+      <div class="status-strip">
+        <span class="dot live"></span>
+        <span>Auto route enabled</span>
+      </div>
+      <button class="lang-toggle" id="languageToggle" type="button">中文</button>
+    </header>
+
+    <main>
+      <section class="view active" id="view-experiments">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Project experiment list</p>
+            <h1>BDA Experiments</h1>
+          </div>
+          <button class="btn primary" data-route="workflow"><i data-lucide="plus"></i>New experiment</button>
+        </div>
+
+        <section class="assistant-hero">
+          <div class="assistant-identity">
+            <img src="fig/beagle.png" alt="AI Beagle Copilot">
+            <div>
+              <p class="eyebrow">BDA intelligent copilot</p>
+              <h2>AI Beagle Copilot</h2>
+              <p>Converts a design brief into a traceable protein-engineering loop: target definition, generative design, structural triage, developability filters, wet-lab validation, and next-round constraints.</p>
+            </div>
+          </div>
+          <div class="assistant-actions">
+            <button class="agent-chip" data-agent-action="plan"><i data-lucide="route"></i>Plan route</button>
+            <button class="agent-chip" data-agent-action="adjust"><i data-lucide="git-branch"></i>Adjust workflow</button>
+            <button class="agent-chip" data-agent-action="interpret"><i data-lucide="flask-conical"></i>Interpret lab results</button>
+          </div>
+          <div class="assistant-dialogue">
+            <div class="message user compact">Based on current data, which candidates should be prioritized?</div>
+            <div class="message bot compact">
+              Prioritize <b>RBDBinder_c4361</b>, <b>RBDBinder_a0172</b>, and <b>RBDBinder_b1923</b>. They combine stable interface geometry, high fold confidence, low MD drift, and acceptable expression risk.
+            </div>
+          </div>
+        </section>
+
+        <section class="agent-workspace" aria-label="AI Beagle Copilot actions">
+          <article class="agent-view" data-agent-view="plan">
+            <div class="agent-view-head">
+              <div>
+                <p class="eyebrow">Plan route</p>
+                <h2>Route proposal for RBD high-affinity binder</h2>
+              </div>
+              <span class="pill green">Ready</span>
+            </div>
+            <div class="route-builder">
+              <div class="task-card">
+                <span>Task requirements</span>
+                <p>Design RBD binders against the ACE2-facing epitope, then select designs with confident complex geometry, low interface drift, expression feasibility, and low aggregation risk.</p>
+              </div>
+              <ol class="route-steps">
+                <li><i data-lucide="database"></i><span>Define epitope, antigen structure, and assay constraints</span><strong>3/3</strong></li>
+                <li><i data-lucide="wand-sparkles"></i><span>Sample binder backbones around the target surface</span><strong>18k</strong></li>
+                <li><i data-lucide="dna"></i><span>Design sequences while preserving scaffold diversity</span><strong>1.2k</strong></li>
+                <li><i data-lucide="scan-search"></i><span>Screen complex confidence, interface pAE, and clashes</span><strong>312</strong></li>
+                <li><i data-lucide="activity"></i><span>Run short MD checks for interface drift and buried exposure</span><strong>120</strong></li>
+                <li><i data-lucide="filter"></i><span>Select expression-ready candidates for BLI/SPR and SEC</span><strong>48</strong></li>
+              </ol>
+              <div class="agent-sidebox">
+                <span>Estimated output</span>
+                <strong>48</strong>
+                <p>ordered candidates with FASTA, complex structures, score provenance, and assay-ready selection reasons.</p>
+                <button class="btn primary" data-route="workflow"><i data-lucide="arrow-right"></i>Open workflow</button>
+              </div>
+            </div>
+          </article>
+
+          <article class="agent-view" data-agent-view="adjust">
+            <div class="agent-view-head">
+              <div>
+                <p class="eyebrow">Adjust workflow</p>
+                <h2>Constraint editor and node updates</h2>
+              </div>
+              <span class="pill amber">Review</span>
+            </div>
+            <div class="adjust-grid">
+              <article class="adjust-card">
+                <header><i data-lucide="sliders-horizontal"></i><span>Developability threshold</span></header>
+                <div class="threshold-row"><span>Solubility</span><progress value="88" max="100"></progress><strong>88</strong></div>
+                <div class="threshold-row"><span>Hydrophobic patch penalty</span><progress value="74" max="100"></progress><strong>74</strong></div>
+                <div class="threshold-row"><span>Expression risk gate</span><progress value="82" max="100"></progress><strong>82</strong></div>
+              </article>
+              <article class="adjust-card">
+                <header><i data-lucide="git-compare-arrows"></i><span>Workflow changes</span></header>
+                <ul class="check-list">
+                  <li><i data-lucide="plus"></i>Gate candidates by expression risk before synthesis</li>
+                  <li><i data-lucide="plus"></i>Move MD drift checks before final developability filters</li>
+                  <li><i data-lucide="plus"></i>Cap each scaffold family at 6 ordered variants</li>
+                  <li><i data-lucide="plus"></i>Convert SEC aggregation failures into round-two penalties</li>
+                </ul>
+              </article>
+              <article class="adjust-card accent">
+                <header><i data-lucide="check-circle"></i><span>Copilot recommendation</span></header>
+                <p>Keep the c4361 interface motif as the anchor, but relax pure affinity ranking when a design shows high hydrophobic exposure or weak expression confidence.</p>
+                <button class="btn success" data-route="workflow"><i data-lucide="play"></i>Apply to workflow</button>
+              </article>
+            </div>
+          </article>
+
+          <article class="agent-view" data-agent-view="interpret">
+            <div class="agent-view-head">
+              <div>
+                <p class="eyebrow">Interpret lab results</p>
+                <h2>Evidence summary and next-round constraints</h2>
+              </div>
+              <span class="pill green">Closed loop</span>
+            </div>
+            <div class="interpret-grid">
+              <article class="readout-card">
+                <span>Hit rate</span>
+                <strong>9/48</strong>
+                <p>BLI/SPR positives cluster around F2 and F5 families.</p>
+              </article>
+              <article class="readout-card">
+                <span>Best Kd</span>
+                <strong>0.6 nM</strong>
+                <p>Measured on the top BLI/SPR-confirmed clone.</p>
+              </article>
+              <article class="readout-card">
+                <span>Main loss</span>
+                <strong>SEC</strong>
+                <p>SEC aggregation, not binding loss, explains most QC attrition.</p>
+              </article>
+              <article class="interpret-brief">
+                <h2>Next round constraints</h2>
+                <ul class="check-list">
+                  <li><i data-lucide="repeat-2"></i>Preserve c4361 interface contacts and epitope footprint</li>
+                  <li><i data-lucide="droplets"></i>Penalize exposed hydrophobic patches before ordering</li>
+                  <li><i data-lucide="shuffle"></i>Increase scaffold diversity across BLI/SPR-positive families</li>
+                </ul>
+                <button class="btn ghost" data-route="results"><i data-lucide="chart-no-axes-combined"></i>Open results</button>
+              </article>
+            </div>
+          </article>
+        </section>
+
+        <section class="overview-grid" aria-label="Project overview">
+          <article class="overview-card">
+            <span>Active project</span>
+            <strong>1/3</strong>
+            <p>Project_test_0423 is running</p>
+          </article>
+          <article class="overview-card">
+            <span>Binding positives</span>
+            <strong>9/48</strong>
+            <p>BLI/SPR-positive candidates</p>
+          </article>
+          <article class="overview-card warning">
+            <span>Compute access</span>
+            <strong>0/4</strong>
+            <p>Qiming HPC resources unavailable</p>
+          </article>
+          <article class="overview-card">
+            <span>Next action</span>
+            <strong>Round 2</strong>
+            <p>Preserve c4361 motif and diversify scaffolds</p>
+          </article>
+        </section>
+
+        <div class="experiment-grid">
+          <article class="experiment-card selected" data-exp="binder">
+            <div class="card-hero">
+              <img src="fig/bam001.png" alt="BAM candidate structure">
+            </div>
+            <div class="card-body">
+              <div class="card-title">
+                <h2>Project_test_0423</h2>
+                <span class="pill green">Running</span>
+              </div>
+              <p>SARS-CoV-2 RBD binder design. Generate RBD-facing binders, triage complex confidence and developability, validate expression and BLI/SPR binding, then feed SEC and affinity results into round two.</p>
+              <dl class="meta">
+                <div><dt>Route</dt><dd>RFdiffusion + ProteinMPNN + BDA filters</dd></div>
+                <div><dt>Stage</dt><dd>Validation feedback</dd></div>
+              </dl>
+              <button class="btn ghost" data-route="workflow"><i data-lucide="folder-open"></i>Open</button>
+            </div>
+          </article>
+
+          <article class="experiment-card" data-exp="nanocage">
+            <div class="card-hero alt">
+              <img src="fig/trimer.png" alt="Component structure placeholder">
+            </div>
+            <div class="card-body">
+              <div class="card-title">
+                <h2>Nanocage_delivery_0518</h2>
+                <span class="pill">Draft</span>
+              </div>
+              <p>Programmable protein-cage cargo display. The task definition is complete, and route planning is waiting for target constraints and assay conditions.</p>
+              <dl class="meta">
+                <div><dt>Route</dt><dd>Auto route pending</dd></div>
+                <div><dt>Stage</dt><dd>Task definition</dd></div>
+              </dl>
+              <button class="btn ghost" data-route="workflow"><i data-lucide="folder-open"></i>Open</button>
+            </div>
+          </article>
+
+          <article class="experiment-card" data-exp="enzyme">
+            <div class="card-hero warm">
+              <img src="fig/Hydroxynitrile Lyases.png" alt="Hydroxynitrile Lyases structure">
+            </div>
+            <div class="card-body">
+              <div class="card-title">
+                <h2>Enzyme_repair_0507</h2>
+                <span class="pill amber">Queued</span>
+              </div>
+              <p>Improve activity and solubility on a fragile enzyme scaffold, using expression and thermal-shift data to constrain mutation proposals.</p>
+              <dl class="meta">
+                <div><dt>Route</dt><dd>Sequence optimization</dd></div>
+                <div><dt>Stage</dt><dd>Input review</dd></div>
+              </dl>
+              <button class="btn ghost" data-route="workflow"><i data-lucide="folder-open"></i>Open</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section class="view" id="view-workflow">
+        <div class="workflow-toolbar">
+          <button class="btn ghost" id="newRouteToggle"><i data-lucide="file-plus-2"></i>New route</button>
+          <button class="btn primary" id="addNodeToggle"><i data-lucide="plus"></i>Add node</button>
+          <button class="btn success" id="runWorkflow"><i data-lucide="play"></i>Start workflow</button>
+          <button class="icon-btn" id="toggleCopilot" title="AI Beagle Copilot panel"><i data-lucide="message-square"></i></button>
+        </div>
+
+        <section class="route-intake" id="routeIntake" aria-label="New route setup">
+          <div class="builder-head">
+            <div>
+              <p class="eyebrow">New automated route</p>
+              <h2>Define target protein</h2>
+            </div>
+            <button class="icon-btn" id="closeRouteIntake" title="Close"><i data-lucide="x"></i></button>
+          </div>
+          <div class="route-intake-layout">
+            <label class="target-input">
+              <span>Target protein</span>
+              <input id="targetProteinInput" value="SARS-CoV-2 Spike RBD (PDB 6M0J), ACE2-facing epitope">
+              <label class="upload-control">
+                <input id="proteinTemplateUpload" type="file" accept=".pdb,.cif,.mmcif,.fasta,.fa,.txt">
+                <i data-lucide="upload"></i>
+                <span>Upload protein template</span>
+              </label>
+              <small id="proteinTemplateName">No template selected</small>
+            </label>
+            <article class="route-example">
+              <span>Example constraint</span>
+              <p>Design binders for the ACE2-facing epitope; prioritize complex confidence, interface pAE, expression feasibility, and SEC monodispersity before synthesis.</p>
+            </article>
+            <button class="btn primary" id="autoRoute"><i data-lucide="route"></i>Auto route</button>
+          </div>
+        </section>
+
+        <section class="node-builder" id="nodeBuilder" aria-label="Add workflow card">
+          <div class="builder-head">
+            <div>
+              <p class="eyebrow">Add workflow card</p>
+              <h2>Choose a model or method</h2>
+            </div>
+            <button class="icon-btn" id="closeNodeBuilder" title="Close"><i data-lucide="x"></i></button>
+          </div>
+          <div class="builder-layout">
+            <div class="builder-group">
+              <span>Model cards</span>
+              <div class="option-grid">
+                <button class="model-option active" data-node-template="rf"><i data-lucide="wand-sparkles"></i><strong>RFdiffusion</strong><small>Backbone generation</small></button>
+                <button class="model-option" data-node-template="mpnn"><i data-lucide="dna"></i><strong>ProteinMPNN</strong><small>Sequence design</small></button>
+                <button class="model-option" data-node-template="af3"><i data-lucide="scan-search"></i><strong>AlphaFold3</strong><small>Fold prediction</small></button>
+                <button class="model-option" data-node-template="openmm"><i data-lucide="activity"></i><strong>OpenMM MD</strong><small>Stability simulation</small></button>
+                <button class="model-option" data-node-template="filter"><i data-lucide="filter"></i><strong>BDA filters</strong><small>Selection layer</small></button>
+                <button class="model-option" data-node-template="lab"><i data-lucide="flask-conical"></i><strong>Wet-lab validation</strong><small>Experiment queue</small></button>
+              </div>
+            </div>
+            <div class="builder-group">
+              <span>Method controls</span>
+              <div class="method-grid">
+                <label class="method-toggle"><input type="checkbox" checked data-method="Affinity score"><span>Affinity score</span></label>
+                <label class="method-toggle"><input type="checkbox" checked data-method="Diversity cap"><span>Diversity cap</span></label>
+                <label class="method-toggle"><input type="checkbox" data-method="Expression risk"><span>Expression risk</span></label>
+                <label class="method-toggle"><input type="checkbox" data-method="Aggregation penalty"><span>Aggregation penalty</span></label>
+                <label class="method-toggle"><input type="checkbox" checked data-method="Auto report"><span>Auto report</span></label>
+              </div>
+            </div>
+            <div class="builder-group">
+              <span>Compute access</span>
+              <div class="compute-cluster">
+                <div class="cluster-title">
+                  <strong>SUSTech Qiming HPC cluster</strong>
+                  <small>All resources unavailable</small>
+                </div>
+                <label class="compute-option unavailable"><input type="radio" name="compute-node" disabled><span>4v100-16-e5</span><b>GPU</b><em>Unavailable</em></label>
+                <label class="compute-option unavailable"><input type="radio" name="compute-node" disabled><span>8v100-32-sc</span><b>GPU</b><em>Unavailable</em></label>
+                <label class="compute-option unavailable"><input type="radio" name="compute-node" disabled><span>gpu-bme-liz</span><b>GPU</b><em>Unavailable</em></label>
+                <label class="compute-option unavailable"><input type="radio" name="compute-node" disabled><span>v3-64</span><b>CPU</b><em>Unavailable</em></label>
+              </div>
+            </div>
+            <aside class="builder-preview">
+              <span>Preview card</span>
+              <article class="node preview-node" id="nodePreview">
+                <header><i data-lucide="wand-sparkles"></i><span>Backbone generation</span></header>
+                <p>Explore binder geometry with RFdiffusion</p>
+                <footer><span class="node-port"></span>Affinity score, Diversity cap, Auto report</footer>
+              </article>
+              <button class="btn primary" id="addCustomNode"><i data-lucide="plus"></i>Add card to workflow</button>
+            </aside>
+          </div>
+        </section>
+
+        <div class="workflow-layout">
+          <section class="map-panel">
+            <div class="canvas-grid"></div>
+            <div class="empty-workflow" id="emptyWorkflow">
+              <i data-lucide="workflow"></i>
+              <h2>Blank automated workflow</h2>
+              <p id="blankWorkflowTarget">Target protein parsed. Add model cards or run compute check to continue.</p>
+              <span id="blankComputeStatus">Compute status pending</span>
+            </div>
+            <div class="custom-node-layer" id="customNodeLayer"></div>
+            <svg class="edges" viewBox="0 0 980 680" aria-hidden="true">
+              <defs>
+                <marker id="edgeArrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                  <path d="M 0 0 L 10 5 L 0 10 z"></path>
+                </marker>
+              </defs>
+              <path d="M238 133 C258 133 260 313 285 313"/>
+              <path d="M238 533 C258 533 260 313 285 313"/>
+              <path d="M475 313 H515"/>
+              <path d="M705 313 C726 313 724 133 745 133"/>
+              <path d="M840 196 V250"/>
+              <path d="M840 376 V470"/>
+              <path d="M745 533 H705"/>
+              <path class="feedback-edge" d="M515 533 C430 590 395 418 395 376"/>
+            </svg>
+
+            <article class="node source" style="left:48px;top:70px">
+              <header><i data-lucide="database"></i><span>Target protein</span></header>
+              <p>RBD structure, ACE2-facing epitope, BLI/SPR and SEC constraints</p>
+              <footer><span class="node-port"></span>3/3 inputs confirmed</footer>
+            </article>
+
+            <article class="node running" style="left:285px;top:250px">
+              <header><i data-lucide="wand-sparkles"></i><span>Backbone generation</span></header>
+              <p>Sample binder backbones around the constrained RBD surface</p>
+              <footer><span class="spinner"></span>1,248/18,000 generated</footer>
+            </article>
+
+            <article class="node" style="left:515px;top:250px">
+              <header><i data-lucide="dna"></i><span>Sequence design</span></header>
+              <p>Sequence design with scaffold diversity and interface conservation</p>
+              <footer><span class="node-port"></span>384/1,248 designed</footer>
+            </article>
+
+            <article class="node" style="left:745px;top:70px">
+              <header><i data-lucide="scan-search"></i><span>Fold prediction</span></header>
+              <p>Evaluate complex confidence, interface pAE, clashes, and contact recovery</p>
+              <footer><span class="node-port"></span>312/384 folded</footer>
+            </article>
+
+            <article class="node" style="left:745px;top:250px">
+              <header><i data-lucide="activity"></i><span>MD stability</span></header>
+              <p>Short relaxation checks interface drift and exposed hydrophobic area</p>
+              <footer><span class="node-port"></span>120/312 simulated</footer>
+            </article>
+
+            <article class="node completed" style="left:745px;top:470px">
+              <header><i data-lucide="filter"></i><span>BDA filters</span></header>
+              <p>Interface score, fold confidence, solubility, aggregation, expression risk</p>
+              <footer><i data-lucide="check"></i>96/384 passed filters</footer>
+            </article>
+
+            <article class="node completed" style="left:515px;top:470px">
+              <header><i data-lucide="flask-conical"></i><span>Wet-lab validation</span></header>
+              <p>Expression, purification, BLI/SPR binding, SEC monodispersity, thermal shift</p>
+              <footer><i data-lucide="check"></i>9/48 hits confirmed</footer>
+            </article>
+
+            <article class="node source" style="left:48px;top:470px">
+              <header><i data-lucide="file-json"></i><span>Task requirements</span></header>
+              <p>Design RBD binders for ACE2-facing epitope with expression and developability constraints</p>
+              <footer><span class="node-port"></span>5/5 constraints parsed</footer>
+            </article>
+          </section>
+
+          <aside class="copilot-panel open" id="copilotPanel">
+            <div class="copilot-head">
+              <img src="fig/beagle.png" alt="BDA Copilot">
+              <div>
+                <h2>AI Beagle Copilot</h2>
+                <p>BDA intelligent copilot</p>
+              </div>
+            </div>
+            <div class="chat" id="copilotChat">
+              <div class="message user">
+                <span>Based on current scores, which candidates should enter the experimental queue?</span>
+              </div>
+              <div class="message bot">
+                <span>Prioritize <b>RBDBinder_c4361</b>, <b>RBDBinder_a0172</b>, <b>RBDBinder_b1923</b>, <b>RBDBinder_c7239</b>, and <b>RBDBinder_a6562</b>. They balance interface geometry, complex confidence, MD drift, and expression risk.</span>
+              </div>
+              <div class="message user">
+                <span>Can you propose a set of alternatives with stronger developability?</span>
+              </div>
+              <div class="function-call">
+                <i data-lucide="check-circle"></i>
+                <span>Workflow adjusted: developability penalty added</span>
+              </div>
+              <div class="message bot">
+                <span>Yes. For round two, penalize exposed hydrophobic area, keep expression-risk filtering before synthesis, and preserve the validated c4361 interface contacts. This should reduce SEC aggregation failures without losing the binding footprint.</span>
+              </div>
+              <div class="message user">
+                <span>Keep the c4361 binding motif, but increase scaffold diversity in round two.</span>
+              </div>
+              <div class="message bot">
+                <span>Noted. In the next round I will preserve the key c4361 binding motif while limiting how many designs can come from a single family, so the experimental batch is not dominated by one scaffold.</span>
+              </div>
+              <div class="quick-actions">
+                <button data-suggestion="Generate round-two designs">Generate round-two designs</button>
+                <button data-suggestion="Adjust developability threshold">Adjust developability threshold</button>
+                <button data-suggestion="Explain scoring metrics">Explain scoring metrics</button>
+                <button data-suggestion="Which model should I add next?">Which model should I add next?</button>
+              </div>
+            </div>
+            <div class="prompt">
+              <input id="copilotInput" value="Explain why c4361 should anchor round two" aria-label="Ask AI Beagle Copilot">
+              <button class="icon-btn" id="sendCopilotMessage" title="Send"><i data-lucide="send"></i></button>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-candidates">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">BDA selection layer</p>
+            <h1>Candidate table</h1>
+          </div>
+          <button class="btn ghost" id="exportCandidates"><i data-lucide="download"></i>Export CSV</button>
+        </div>
+        <div class="summary-strip">
+          <article class="summary-mini"><span>Generated</span><strong>18,000</strong><p>Backbones explored</p></article>
+          <article class="summary-mini"><span>Designed</span><strong>1,248</strong><p>Sequences sampled</p></article>
+          <article class="summary-mini"><span>Folded</span><strong>312</strong><p>Complexes scored</p></article>
+          <article class="summary-mini"><span>Simulated</span><strong>120</strong><p>MD checks completed</p></article>
+          <article class="summary-mini"><span>Ordered</span><strong>48</strong><p>Wet-lab queue</p></article>
+        </div>
+        <section class="compute-status-strip" aria-label="Compute node status">
+          <div class="compute-status-head">
+            <i data-lucide="server-off"></i>
+            <div>
+              <span>Compute node status</span>
+              <strong>SUSTech Qiming HPC cluster</strong>
+            </div>
+          </div>
+          <div class="compute-status-list">
+            <span>4v100-16-e5 <b>GPU unavailable</b></span>
+            <span>8v100-32-sc <b>GPU unavailable</b></span>
+            <span>gpu-bme-liz <b>GPU unavailable</b></span>
+            <span>v3-64 <b>CPU unavailable</b></span>
+          </div>
+        </section>
+        <div class="candidate-controls">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input id="candidateSearch" placeholder="Search candidate or family">
+          </label>
+          <div class="segmented-control" id="candidateStatusFilter" aria-label="Candidate status filter">
+            <button class="active" data-status-filter="all">All</button>
+            <button data-status-filter="Validated">Validated</button>
+            <button data-status-filter="Retest">Retest</button>
+            <button data-status-filter="Reserve">Reserve</button>
+          </div>
+          <button class="btn ghost" id="showPriorityOnly"><i data-lucide="list-filter"></i>Priority only</button>
+        </div>
+        <div class="data-layout">
+          <div class="candidate-stack">
+            <div class="table-panel">
+              <table>
+                <thead>
+                  <tr><th>Candidate</th><th>Family</th><th>Interface</th><th>Pred Kd</th><th>pLDDT</th><th>MD drift</th><th>Expression</th><th>Status</th><th>Decision</th></tr>
+                </thead>
+                <tbody id="candidateRows"></tbody>
+              </table>
+            </div>
+            <div class="insight-grid">
+              <article class="insight-card">
+                <h2>Selection rules</h2>
+                <ul class="check-list">
+                  <li><i data-lucide="check"></i>Top-decile interface score with no severe clash at the epitope</li>
+                  <li><i data-lucide="check"></i>Complex pLDDT above 82 and acceptable interface pAE</li>
+                  <li><i data-lucide="check"></i>MD interface drift below 3.2 A after short relaxation</li>
+                  <li><i data-lucide="check"></i>Expression risk medium or better before synthesis</li>
+                </ul>
+              </article>
+              <article class="insight-card">
+                <h2>AI Beagle Copilot note</h2>
+                <p>c4361 remains the anchor because its interface contacts survive fold prediction, short MD checks, and BLI/SPR confirmation. Round two should preserve the epitope footprint while increasing scaffold diversity and lowering exposed hydrophobic area.</p>
+              </article>
+            </div>
+          </div>
+          <aside class="detail-panel">
+            <img id="candidateImage" src="fig/bam001.png" alt="Top candidate">
+            <h2 id="candidateTitle">RBDBinder_c4361</h2>
+            <p id="candidateDescription">This lead candidate combines a stable predicted interface, strong fold confidence, low MD drift, and BLI/SPR binding confirmation, making it the safest scaffold anchor for the next BDA loop.</p>
+            <div class="score-list">
+              <label>Interface <span id="candidateInterface">94</span></label><progress id="candidateInterfaceBar" value="94" max="100"></progress>
+              <label>Stability <span id="candidateStability">91</span></label><progress id="candidateStabilityBar" value="91" max="100"></progress>
+              <label>Solubility <span id="candidateSolubility">88</span></label><progress id="candidateSolubilityBar" value="88" max="100"></progress>
+              <label>MD stability <span id="candidateMd">90</span></label><progress id="candidateMdBar" value="90" max="100"></progress>
+            </div>
+            <div class="detail-note">
+              <span>Next action</span>
+              <p id="candidateAction">Order motif-preserving variants with scaffold diversity cap: max 6 designs per family.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-results">
+        <div class="page-head">
+          <div>
+            <p class="eyebrow">Closed-loop evidence</p>
+            <h1>Results and delivery</h1>
+          </div>
+          <div class="page-actions">
+            <button class="btn ghost" id="exportResults"><i data-lucide="database-backup"></i>Export data</button>
+            <button class="btn primary" id="preparePackage"><i data-lucide="package-check"></i>Prepare package</button>
+          </div>
+        </div>
+        <div class="result-grid">
+          <article class="metric-card"><span>Binding positives</span><strong>18.8%</strong><p>9/48 BLI/SPR-positive candidates</p></article>
+          <article class="metric-card"><span>Best Kd</span><strong>0.6 nM</strong><p>RBDBinder_c4361</p></article>
+          <article class="metric-card"><span>Main QC loss</span><strong>SEC</strong><p>Aggregation explains most post-binding loss</p></article>
+          <article class="metric-card"><span>Decision</span><strong>Round 2</strong><p>Preserve epitope footprint and penalize hydrophobic exposure</p></article>
+        </div>
+        <div class="result-band">
+          <article>
+            <h2>Interpretation</h2>
+            <p>The route produced measurable BLI/SPR binding from AI-designed candidates. The main improvement is not more affinity pressure, but stronger developability control before synthesis: hydrophobic exposure, expression risk, and SEC monodispersity.</p>
+          </article>
+          <article>
+            <h2>Delivery package</h2>
+            <ul>
+              <li>Executive summary and route rationale</li>
+              <li>FASTA and score table for 48 sequences</li>
+              <li>High-priority structures and experimental readouts</li>
+              <li>Round-two model update brief</li>
+            </ul>
+          </article>
+        </div>
+        <div class="results-layout">
+          <article class="insight-card wide">
+            <h2>Validation readouts</h2>
+            <table class="small-table">
+              <thead>
+                <tr><th>Step</th><th>Pass</th><th>Signal</th><th>Implication</th></tr>
+              </thead>
+              <tbody>
+                <tr><td>Expression screen</td><td>42/48</td><td>F2/F5 families express reliably</td><td>Keep family cap; do not remove validated families</td></tr>
+                <tr><td>Purification</td><td>36/48</td><td>Low-yield failures cluster in F1</td><td>Add expression-risk penalty before synthesis</td></tr>
+                <tr><td>BLI / SPR</td><td>9/48</td><td>Best measured Kd: 0.6 nM</td><td>Preserve c4361 epitope footprint in round two</td></tr>
+                <tr><td>SEC / aggregation</td><td>34/48</td><td>Exposed hydrophobic patches explain most QC loss</td><td>Penalize hydrophobic exposure before ordering</td></tr>
+              </tbody>
+            </table>
+          </article>
+          <article class="insight-card">
+            <h2>Round-two design brief</h2>
+            <ul class="check-list">
+              <li><i data-lucide="target"></i>Preserve c4361 epitope footprint and key polar contacts</li>
+              <li><i data-lucide="shuffle"></i>Increase scaffold diversity across BLI/SPR-positive families</li>
+              <li><i data-lucide="droplets"></i>Reduce exposed hydrophobic area before synthesis</li>
+              <li><i data-lucide="flask-conical"></i>Order 64 variants: 40 motif-preserving, 24 scaffold-diverse</li>
+            </ul>
+          </article>
+          <article class="insight-card">
+            <h2>Client package</h2>
+            <ul class="check-list">
+              <li><i data-lucide="file-text"></i>Route rationale and model configuration summary</li>
+              <li><i data-lucide="table"></i>Full candidate score table with filtering reasons</li>
+              <li><i data-lucide="box"></i>Top structures, FASTA, and wet-lab readout bundle</li>
+              <li><i data-lucide="repeat-2"></i>Round-two constraints ready for workflow rerun</li>
+            </ul>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
