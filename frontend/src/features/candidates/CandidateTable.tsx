@@ -41,8 +41,12 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
       }),
       columnHelper.accessor('family', { header: 'Family' }),
       columnHelper.accessor('interface_score', { header: 'Affinity' }),
-      columnHelper.accessor('pred_kd', { header: 'Kd' }),
+      columnHelper.accessor('pred_kd', { header: 'Pred Kd' }),
       columnHelper.accessor('plddt', { header: 'pLDDT' }),
+      columnHelper.accessor('solubility_score', {
+        header: 'Solubility',
+        cell: (info) => info.getValue() ?? '—',
+      }),
       columnHelper.accessor('interface_pae', {
         header: 'MD drift',
         cell: (info) => (info.getValue() != null ? `${info.getValue()} Å` : '—'),
@@ -50,6 +54,14 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
       columnHelper.accessor('rosetta_score', {
         header: 'Rosetta',
         cell: (info) => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('clash_count', {
+        header: 'Clash',
+        cell: (info) => info.getValue() ?? '—',
+      }),
+      columnHelper.accessor('buried_sasa', {
+        header: 'Buried SASA',
+        cell: (info) => (info.getValue() != null ? `${info.getValue()} Å²` : '—'),
       }),
       columnHelper.accessor('expression_risk', { header: 'Expression' }),
       columnHelper.accessor('status', {

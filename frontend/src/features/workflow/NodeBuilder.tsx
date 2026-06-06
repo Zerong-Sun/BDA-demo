@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { nodeTemplates, type NodeTemplate } from './workflowTypes'
+import { listModelPlugins } from '../../lib/api/registry'
 
 const methodOptions = [
   'Affinity score',
@@ -11,17 +13,50 @@ const methodOptions = [
   'Auto report',
 ]
 
+const PLUGIN_ICON: Record<string, string> = {
+  RFdiffusion: 'wand-sparkles',
+  ProteinMPNN: 'dna',
+  AlphaFold2: 'scan-search',
+  Rosetta: 'activity',
+}
+
 interface NodeBuilderProps {
   open: boolean
   onClose: () => void
-  onAdd: (template: NodeTemplate, methods: string[]) => void
+  onAdd: (template: NodeTemplate, methods: string[]) => void | Promise<void>
 }
 
 export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const [selected, setSelected] = useState('rf')
   const [methods, setMethods] = useState<string[]>(['Affinity score', 'Diversity cap', 'Auto report'])
+  const { data: plugins = [] } = useQuery({
+    queryKey: ['model-plugins'],
+    queryFn: listModelPlugins,
+  })
 
-  const template = useMemo(() => nodeTemplates[selected], [selected])
+  const templates = useMemo(() => {
+    if (!plugins.length) return Object.values(nodeTemplates)
+    return plugins.map((plugin) => ({
+      id: plugin.model_plugin_id,
+      icon: PLUGIN_ICON[plugin.model_name] ?? 'activity',
+      title: plugin.model_name,
+      body: plugin.description ?? `${plugin.model_type} model plugin`,
+      resource: plugin.model_type.includes('gpu') ? ('gpu' as const) : ('cpu' as const),
+      nodeType:
+        plugin.model_name === 'RFdiffusion'
+          ? 'backbone_generation'
+          : plugin.model_name === 'ProteinMPNN'
+            ? 'sequence_generation'
+            : plugin.model_name === 'AlphaFold2'
+              ? 'fold_prediction'
+              : 'scoring',
+      modelName: plugin.model_name,
+      modelVersion: plugin.version,
+      pluginId: plugin.model_plugin_id,
+    }))
+  }, [plugins])
+
+  const template = templates.find((item) => item.id === selected) ?? templates[0] ?? nodeTemplates.rf
 
   if (!open) return null
 
@@ -40,7 +75,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
         <div>
           <span className="text-xs text-bda-muted">Model cards</span>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {Object.values(nodeTemplates).map((item) => (
+            {templates.map((item) => (
               <button
                 key={item.id}
                 type="button"
@@ -86,7 +121,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
           <button
             type="button"
             className="mt-3 w-full rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg"
-            onClick={() => onAdd(template, methods)}
+            onClick={() => void onAdd(template, methods)}
           >
             Add card to workflow
           </button>

@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .routers import compute, copilot, core, experiments, files, registry
+from .routers import compute, copilot, core, experiments, files, registry, workflow_mgmt
 from .services.artifacts import ensure_artifact_dirs
 
 app = FastAPI(
@@ -25,10 +25,22 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(HTTPException)
+async def http_error_handler(request: Request, exc: HTTPException):
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error_code": "http_error",
+            "message": exc.detail if isinstance(exc.detail, str) else str(exc.detail),
+            "details": {"path": request.url.path},
+            "trace_id": request.headers.get("x-trace-id", "unavailable"),
+            "retryable": exc.status_code >= 500,
+        },
+    )
+
+
 @app.exception_handler(Exception)
 async def standard_error_handler(request: Request, exc: Exception):
-    if hasattr(exc, "status_code"):
-        raise exc
     return JSONResponse(
         status_code=500,
         content={
@@ -49,4 +61,5 @@ app.include_router(experiments.router)
 app.include_router(registry.router)
 app.include_router(compute.router)
 app.include_router(copilot.router)
+app.include_router(workflow_mgmt.router)
 

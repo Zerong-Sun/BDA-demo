@@ -228,6 +228,174 @@ def candidate_belongs_to_project(connection: sqlite3.Connection, candidate_id: s
     return row is not None
 
 
+def get_project_overview(connection: sqlite3.Connection, project_id: str) -> dict[str, Any] | None:
+    project = get_project(connection, project_id)
+    if project is None:
+        return None
+
+    from . import registry
+
+    funnel = get_project_candidate_funnel(connection, project_id)
+    results_summary = get_project_results_summary(connection, project_id)
+    run = get_latest_project_workflow_run(connection, project_id)
+
+    compute_nodes = registry.list_compute_nodes(connection)
+    gpu_available = any(
+        n.get("status") == "available" and n.get("node_type") == "GPU" for n in compute_nodes
+    )
+    cpu_available = any(
+        n.get("status") == "available" and n.get("node_type") == "CPU" for n in compute_nodes
+    )
+
+    if gpu_available or cpu_available:
+        compute_label = "Workers connected"
+    else:
+        compute_label = "Compute not connected (demo mode)"
+
+    if run and run.get("status") == "completed":
+        next_action = "Review candidates and interpret BLI/SEC results for round two."
+    elif run and run.get("status") == "draft":
+        next_action = "Finish workflow layout and submit to compute."
+    else:
+        next_action = "Create a workflow route for this project."
+
+    return {
+        "project": project,
+        "funnel": funnel,
+        "results_summary": results_summary if funnel["ordered"] else None,
+        "compute_status": {
+            "gpu_available": gpu_available,
+            "cpu_available": cpu_available,
+            "label": compute_label,
+        },
+        "next_action": next_action,
+    }
+
+
+def get_project_design_task(connection: sqlite3.Connection, project_id: str) -> dict | None:
+    row = connection.execute(
+        "SELECT * FROM design_tasks WHERE project_id = ? ORDER BY rowid DESC LIMIT 1",
+        (project_id,),
+    ).fetchone()
+    if row is None:
+        return None
+    from .base import decode_row
+
+    return decode_row(row)
+
+
+def create_draft_workflow_run(connection: sqlite3.Connection, project_id: str) -> dict:
+    import uuid
+
+    task = get_project_design_task(connection, project_id)
+    if task is None:
+        task_id = f"task_{project_id}_draft"
+        connection.execute(
+            """
+            INSERT INTO design_tasks (task_id, project_id, task_type, objective, status, created_by)
+            VALUES (?, ?, 'binder_design', 'Draft workflow route', 'draft', 'demo-user')
+            """,
+            (task_id, project_id),
+        )
+    else:
+        task_id = task["task_id"]
+
+    workflow_run_id = f"run_{project_id}_{uuid.uuid4().hex[:8]}"
+    connection.execute(
+        """
+        INSERT INTO workflow_runs (workflow_run_id, task_id, status, compute_resource, summary_metrics_json, layout_json)
+        VALUES (?, ?, 'draft', 'local', '{}', '{"nodes":[],"edges":[]}')
+        """,
+        (workflow_run_id, task_id),
+    )
+    connection.commit()
+    return get_workflow_run(connection, workflow_run_id) or {}
+
+
+def add_workflow_node(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    *,
+    node_type: str,
+    node_name: str,
+    model_name: str | None = None,
+    model_version: str | None = None,
+    parameters_json: str = "{}",
+    position_json: str = '{"x":0,"y":0}',
+) -> dict:
+    import uuid
+
+    node_run_id = f"node_{uuid.uuid4().hex[:10]}"
+    connection.execute(
+        """
+        INSERT INTO workflow_node_runs (
+            node_run_id, workflow_run_id, node_type, node_name, status,
+            model_name, model_version, parameters_json, position_json
+        ) VALUES (?, ?, ?, ?, 'not_started', ?, ?, ?, ?)
+        """,
+        (
+            node_run_id,
+            workflow_run_id,
+            node_type,
+            node_name,
+            model_name,
+            model_version,
+            parameters_json,
+            position_json,
+        ),
+    )
+    connection.commit()
+    return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id) or {}
+
+
+def update_workflow_node(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    *,
+    position_json: str | None = None,
+    parameters_json: str | None = None,
+    status: str | None = None,
+) -> dict | None:
+    updates: list[str] = []
+    params: list[object] = []
+    if position_json is not None:
+        updates.append("position_json = ?")
+        params.append(position_json)
+    if parameters_json is not None:
+        updates.append("parameters_json = ?")
+        params.append(parameters_json)
+    if status is not None:
+        updates.append("status = ?")
+        params.append(status)
+    if not updates:
+        return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+    params.append(node_run_id)
+    connection.execute(
+        f"UPDATE workflow_node_runs SET {', '.join(updates)} WHERE node_run_id = ?",
+        params,
+    )
+    connection.commit()
+    return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+
+
+def delete_workflow_node(connection: sqlite3.Connection, node_run_id: str) -> bool:
+    cursor = connection.execute(
+        "DELETE FROM workflow_node_runs WHERE node_run_id = ?",
+        (node_run_id,),
+    )
+    connection.commit()
+    return cursor.rowcount > 0
+
+
+def save_workflow_layout(connection: sqlite3.Connection, workflow_run_id: str, layout_json: str) -> dict | None:
+    connection.execute(
+        "UPDATE workflow_runs SET layout_json = ? WHERE workflow_run_id = ?",
+        (layout_json, workflow_run_id),
+    )
+    connection.commit()
+    return get_workflow_run(connection, workflow_run_id)
+
+
 def upsert_target_upload(
     connection: sqlite3.Connection,
     *,

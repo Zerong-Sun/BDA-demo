@@ -27,16 +27,14 @@ export const CandidateSchema = z.object({
 
 export type Candidate = z.infer<typeof CandidateSchema>
 
-export const ProjectSchema = z.object({
-  project_id: z.string(),
-  project_name: z.string(),
-  project_type: z.string(),
-  status: z.string(),
-  owner_id: z.string().nullable().optional(),
-  summary: z.string().nullable().optional(),
+export const CandidateListSchema = z.object({
+  items: z.array(CandidateSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
 })
 
-export type Project = z.infer<typeof ProjectSchema>
+export type CandidateListResponse = z.infer<typeof CandidateListSchema>
 
 export const ExperimentResultSchema = z.object({
   result_id: z.string(),
@@ -52,17 +50,7 @@ export const ExperimentResultSchema = z.object({
 
 export type ExperimentResult = z.infer<typeof ExperimentResultSchema>
 
-export const WorkflowNodeSchema = z.object({
-  node_run_id: z.string(),
-  workflow_run_id: z.string(),
-  node_type: z.string(),
-  node_name: z.string(),
-  status: z.string(),
-  model_name: z.string().nullable().optional(),
-  model_version: z.string().nullable().optional(),
-  parameters_json: z.string().nullable().optional(),
-  metrics_json: z.union([z.string(), z.record(z.string(), z.unknown())]).nullable().optional(),
-  logs: z.string().nullable().optional(),
-})
-
-export type WorkflowNode = z.infer<typeof WorkflowNodeSchema>
+export type { Project } from './project'
+export { ProjectSchema } from './project'
+export type { WorkflowNode } from './workflow'
+export { WorkflowNodeSchema } from './workflow'

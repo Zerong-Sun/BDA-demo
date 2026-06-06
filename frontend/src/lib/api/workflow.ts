@@ -1,8 +1,19 @@
 import { apiRequest } from './client'
-import type { WorkflowNode } from '../schemas/candidate'
+import {
+  WorkflowNodeSchema,
+  WorkflowRunSchema,
+  type WorkflowLayout,
+  type WorkflowNode,
+  type WorkflowRun,
+} from '../schemas/workflow'
+import { z } from 'zod'
 
 export function listWorkflowNodes(workflowRunId: string) {
-  return apiRequest<WorkflowNode[]>(`/workflow-runs/${workflowRunId}/nodes`)
+  return apiRequest<WorkflowNode[]>(
+    `/workflow-runs/${workflowRunId}/nodes`,
+    {},
+    z.array(WorkflowNodeSchema),
+  )
 }
 
 export interface SubmitWorkflowResponse {
@@ -17,4 +28,41 @@ export function submitWorkflowRun(workflowRunId: string) {
     `/workflow-runs/${workflowRunId}/submit-to-compute`,
     { method: 'POST' },
   )
+}
+
+export function createWorkflowRun(projectId: string) {
+  return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs`, { method: 'POST' }, WorkflowRunSchema)
+}
+
+export function addWorkflowNode(
+  workflowRunId: string,
+  payload: {
+    node_type: string
+    node_name: string
+    model_name?: string
+    model_version?: string
+    model_plugin_id?: string
+    parameters_json?: Record<string, unknown>
+    position?: { x: number; y: number }
+  },
+) {
+  return apiRequest<WorkflowNode>(
+    `/workflow-runs/${workflowRunId}/nodes`,
+    { method: 'POST', body: JSON.stringify(payload) },
+    WorkflowNodeSchema,
+  )
+}
+
+export function saveWorkflowLayout(workflowRunId: string, layout: WorkflowLayout) {
+  return apiRequest<WorkflowRun>(
+    `/workflow-runs/${workflowRunId}/layout`,
+    { method: 'PATCH', body: JSON.stringify(layout) },
+    WorkflowRunSchema,
+  )
+}
+
+export function deleteWorkflowNode(workflowRunId: string, nodeRunId: string) {
+  return apiRequest<{ deleted: string }>(`/workflow-runs/${workflowRunId}/nodes/${nodeRunId}`, {
+    method: 'DELETE',
+  })
 }

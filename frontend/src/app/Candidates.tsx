@@ -3,30 +3,44 @@ import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
 import { listCandidates } from '../lib/api/candidates'
 import { getCandidateFunnel } from '../lib/api/projects'
+import { useProjectContext } from '../lib/hooks/useProjectContext'
+import { useToastStore } from '../components/ui/Toast'
+import { useI18n } from '../lib/i18n'
 import { PageHead } from '../components/ui/PageHead'
+import { LoopStepper } from '../components/ui/LoopStepper'
+import { ApiState } from '../components/ui/ApiState'
 import { CandidateFilters } from '../features/candidates/CandidateFilters'
 import { CandidateTable } from '../features/candidates/CandidateTable'
 import { CandidateDetail } from '../features/candidates/CandidateDetail'
+import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import type { Candidate } from '../lib/schemas/candidate'
-import { useAppStore } from '../lib/store/appStore'
-import { useToastStore } from '../components/ui/Toast'
+
+const PAGE_SIZE = 10
 
 export function CandidatesPage() {
-  const projectId = useAppStore((s) => s.activeProjectId)
+  const { t } = useI18n()
+  const { projectId } = useProjectContext()
   const showToast = useToastStore((s) => s.show)
   const [search, setSearch] = useState('')
   const [status, setStatus] = useState('All')
   const [priorityOnly, setPriorityOnly] = useState(false)
   const [selected, setSelected] = useState<Candidate | null>(null)
+  const [page, setPage] = useState(0)
 
-  const { data, isLoading, isError } = useQuery({
-    queryKey: ['candidates', projectId, search, status, priorityOnly],
+  const {
+    data,
+    isLoading,
+    isError,
+    refetch,
+  } = useQuery({
+    queryKey: ['candidates', projectId, search, status, priorityOnly, page],
     queryFn: () =>
       listCandidates(projectId, {
         search: search || undefined,
         status: status === 'All' ? undefined : status,
         decision: priorityOnly ? 'Anchor,Order,Retest' : undefined,
-        limit: 10,
+        limit: PAGE_SIZE,
+        offset: page * PAGE_SIZE,
         sort: 'interface_score',
         order: 'desc',
       }),
@@ -39,29 +53,17 @@ export function CandidatesPage() {
 
   const candidates = useMemo(() => data?.items ?? [], [data])
   const totalCount = data?.total ?? candidates.length
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const activeCandidate = selected ?? candidates[0] ?? null
 
   const exportCsv = () => {
     if (!candidates.length) return
     const header = [
-      'candidate_id',
-      'family',
-      'interface_score',
-      'pred_kd',
-      'plddt',
-      'status',
-      'decision',
+      'candidate_id', 'family', 'interface_score', 'pred_kd', 'plddt',
+      'solubility_score', 'clash_count', 'buried_sasa', 'status', 'decision',
     ]
     const rows = candidates.map((c) =>
-      [
-        c.candidate_id,
-        c.family,
-        c.interface_score,
-        c.pred_kd,
-        c.plddt,
-        c.status,
-        c.decision,
-      ].join(','),
+      header.map((h) => (c as Record<string, unknown>)[h] ?? '').join(','),
     )
     const blob = new Blob([[header.join(','), ...rows].join('\n')], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -76,8 +78,8 @@ export function CandidatesPage() {
   return (
     <section>
       <PageHead
-        eyebrow="BDA selection layer"
-        title="Candidate table"
+        eyebrow={t.candidates.eyebrow}
+        title={t.candidates.title}
         actions={
           <button
             type="button"
@@ -85,10 +87,12 @@ export function CandidatesPage() {
             onClick={exportCsv}
           >
             <Download className="h-4 w-4" />
-            Export CSV
+            {t.candidates.exportCsv}
           </button>
         }
       />
+      <LoopStepper />
+      <ComputeStatusStrip />
 
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
         {(
@@ -113,16 +117,21 @@ export function CandidatesPage() {
         search={search}
         status={status}
         priorityOnly={priorityOnly}
-        onSearchChange={setSearch}
-        onStatusChange={setStatus}
-        onPriorityOnlyChange={setPriorityOnly}
+        onSearchChange={(value) => {
+          setPage(0)
+          setSearch(value)
+        }}
+        onStatusChange={(value) => {
+          setPage(0)
+          setStatus(value)
+        }}
+        onPriorityOnlyChange={(value) => {
+          setPage(0)
+          setPriorityOnly(value)
+        }}
       />
 
-      {isLoading ? (
-        <p className="text-sm text-bda-muted">Loading candidates...</p>
-      ) : isError ? (
-        <p className="text-sm text-bda-red">Failed to load candidates. Start the backend API on port 8100.</p>
-      ) : (
+      <ApiState isLoading={isLoading} isError={isError} onRetry={() => void refetch()}>
         <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
           <div className="space-y-4">
             <CandidateTable
@@ -130,14 +139,33 @@ export function CandidatesPage() {
               selectedId={activeCandidate?.candidate_id}
               onSelect={setSelected}
             />
-            <article className="rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
-              Showing top {candidates.length} of {totalCount} candidates ranked by interface score and pLDDT.
-              Anchor candidates are highlighted for round-two motif preservation.
-            </article>
+            <div className="flex items-center justify-between text-sm text-bda-muted">
+              <span>
+                Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
+              </span>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border border-bda-border px-2 py-1 disabled:opacity-40"
+                  disabled={page === 0}
+                  onClick={() => setPage((p) => Math.max(0, p - 1))}
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-bda-border px-2 py-1 disabled:opacity-40"
+                  disabled={page + 1 >= totalPages}
+                  onClick={() => setPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            </div>
           </div>
-          <CandidateDetail candidate={activeCandidate} />
+          <CandidateDetail candidate={activeCandidate} projectId={projectId} />
         </div>
-      )}
+      </ApiState>
     </section>
   )
 }

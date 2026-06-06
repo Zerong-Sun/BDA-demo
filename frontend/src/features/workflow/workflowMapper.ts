@@ -1,18 +1,21 @@
-import type { WorkflowNode } from '../../lib/schemas/candidate'
+import type { WorkflowNode } from '../../lib/schemas/workflow'
 import type { BdaWorkflowEdge, BdaWorkflowNode, WorkflowNodeData, WorkflowNodeStatus } from './workflowTypes'
 
 const NODE_META: Record<
   string,
-  { icon: string; resource: WorkflowNodeData['resource']; description?: string }
+  { icon: string; resource: WorkflowNodeData['resource']; description?: string; column: number }
 > = {
-  target_intake: { icon: 'database', resource: 'local' },
-  backbone_generation: { icon: 'wand-sparkles', resource: 'gpu' },
-  sequence_generation: { icon: 'dna', resource: 'gpu' },
-  fold_prediction: { icon: 'scan-search', resource: 'gpu' },
-  scoring: { icon: 'activity', resource: 'cpu' },
-  selection: { icon: 'filter', resource: 'cpu' },
-  experiment: { icon: 'flask-conical', resource: 'manual' },
+  target_intake: { icon: 'database', resource: 'local', column: 0 },
+  backbone_generation: { icon: 'wand-sparkles', resource: 'gpu', column: 1 },
+  sequence_generation: { icon: 'dna', resource: 'gpu', column: 2 },
+  fold_prediction: { icon: 'scan-search', resource: 'gpu', column: 3 },
+  scoring: { icon: 'activity', resource: 'cpu', column: 4 },
+  selection: { icon: 'filter', resource: 'cpu', column: 5 },
+  experiment: { icon: 'flask-conical', resource: 'manual', column: 6 },
 }
+
+const COLUMN_WIDTH = 220
+const ROW_HEIGHT = 140
 
 function mapStatus(status: string): WorkflowNodeStatus {
   switch (status) {
@@ -28,6 +31,8 @@ function mapStatus(status: string): WorkflowNodeStatus {
       return 'requires_review'
     case 'skipped':
       return 'skipped'
+    case 'demo':
+      return 'demo'
     default:
       return 'not_started'
   }
@@ -43,6 +48,24 @@ function parseMetrics(metrics: WorkflowNode['metrics_json']): Record<string, unk
     }
   }
   return metrics as Record<string, unknown>
+}
+
+function parsePosition(node: WorkflowNode, index: number): { x: number; y: number } {
+  if (node.position_json) {
+    try {
+      const parsed = JSON.parse(node.position_json) as { x?: number; y?: number }
+      if (typeof parsed.x === 'number' && typeof parsed.y === 'number') {
+        return { x: parsed.x, y: parsed.y }
+      }
+    } catch {
+      /* fall through */
+    }
+  }
+  const meta = NODE_META[node.node_type] ?? { column: index, icon: 'database', resource: 'local' as const }
+  return {
+    x: 40 + meta.column * COLUMN_WIDTH,
+    y: 80 + (index % 2) * ROW_HEIGHT,
+  }
 }
 
 export function footerFromMetrics(node: WorkflowNode): string {
@@ -64,11 +87,15 @@ export function mapApiNodesToGraph(apiNodes: WorkflowNode[]): {
   edges: BdaWorkflowEdge[]
 } {
   const nodes: BdaWorkflowNode[] = apiNodes.map((node, index) => {
-    const meta = NODE_META[node.node_type] ?? { icon: 'database', resource: 'local' as const }
+    const meta = NODE_META[node.node_type] ?? {
+      icon: 'database',
+      resource: 'local' as const,
+      column: index,
+    }
     return {
       id: node.node_run_id,
       type: 'workflowNode',
-      position: { x: 40 + index * 220, y: 120 + (index % 2) * 140 },
+      position: parsePosition(node, index),
       data: {
         label: node.node_name,
         description: meta.description ?? node.node_name,
@@ -89,4 +116,8 @@ export function mapApiNodesToGraph(apiNodes: WorkflowNode[]): {
   }))
 
   return { nodes, edges }
+}
+
+export function mapStatusForTest(status: string): WorkflowNodeStatus {
+  return mapStatus(status)
 }

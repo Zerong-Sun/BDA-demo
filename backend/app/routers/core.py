@@ -18,6 +18,14 @@ def health():
     return envelope({"status": "ok", "service": "bda-api-gateway", "compute": "demo"})
 
 
+@router.get("/projects/{project_id}/overview")
+def project_overview(project_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+    item = catalog.get_project_overview(connection, project_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    return envelope(item)
+
+
 @router.get("/projects")
 def projects(connection: sqlite3.Connection = Depends(get_connection)):
     return envelope(catalog.list_projects(connection))

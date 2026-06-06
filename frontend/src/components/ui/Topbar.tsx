@@ -1,21 +1,26 @@
 import { NavLink } from 'react-router-dom'
 import clsx from 'clsx'
+import { ChevronDown } from 'lucide-react'
+import { useI18n } from '../../lib/i18n'
+import { useProjectContext } from '../../lib/hooks/useProjectContext'
 import { useAppStore } from '../../lib/store/appStore'
 
 const routes = [
-  { to: '/experiments', label: 'Experiments' },
-  { to: '/workflow', label: 'Workflow' },
-  { to: '/candidates', label: 'Candidates' },
-  { to: '/results', label: 'Results' },
+  { to: '/experiments', key: 'experiments' as const },
+  { to: '/workflow', key: 'workflow' as const },
+  { to: '/candidates', key: 'candidates' as const },
+  { to: '/results', key: 'results' as const },
 ]
 
 export function Topbar() {
   const { language, setLanguage } = useAppStore()
+  const { t } = useI18n()
+  const { projects, activeProject, setProjectId } = useProjectContext()
 
   return (
     <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-bda-border bg-bda-bg/95 px-6 py-3 backdrop-blur">
       <NavLink to="/experiments" className="text-sm font-semibold text-bda-cyan">
-        BDA Workbench
+        {t.brand}
       </NavLink>
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {routes.map((route) => (
@@ -31,14 +36,30 @@ export function Topbar() {
               )
             }
           >
-            {route.label}
+            {t.nav[route.key]}
           </NavLink>
         ))}
       </nav>
+      <label className="relative hidden items-center gap-2 text-xs text-bda-muted md:flex">
+        <span>{t.common.project}</span>
+        <select
+          className="appearance-none rounded-md border border-bda-border bg-bda-panel py-1 pl-2 pr-7 text-sm text-bda-text"
+          value={activeProject?.project_id ?? ''}
+          onChange={(e) => setProjectId(e.target.value)}
+          aria-label={t.common.selectProject}
+        >
+          {projects.map((project) => (
+            <option key={project.project_id} value={project.project_id}>
+              {project.project_name}
+            </option>
+          ))}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-1 h-4 w-4" />
+      </label>
       <div className="flex items-center gap-3 text-xs text-bda-muted">
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-bda-amber" />
-          Demo mode
+          {t.demoMode}
         </span>
         <button
           type="button"

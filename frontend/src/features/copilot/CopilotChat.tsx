@@ -1,51 +1,18 @@
 import { useState } from 'react'
 import { Send } from 'lucide-react'
-import { matchSkill } from './skills/registry'
-
-interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-const seedMessages: ChatMessage[] = [
-  {
-    role: 'user',
-    content: 'Based on current scores, which candidates should enter the experimental queue?',
-  },
-  {
-    role: 'assistant',
-    content:
-      'Prioritize PD1Binder_c4361, PD1Binder_a0172, and PD1Binder_b1923. They balance interface score, pLDDT, and lower aggregation risk.',
-  },
-]
-
-function demoReply(input: string): string {
-  const skill = matchSkill(input)
-  if (skill?.name === 'workflow-adjust') {
-    return 'Raise solubility threshold to 88, add hydrophobic patch penalty, and cap each scaffold family at 6 ordered variants.'
-  }
-  if (skill?.name === 'result-interpret') {
-    return '9/48 BLI-positive; SEC aggregation is the main QC loss. Preserve c4361 motif and penalize exposed hydrophobic area in round two.'
-  }
-  if (skill?.name === 'paper-reader') {
-    return 'Paper database integration is reserved for Phase 2. I can still summarize indexed methods once DeepSeek is connected.'
-  }
-  return 'Demo Copilot is active. Connect DeepSeek in Phase 2 for live reasoning over project data and papers.'
-}
+import { useCopilotChat } from './useCopilotChat'
+import { useProjectContext } from '../../lib/hooks/useProjectContext'
 
 export function CopilotChat() {
-  const [messages, setMessages] = useState<ChatMessage[]>(seedMessages)
+  const { projectId } = useProjectContext()
+  const { messages, loading, send } = useCopilotChat(projectId)
   const [input, setInput] = useState('Explain why c4361 should anchor round two')
 
-  const send = () => {
+  const handleSend = async () => {
     const trimmed = input.trim()
     if (!trimmed) return
-    setMessages((prev) => [
-      ...prev,
-      { role: 'user', content: trimmed },
-      { role: 'assistant', content: demoReply(trimmed) },
-    ])
     setInput('')
+    await send(trimmed)
   }
 
   return (
@@ -68,13 +35,15 @@ export function CopilotChat() {
         <input
           className="flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm"
           value={input}
+          disabled={loading}
           onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && send()}
+          onKeyDown={(e) => e.key === 'Enter' && void handleSend()}
         />
         <button
           type="button"
-          className="rounded-md border border-bda-border p-2 hover:bg-bda-panel-hover"
-          onClick={send}
+          className="rounded-md border border-bda-border p-2 hover:bg-bda-panel-hover disabled:opacity-50"
+          disabled={loading}
+          onClick={() => void handleSend()}
         >
           <Send className="h-4 w-4" />
         </button>

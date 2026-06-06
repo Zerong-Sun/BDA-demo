@@ -2,13 +2,13 @@
 
 版本：v1.0  
 日期：2026-06-06  
-对应目录：`/Users/zero/Desktop/bigo bio/BDA/nolab`  
+对应目录：`/Users/zero/project/BDA/frontend`  
 对应 PRD：`/Users/zero/Desktop/bigo bio/BDA/PRD01_完整产品需求文档.md`  
 文档类型：前端设计说明 / Frontend Requirement & Design Document  
 
 ## 1. 前端定位
 
-`BDA/nolab` 当前是 BDA Workbench 的本地静态 Web 演示前端。它不是营销页，也不考虑移动 App、小程序或原生客户端，而是一个面向浏览器的蛋白质设计工作台原型，用四个页面展示完整闭环：
+`BDA/frontend` 当前是 BDA Workbench 的 React 演示前端（由 `nolab` 静态 demo 迁移而来）。它不是营销页，也不考虑移动 App、小程序或原生客户端，而是一个面向浏览器的蛋白质设计工作台原型，用四个页面展示完整闭环：
 
 - Experiments：项目入口和智能协作助手。
 - Workflow：自动路线、模型节点、计算资源和 Copilot。

@@ -1,10 +1,12 @@
 import uuid
+import zipfile
+from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 
-from ..config import STRUCTURES_ROOT, UPLOADS_ROOT
+from ..config import ARTIFACTS_ROOT, STRUCTURES_ROOT, UPLOADS_ROOT
 from ..db import get_connection
 from ..repositories import catalog
 from ..services.artifacts import (
@@ -95,3 +97,49 @@ def uploaded_structure_preview(filename: str):
         raise HTTPException(status_code=404, detail="upload_not_found")
     media_type = "chemical/x-pdb" if path.suffix.lower() == ".pdb" else "chemical/x-mmcif"
     return FileResponse(path, media_type=media_type, filename=path.name)
+
+
+@router.get("/artifacts/{artifact_path:path}")
+def download_artifact(artifact_path: str):
+    normalized = artifact_path.lstrip("/")
+    if normalized.startswith("uploads/"):
+        filename = normalized.split("/", 1)[1]
+        return uploaded_structure_preview(filename)
+    path = resolve_artifact_path(normalized)
+    return FileResponse(path, filename=path.name)
+
+
+@router.get("/projects/{project_id}/delivery-package/download")
+def download_delivery_package(project_id: str, connection=Depends(get_connection)):
+    package = catalog.get_project_delivery_package(connection, project_id)
+    if package is None:
+        raise HTTPException(status_code=404, detail="delivery_package_not_found")
+
+    buffer = BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        readme = (
+            "BDA Workbench delivery package (demo).\n"
+            f"Project: {project_id}\n"
+            f"Summary: {package.get('experiment_summary') or 'N/A'}\n"
+        )
+        archive.writestr("README.txt", readme)
+
+        for key in ("report_file", "fasta_file", "structure_bundle", "score_table"):
+            relative = package.get(key)
+            if not relative:
+                continue
+            try:
+                path = resolve_artifact_path(str(relative))
+                archive.write(path, arcname=Path(str(relative)).name)
+            except HTTPException:
+                archive.writestr(
+                    f"missing/{Path(str(relative)).name}.txt",
+                    f"Placeholder for missing artifact: {relative}\n",
+                )
+
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{project_id}_delivery.zip"'},
+    )

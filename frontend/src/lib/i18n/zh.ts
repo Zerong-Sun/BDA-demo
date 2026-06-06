@@ -1,0 +1,73 @@
+import type { TranslationDict } from './types'
+
+export const zh: TranslationDict = {
+  brand: 'BDA 工作台',
+  demoMode: '演示模式',
+  nav: {
+    experiments: '实验项目',
+    workflow: '工作流',
+    candidates: '候选物',
+    results: '结果交付',
+  },
+  loop: {
+    experiments: '实验项目',
+    workflow: '工作流',
+    candidates: '候选物',
+    results: '结果交付',
+  },
+  common: {
+    loading: '加载中...',
+    retry: '重试',
+    openProject: '打开项目',
+    newExperiment: '新建实验',
+    project: '项目',
+    selectProject: '选择项目',
+    noWorkflowData: '该项目尚无工作流数据。请打开 PD-1 演示项目体验完整闭环。',
+  },
+  experiments: {
+    eyebrow: '项目实验列表',
+    title: 'BDA 实验项目',
+    copilotTitle: '从设计 brief 到可追溯闭环',
+    copilotBody:
+      '规划路线、调整工作流阈值、解读 BLI/SEC 证据，并将约束写入下一轮设计。',
+    planRoute: '规划路线',
+    reviewCandidates: '查看 Top 候选',
+    interpretResults: '解读实验结果',
+    overview: {
+      activeProject: '当前项目',
+      bindingPositives: 'BLI 阳性',
+      computeAccess: '计算资源',
+      nextAction: '下一步',
+    },
+    agent: {
+      planRoute: '规划路线',
+      planRouteBody: '提出 PD-1 binder 路线：RFdiffusion、MPNN、AF2、Rosetta 与湿实验关卡。',
+      adjustWorkflow: '调整工作流',
+      adjustWorkflowBody: '调节溶解度阈值、家族上限与疏水 patch 惩罚。',
+      interpretLab: '解读实验结果',
+      interpretLabBody: '将 BLI/SEC 读数转化为第二轮 redesign 约束。',
+    },
+  },
+  workflow: {
+    addNode: '添加节点',
+    startWorkflow: '启动工作流',
+    targetIntake: '靶标输入',
+    toggleCopilot: '切换 Copilot 面板',
+    readOnly: '已完成的工作流运行只读。',
+  },
+  candidates: {
+    eyebrow: 'BDA 筛选层',
+    title: '候选物表',
+    exportCsv: '导出 CSV',
+    viewLabResults: '查看实验结果',
+    explain: '解释选择',
+    predKd: '预测 Kd',
+  },
+  results: {
+    eyebrow: '闭环证据',
+    title: '结果与交付',
+    preparePackage: '准备交付包',
+    disclaimer: '预计算的 PD-1 binder 演示。指标与结构为叙事种子数据，非实时模型运行结果。',
+    interpret: '解读结果',
+  },
+}

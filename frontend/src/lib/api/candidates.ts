@@ -1,5 +1,10 @@
 import { apiRequest } from './client'
-import type { Candidate } from '../schemas/candidate'
+import {
+  CandidateListSchema,
+  CandidateSchema,
+  type Candidate,
+  type CandidateListResponse,
+} from '../schemas/candidate'
 
 export interface CandidateQuery {
   sort?: 'interface_score' | 'plddt' | 'pred_kd'
@@ -9,13 +14,6 @@ export interface CandidateQuery {
   search?: string
   limit?: number
   offset?: number
-}
-
-export interface CandidateListResponse {
-  items: Candidate[]
-  total: number
-  limit: number
-  offset: number
 }
 
 export function listCandidates(projectId: string, query: CandidateQuery = {}) {
@@ -30,9 +28,13 @@ export function listCandidates(projectId: string, query: CandidateQuery = {}) {
   const qs = params.toString()
   return apiRequest<CandidateListResponse>(
     `/projects/${projectId}/candidates${qs ? `?${qs}` : ''}`,
+    {},
+    CandidateListSchema,
   )
 }
 
 export function getCandidate(candidateId: string) {
-  return apiRequest<Candidate>(`/candidates/${candidateId}`)
+  return apiRequest<Candidate>(`/candidates/${candidateId}`, {}, CandidateSchema)
 }
+
+export type { CandidateListResponse }

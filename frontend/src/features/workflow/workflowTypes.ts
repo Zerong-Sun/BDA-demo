@@ -29,6 +29,10 @@ export interface NodeTemplate {
   title: string
   body: string
   resource: WorkflowNodeData['resource']
+  nodeType: string
+  modelName?: string
+  modelVersion?: string
+  pluginId?: string
 }
 
 export const nodeTemplates: Record<string, NodeTemplate> = {
@@ -38,6 +42,10 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'Backbone generation',
     body: 'Explore binder geometry with RFdiffusion',
     resource: 'gpu',
+    nodeType: 'backbone_generation',
+    modelName: 'RFdiffusion',
+    modelVersion: 'demo-1.0',
+    pluginId: 'plugin_rfdiffusion',
   },
   mpnn: {
     id: 'mpnn',
@@ -45,6 +53,10 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'Sequence design',
     body: 'ProteinMPNN sequence search with diversity constraints',
     resource: 'gpu',
+    nodeType: 'sequence_generation',
+    modelName: 'ProteinMPNN',
+    modelVersion: 'demo-1.0',
+    pluginId: 'plugin_proteinmpnn',
   },
   af2: {
     id: 'af2',
@@ -52,6 +64,10 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'Fold prediction',
     body: 'AlphaFold2 evaluates complex confidence and interface pAE',
     resource: 'gpu',
+    nodeType: 'fold_prediction',
+    modelName: 'AlphaFold2',
+    modelVersion: 'demo-2.3',
+    pluginId: 'plugin_alphafold2',
   },
   rosetta: {
     id: 'rosetta',
@@ -59,6 +75,10 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'Rosetta scoring',
     body: 'Relax and interface scoring for energy and clashes',
     resource: 'cpu',
+    nodeType: 'scoring',
+    modelName: 'Rosetta',
+    modelVersion: 'demo-2026.06',
+    pluginId: 'plugin_rosetta',
   },
   filter: {
     id: 'filter',
@@ -66,6 +86,9 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'BDA filters',
     body: 'Rank by interface, solubility, aggregation, expression risk',
     resource: 'cpu',
+    nodeType: 'selection',
+    modelName: 'BDA filters',
+    modelVersion: 'demo-1.0',
   },
   lab: {
     id: 'lab',
@@ -73,6 +96,7 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     title: 'Wet-lab validation',
     body: 'Expression, purification, BLI, SEC, thermal shift',
     resource: 'manual',
+    nodeType: 'experiment',
   },
 }
 

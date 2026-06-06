@@ -1,8 +1,10 @@
+import { artifactUrl } from '../../lib/api/client'
 import type { DeliveryPackageData } from '../../lib/api/projects'
 
 interface DeliveryPackageProps {
   packageData: DeliveryPackageData | null
   loading?: boolean
+  projectId: string
 }
 
 const DEFAULT_ITEMS = [
@@ -12,8 +14,29 @@ const DEFAULT_ITEMS = [
   'Round-two model update brief',
 ]
 
-export function DeliveryPackage({ packageData, loading }: DeliveryPackageProps) {
-  const constraints = packageData?.redesign_constraints ?? {}
+function parseConstraints(raw: DeliveryPackageData['redesign_constraints']) {
+  if (!raw) return {}
+  if (typeof raw === 'string') {
+    try {
+      return JSON.parse(raw) as Record<string, unknown>
+    } catch {
+      return {}
+    }
+  }
+  return raw
+}
+
+function parseCandidateIds(raw: DeliveryPackageData['candidate_ids']) {
+  if (Array.isArray(raw)) return raw
+  try {
+    return JSON.parse(raw) as string[]
+  } catch {
+    return []
+  }
+}
+
+export function DeliveryPackage({ packageData, loading, projectId }: DeliveryPackageProps) {
+  const constraints = parseConstraints(packageData?.redesign_constraints)
   const preserveCandidate =
     typeof constraints.preserve_candidate === 'string' ? constraints.preserve_candidate : 'PD1Binder_c4361'
 
@@ -27,6 +50,13 @@ export function DeliveryPackage({ packageData, loading }: DeliveryPackageProps) 
       : 'Monitor developability metrics during selection',
     'Order 64 variants: 40 exploitation, 24 exploration',
   ]
+
+  const downloads = [
+    { label: 'Report PDF', path: packageData?.report_file },
+    { label: 'FASTA bundle', path: packageData?.fasta_file },
+    { label: 'Structure bundle', path: packageData?.structure_bundle },
+    { label: 'Score table', path: packageData?.score_table },
+  ].filter((item) => item.path)
 
   return (
     <article className="rounded-lg border border-bda-border bg-bda-panel p-4">
@@ -43,6 +73,27 @@ export function DeliveryPackage({ packageData, loading }: DeliveryPackageProps) 
           {packageData?.experiment_summary ? (
             <p className="mt-3 text-sm text-bda-text">{packageData.experiment_summary}</p>
           ) : null}
+          {downloads.length ? (
+            <ul className="mt-4 space-y-2 text-sm">
+              {downloads.map((item) => (
+                <li key={item.label}>
+                  <a
+                    className="text-bda-cyan hover:underline"
+                    href={artifactUrl(String(item.path))}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Download {item.label}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {packageData ? (
+            <p className="mt-3 text-xs text-bda-muted">
+              Candidates: {parseCandidateIds(packageData.candidate_ids).join(', ')}
+            </p>
+          ) : null}
           <div className="mt-4 rounded-md border border-bda-border bg-bda-bg p-3">
             <h3 className="text-sm font-medium text-bda-text">Round-two design brief</h3>
             <ul className="mt-2 space-y-1 text-sm text-bda-muted">
@@ -51,6 +102,14 @@ export function DeliveryPackage({ packageData, loading }: DeliveryPackageProps) 
               ))}
             </ul>
           </div>
+          <a
+            className="mt-4 inline-flex text-sm text-bda-cyan hover:underline"
+            href={`/api/projects/${projectId}/delivery-package/download`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Download full ZIP package
+          </a>
         </>
       )}
     </article>

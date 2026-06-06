@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS workflow_runs (
   end_time TEXT,
   compute_resource TEXT,
   summary_metrics_json TEXT NOT NULL DEFAULT '{}',
+  layout_json TEXT NOT NULL DEFAULT '{"nodes":[],"edges":[]}',
   output_directory TEXT
 );
 
@@ -60,7 +61,8 @@ CREATE TABLE IF NOT EXISTS workflow_node_runs (
   parameters_json TEXT NOT NULL DEFAULT '{}',
   metrics_json TEXT NOT NULL DEFAULT '{}',
   logs TEXT,
-  error_message TEXT
+  error_message TEXT,
+  position_json TEXT NOT NULL DEFAULT '{"x":0,"y":0}'
 );
 
 CREATE TABLE IF NOT EXISTS candidates (

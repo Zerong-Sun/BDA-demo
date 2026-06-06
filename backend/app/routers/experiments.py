@@ -95,4 +95,5 @@ async def upload_experiment_results(
         raise HTTPException(status_code=400, detail="unsupported_upload_format")
 
     connection.commit()
+    catalog.get_project_results_summary(connection, project_id)
     return envelope({"imported": imported, "batch_id": batch_id, "project_id": project_id})

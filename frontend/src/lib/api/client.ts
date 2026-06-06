@@ -1,3 +1,5 @@
+import type { ZodType } from 'zod'
+
 const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
 
 export interface ApiEnvelope<T> {
@@ -20,6 +22,7 @@ export class ApiError extends Error {
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
+  schema?: ZodType<T>,
 ): Promise<T> {
   const headers = new Headers(options.headers)
   if (!(options.body instanceof FormData)) {
@@ -50,9 +53,22 @@ export async function apiRequest<T>(
   }
 
   const payload = (await response.json()) as ApiEnvelope<T>
-  return payload.data
+  const data = payload.data
+  if (schema) {
+    return schema.parse(data)
+  }
+  return data
 }
 
 export function structureFileUrl(candidateId: string): string {
   return `${API_BASE}/candidates/${candidateId}/structure-file`
+}
+
+export function artifactUrl(relativePath: string): string {
+  const normalized = relativePath.replace(/^\/+/, '').replace(/^artifacts\//, '')
+  return `${API_BASE}/artifacts/${normalized}`
+}
+
+export function deliveryPackageDownloadUrl(projectId: string): string {
+  return `${API_BASE}/projects/${projectId}/delivery-package/download`
 }

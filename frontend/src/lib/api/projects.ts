@@ -1,64 +1,50 @@
 import { apiRequest } from './client'
-import type { Project } from '../schemas/candidate'
+import {
+  CandidateFunnelSchema,
+  DeliveryPackageSchema,
+  ResultsSummarySchema,
+  type CandidateFunnel,
+  type DeliveryPackageData,
+  type ResultsSummary,
+} from '../schemas/delivery'
+import { ProjectOverviewSchema, ProjectSchema, type Project, type ProjectOverview } from '../schemas/project'
+import { WorkflowRunSchema, type WorkflowRun } from '../schemas/workflow'
+import { z } from 'zod'
 
 export function listProjects() {
-  return apiRequest<Project[]>('/projects')
+  return apiRequest<Project[]>('/projects', {}, z.array(ProjectSchema))
 }
 
-export interface CandidateFunnel {
-  generated: number
-  designed: number
-  folded: number
-  scored: number
-  ordered: number
-}
-
-export interface ResultsSummary {
-  hit_count: number
-  ordered_count: number
-  hit_rate_pct: number
-  hit_rate_label: string
-  best_kd: string
-  best_kd_candidate: string | null
-  main_failure: string
-  main_failure_detail: string
-  sec_failure_count: number
-  decision: string
-  decision_detail: string
-  experiment_summary: string | null
-}
-
-export interface DeliveryPackageData {
-  package_id: string
-  project_id: string
-  candidate_ids: string[]
-  report_file: string | null
-  fasta_file: string | null
-  structure_bundle: string | null
-  score_table: string | null
-  experiment_summary: string | null
-  redesign_constraints: Record<string, unknown>
-}
-
-export interface WorkflowRunSummary {
-  workflow_run_id: string
-  task_id: string
-  status: string
-  summary_metrics_json: Record<string, unknown>
+export function getProjectOverview(projectId: string) {
+  return apiRequest<ProjectOverview>(`/projects/${projectId}/overview`, {}, ProjectOverviewSchema)
 }
 
 export function getCandidateFunnel(projectId: string) {
-  return apiRequest<CandidateFunnel>(`/projects/${projectId}/candidate-funnel`)
+  return apiRequest<CandidateFunnel>(
+    `/projects/${projectId}/candidate-funnel`,
+    {},
+    CandidateFunnelSchema,
+  )
 }
 
 export function getResultsSummary(projectId: string) {
-  return apiRequest<ResultsSummary>(`/projects/${projectId}/results-summary`)
+  return apiRequest<ResultsSummary>(
+    `/projects/${projectId}/results-summary`,
+    {},
+    ResultsSummarySchema,
+  )
 }
 
 export function getDeliveryPackage(projectId: string) {
-  return apiRequest<DeliveryPackageData>(`/projects/${projectId}/delivery-package`)
+  return apiRequest<DeliveryPackageData>(
+    `/projects/${projectId}/delivery-package`,
+    {},
+    DeliveryPackageSchema,
+  )
 }
 
 export function getLatestWorkflowRun(projectId: string) {
-  return apiRequest<WorkflowRunSummary>(`/projects/${projectId}/workflow-runs/latest`)
+  return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs/latest`, {}, WorkflowRunSchema)
 }
+
+export type { CandidateFunnel, DeliveryPackageData, ResultsSummary, Project, ProjectOverview }
