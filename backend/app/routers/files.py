@@ -1,12 +1,13 @@
+import re
+import tempfile
 import uuid
 import zipfile
-from io import BytesIO
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 
-from ..config import ARTIFACTS_ROOT, STRUCTURES_ROOT, UPLOADS_ROOT
+from ..config import UPLOADS_ROOT
 from ..db import get_connection
 from ..repositories import catalog
 from ..services.artifacts import (
@@ -15,14 +16,19 @@ from ..services.artifacts import (
     parse_pdb_metadata,
     resolve_artifact_path,
 )
+from ..services.artifact_store import get_artifact_store
+from ..utils.response import envelope
 
 router = APIRouter()
 
+SAFE_FILENAME_RE = re.compile(r"^[\w.\-]+$")
 
-def envelope(data):
-    from uuid import uuid4
 
-    return {"data": data, "trace_id": str(uuid4())}
+def _safe_upload_filename(filename: str) -> str:
+    base = Path(filename).name
+    if not base or not SAFE_FILENAME_RE.match(base):
+        raise HTTPException(status_code=400, detail="invalid_filename")
+    return base
 
 
 @router.post("/targets/upload-pdb")
@@ -32,20 +38,30 @@ async def upload_pdb(
     connection=Depends(get_connection),
 ):
     ensure_artifact_dirs()
-    filename = file.filename or "upload.pdb"
+    filename = _safe_upload_filename(file.filename or "upload.pdb")
     lower = filename.lower()
     if not (lower.endswith(".pdb") or lower.endswith(".cif") or lower.endswith(".mmcif")):
         raise HTTPException(status_code=400, detail="unsupported_structure_format")
 
-    content = (await file.read()).decode("utf-8", errors="replace")
-    metadata = parse_pdb_metadata(content)
-
     file_id = str(uuid.uuid4())
     suffix = Path(filename).suffix or ".pdb"
     stored_name = f"{file_id}{suffix}"
-    stored_path = UPLOADS_ROOT / stored_name
-    stored_path.write_text(content, encoding="utf-8")
     relative_path = f"uploads/{stored_name}"
+
+    with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=suffix) as tmp:
+        tmp_path = Path(tmp.name)
+        content_preview = ""
+        while chunk := await file.read(1024 * 1024):
+            tmp.write(chunk)
+        tmp.flush()
+
+    try:
+        content_preview = tmp_path.read_text(encoding="utf-8", errors="replace")
+        metadata = parse_pdb_metadata(content_preview)
+        store = get_artifact_store()
+        store.save_file(relative_path, tmp_path)
+    finally:
+        tmp_path.unlink(missing_ok=True)
 
     target = None
     if project_id:
@@ -57,19 +73,17 @@ async def upload_pdb(
             metadata=metadata,
         )
 
-    return envelope(
-        {
-            "file_id": file_id,
-            "filename": filename,
-            "project_id": project_id,
-            "atom_count": metadata["atom_count"],
-            "chain_count": metadata["chain_count"],
-            "chains": metadata["chains"],
-            "residue_count": metadata.get("residue_count"),
-            "preview_url": f"/artifacts/uploads/{stored_name}",
-            "target": target,
-        }
-    )
+    return envelope({
+        "file_id": file_id,
+        "filename": filename,
+        "project_id": project_id,
+        "atom_count": metadata["atom_count"],
+        "chain_count": metadata["chain_count"],
+        "chains": metadata["chains"],
+        "residue_count": metadata.get("residue_count"),
+        "preview_url": f"/api/v1/artifacts/uploads/{stored_name}",
+        "target": target,
+    })
 
 
 @router.get("/candidates/{candidate_id}/structure-file")
@@ -92,9 +106,8 @@ def candidate_structure_file(candidate_id: str, connection=Depends(get_connectio
 
 @router.get("/artifacts/uploads/{filename}")
 def uploaded_structure_preview(filename: str):
-    path = UPLOADS_ROOT / filename
-    if not path.exists():
-        raise HTTPException(status_code=404, detail="upload_not_found")
+    safe_name = _safe_upload_filename(filename)
+    path = resolve_artifact_path(f"uploads/{safe_name}")
     media_type = "chemical/x-pdb" if path.suffix.lower() == ".pdb" else "chemical/x-mmcif"
     return FileResponse(path, media_type=media_type, filename=path.name)
 
@@ -115,31 +128,38 @@ def download_delivery_package(project_id: str, connection=Depends(get_connection
     if package is None:
         raise HTTPException(status_code=404, detail="delivery_package_not_found")
 
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
-        readme = (
-            "BDA Workbench delivery package (demo).\n"
-            f"Project: {project_id}\n"
-            f"Summary: {package.get('experiment_summary') or 'N/A'}\n"
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            readme = (
+                "BDA Workbench delivery package (demo).\n"
+                f"Project: {project_id}\n"
+                f"Summary: {package.get('experiment_summary') or 'N/A'}\n"
+            )
+            archive.writestr("README.txt", readme)
+
+            for key in ("report_file", "fasta_file", "structure_bundle", "score_table"):
+                relative = package.get(key)
+                if not relative:
+                    continue
+                try:
+                    path = resolve_artifact_path(str(relative))
+                    archive.write(path, arcname=Path(str(relative)).name)
+                except HTTPException:
+                    archive.writestr(
+                        f"missing/{Path(str(relative)).name}.txt",
+                        f"Placeholder for missing artifact: {relative}\n",
+                    )
+
+        return FileResponse(
+            tmp_path,
+            media_type="application/zip",
+            filename=f"{project_id}_delivery.zip",
+            background=None,
         )
-        archive.writestr("README.txt", readme)
-
-        for key in ("report_file", "fasta_file", "structure_bundle", "score_table"):
-            relative = package.get(key)
-            if not relative:
-                continue
-            try:
-                path = resolve_artifact_path(str(relative))
-                archive.write(path, arcname=Path(str(relative)).name)
-            except HTTPException:
-                archive.writestr(
-                    f"missing/{Path(str(relative)).name}.txt",
-                    f"Placeholder for missing artifact: {relative}\n",
-                )
-
-    buffer.seek(0)
-    return StreamingResponse(
-        buffer,
-        media_type="application/zip",
-        headers={"Content-Disposition": f'attachment; filename="{project_id}_delivery.zip"'},
-    )
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise

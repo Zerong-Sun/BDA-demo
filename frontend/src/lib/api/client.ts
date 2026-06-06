@@ -1,6 +1,6 @@
 import type { ZodType } from 'zod'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? '/api'
+const API_BASE = import.meta.env.VITE_API_BASE ?? '/api/v1'
 
 export interface ApiEnvelope<T> {
   data: T
@@ -19,6 +19,17 @@ export class ApiError extends Error {
   }
 }
 
+let onUnauthorized: (() => void) | null = null
+
+export function setUnauthorizedHandler(handler: () => void) {
+  onUnauthorized = handler
+}
+
+function authHeaders(): HeadersInit {
+  const token = sessionStorage.getItem('bda_token')
+  return token ? { Authorization: `Bearer ${token}` } : {}
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -28,11 +39,19 @@ export async function apiRequest<T>(
   if (!(options.body instanceof FormData)) {
     headers.set('content-type', 'application/json')
   }
+  const auth = authHeaders()
+  if (auth.Authorization) {
+    headers.set('Authorization', auth.Authorization as string)
+  }
 
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
   })
+
+  if (response.status === 401) {
+    onUnauthorized?.()
+  }
 
   if (!response.ok) {
     let payload: unknown
@@ -72,3 +91,5 @@ export function artifactUrl(relativePath: string): string {
 export function deliveryPackageDownloadUrl(projectId: string): string {
   return `${API_BASE}/projects/${projectId}/delivery-package/download`
 }
+
+export { API_BASE }

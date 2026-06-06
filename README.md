@@ -4,14 +4,13 @@ BDA Workbench is a browser-based biomaterial and protein design automation workb
 
 ## Repository Layout
 
-- `PRD01_完整产品需求文档.md`: full product requirements.
-- `FRD01_前端设计说明.md`: frontend design and acceptance notes (React app in `frontend/`).
+- `docs/PRD01_完整产品需求文档.md`: full product requirements.
+- `docs/FRD01_前端设计说明.md`: frontend design and acceptance notes (React app in `frontend/`).
+- `docs/PHASE1_ACCEPTANCE.md`: Phase 1 + P1 acceptance checklist.
+- `docs/ARCHITECTURE.md`: system architecture overview.
 - `frontend/`: React + TypeScript + Vite app (Phase 1 + P1).
 - `backend/`: FastAPI API gateway, SQLite schema, seeded PD-1 demo data.
-- `docs/PHASE1_ACCEPTANCE.md`: Phase 1 + P1 acceptance checklist.
-- `nolab/`: legacy static frontend demo (archived reference).
 - `fig/`: local visual assets used by the demo.
-- `backup/`: archived prototype snapshots.
 
 ## Current MVP
 

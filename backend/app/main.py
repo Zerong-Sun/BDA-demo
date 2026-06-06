@@ -1,28 +1,51 @@
-from fastapi import FastAPI, HTTPException, Request
+import traceback
+
+from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from .routers import compute, copilot, core, experiments, files, registry, workflow_mgmt
+from .logging_config import configure_logging, get_logger
+from .middleware.audit import AuditLogMiddleware
+from .routers import admin, auth, compute, copilot, core, experiments, files, jobs, registry, workflow_mgmt
 from .services.artifacts import ensure_artifact_dirs
+from .settings import get_settings
+
+configure_logging()
+logger = get_logger(__name__)
 
 app = FastAPI(
     title="BDA API Gateway",
-    version="0.1.0",
-    description="MVP API gateway for BDA Workbench projects, workflows, candidates, compute, and plugin registry.",
+    version="1.0.0",
+    description="API gateway for BDA Workbench projects, workflows, candidates, compute, and plugin registry.",
+    docs_url="/api/docs",
+    openapi_url="/api/openapi.json",
 )
+
+settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:4173",
-        "http://127.0.0.1:4173",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-    ],
+    allow_origins=settings.cors_origins_list,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.add_middleware(AuditLogMiddleware)
+
+api_v1 = APIRouter(prefix="/api/v1")
+
+api_v1.include_router(auth.router)
+api_v1.include_router(core.router)
+api_v1.include_router(files.router)
+api_v1.include_router(experiments.router)
+api_v1.include_router(registry.router)
+api_v1.include_router(compute.router)
+api_v1.include_router(jobs.router)
+api_v1.include_router(copilot.router)
+api_v1.include_router(workflow_mgmt.router)
+api_v1.include_router(admin.router)
+
+app.include_router(api_v1)
 
 
 @app.exception_handler(HTTPException)
@@ -41,6 +64,12 @@ async def http_error_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def standard_error_handler(request: Request, exc: Exception):
+    logger.error(
+        "unhandled_exception",
+        path=request.url.path,
+        error=str(exc),
+        traceback=traceback.format_exc(),
+    )
     return JSONResponse(
         status_code=500,
         content={
@@ -54,12 +83,3 @@ async def standard_error_handler(request: Request, exc: Exception):
 
 
 ensure_artifact_dirs()
-
-app.include_router(core.router)
-app.include_router(files.router)
-app.include_router(experiments.router)
-app.include_router(registry.router)
-app.include_router(compute.router)
-app.include_router(copilot.router)
-app.include_router(workflow_mgmt.router)
-

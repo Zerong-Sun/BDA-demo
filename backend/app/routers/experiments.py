@@ -2,18 +2,14 @@ import csv
 import io
 import json
 import uuid
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from ..db import get_connection
 from ..repositories import catalog
+from ..utils.response import envelope
 
 router = APIRouter()
-
-
-def envelope(data):
-    return {"data": data, "trace_id": str(uuid4())}
 
 
 @router.post("/experiment-results/upload")

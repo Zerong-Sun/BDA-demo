@@ -1,18 +1,14 @@
 import json
 import sqlite3
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..db import get_connection
 from ..repositories import catalog
+from ..utils.response import envelope
 
 router = APIRouter()
-
-
-def envelope(data):
-    return {"data": data, "trace_id": str(uuid4())}
 
 
 class AddWorkflowNodeRequest(BaseModel):

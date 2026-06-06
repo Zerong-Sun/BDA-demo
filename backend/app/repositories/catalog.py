@@ -4,7 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
-from .base import decode_rows, get_by_id, list_table
+from .base import decode_row, decode_rows, get_by_id, list_table
 
 KD_VALUE_RE = re.compile(r"([\d.]+)")
 
@@ -156,8 +156,6 @@ def get_project_delivery_package(connection: sqlite3.Connection, project_id: str
     ).fetchone()
     if row is None:
         return None
-    from .base import decode_row
-
     return decode_row(row)
 
 
@@ -279,8 +277,6 @@ def get_project_design_task(connection: sqlite3.Connection, project_id: str) -> 
     ).fetchone()
     if row is None:
         return None
-    from .base import decode_row
-
     return decode_row(row)
 
 

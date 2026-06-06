@@ -1,21 +1,25 @@
 import sqlite3
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..db import get_connection
 from ..repositories import catalog
+from ..utils.response import envelope
 
 router = APIRouter()
 
 
-def envelope(data):
-    return {"data": data, "trace_id": str(uuid4())}
-
-
 @router.get("/health")
 def health():
-    return envelope({"status": "ok", "service": "bda-api-gateway", "compute": "demo"})
+    from ..settings import get_settings
+
+    s = get_settings()
+    return envelope({
+        "status": "ok",
+        "service": "bda-api-gateway",
+        "compute": s.bda_compute_mode,
+        "database": "postgresql" if s.is_postgresql else "sqlite",
+    })
 
 
 @router.get("/projects/{project_id}/overview")
@@ -120,5 +124,7 @@ def workflow_nodes(workflow_run_id: str, connection: sqlite3.Connection = Depend
 @router.get("/workflow-runs/{workflow_run_id}/logs")
 def workflow_logs(workflow_run_id: str, connection: sqlite3.Connection = Depends(get_connection)):
     nodes = catalog.list_workflow_nodes(connection, workflow_run_id)
-    return envelope([{"node_run_id": node["node_run_id"], "node_name": node["node_name"], "logs": node["logs"]} for node in nodes])
-
+    return envelope([
+        {"node_run_id": node["node_run_id"], "node_name": node["node_name"], "logs": node["logs"]}
+        for node in nodes
+    ])

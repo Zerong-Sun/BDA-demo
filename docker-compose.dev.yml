@@ -1,0 +1,19 @@
+services:
+  api:
+    volumes:
+      - ./backend:/app/backend
+      - ./artifacts:/app/artifacts
+    command: >
+      sh -c "python backend/scripts/init_db.py &&
+             uvicorn backend.app.main:app --host 0.0.0.0 --port 8100 --reload"
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "5173:5173"
+    command: npm run dev -- --host 0.0.0.0

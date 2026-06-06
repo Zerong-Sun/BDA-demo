@@ -1,20 +1,15 @@
 import json
 import re
 import sqlite3
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends
 
 from ..db import get_connection
 from ..repositories import catalog
 from ..schemas import CandidateExplanationRequest, CopilotChatRequest, ResultInterpretationRequest, RoutePlanRequest
+from ..utils.response import envelope
 
 router = APIRouter(prefix="/copilot")
-
-
-def envelope(data):
-    return {"data": data, "trace_id": str(uuid4())}
-
 
 SKILL_KEYWORDS = {
     "workflow-adjust": ["workflow", "route", "threshold", "工作流"],
@@ -75,6 +70,40 @@ def result_interpret_message(connection: sqlite3.Connection, project_id: str | N
     )
 
 
+def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
+    last_message = payload.messages[-1].content if payload.messages else ""
+    skill = payload.skill or match_skill(last_message)
+
+    if skill == "workflow-adjust":
+        message = workflow_adjust_message(connection, payload.project_id)
+    elif skill == "result-interpret":
+        message = result_interpret_message(connection, payload.project_id)
+    elif skill == "query-candidates":
+        message = top_candidates_message(connection, payload.project_id)
+    elif skill == "paper-reader":
+        message = (
+            "Paper database integration is reserved for Phase 2. Indexed methods can be summarized "
+            "once an LLM provider is connected."
+        )
+    elif skill == "structure-explain":
+        message = (
+            "Explain interface contacts, hydrophobic patches, and developability risks using uploaded "
+            "PDB context and candidate structure files."
+        )
+    else:
+        message = top_candidates_message(connection, payload.project_id)
+
+    return {
+        "mode": "rule_based_demo",
+        "message": message,
+        "skill_used": skill,
+        "structured": {
+            "echo": last_message,
+            "project_id": payload.project_id,
+        },
+    }
+
+
 @router.post("/route-plan")
 def route_plan(payload: RoutePlanRequest, connection: sqlite3.Connection = Depends(get_connection)):
     nodes = catalog.list_workflow_nodes(connection, "run_pd1_round1") if payload.project_id else []
@@ -121,38 +150,33 @@ def candidate_explanation(
 
 
 @router.post("/chat")
-def copilot_chat(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
-    last_message = payload.messages[-1].content if payload.messages else ""
-    skill = payload.skill or match_skill(last_message)
+async def copilot_chat(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+    from ..settings import get_settings
 
-    if skill == "workflow-adjust":
-        message = workflow_adjust_message(connection, payload.project_id)
-    elif skill == "result-interpret":
-        message = result_interpret_message(connection, payload.project_id)
-    elif skill == "query-candidates":
-        message = top_candidates_message(connection, payload.project_id)
-    elif skill == "paper-reader":
-        message = (
-            "Paper database integration is reserved for Phase 2. Indexed methods can be summarized "
-            "once an LLM provider is connected."
-        )
-    elif skill == "structure-explain":
-        message = (
-            "Explain interface contacts, hydrophobic patches, and developability risks using uploaded "
-            "PDB context and candidate structure files."
-        )
-    else:
-        message = top_candidates_message(connection, payload.project_id)
+    settings = get_settings()
+    if settings.llm_api_key:
+        from ..copilot.service import chat_with_llm
 
-    return envelope({
-        "mode": "rule_based_demo",
-        "message": message,
-        "skill_used": skill,
-        "structured": {
-            "echo": last_message,
-            "project_id": payload.project_id,
-        },
-    })
+        result = chat_with_llm(connection, payload)
+        return envelope(result)
+
+    return envelope(_rule_based_chat(connection, payload))
+
+
+@router.post("/chat/stream")
+async def copilot_chat_stream(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+    from sse_starlette.sse import EventSourceResponse
+
+    async def event_generator():
+        result = _rule_based_chat(connection, payload)
+        yield {"event": "message", "data": json.dumps(result)}
+
+    return EventSourceResponse(event_generator())
+
+
+@router.post("/chat/sync")
+def copilot_chat_sync(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+    return copilot_chat(payload, connection)
 
 
 @router.post("/result-interpretation")
@@ -174,3 +198,14 @@ def result_interpretation(
             "penalize_exposed_hydrophobic_area": True,
         },
     })
+
+
+@router.get("/skills")
+def list_skills():
+    return envelope([
+        {"name": "workflow-adjust", "description": "Adjust workflow parameters and constraints"},
+        {"name": "result-interpret", "description": "Interpret BLI/SEC experiment results"},
+        {"name": "query-candidates", "description": "Query and rank candidates"},
+        {"name": "structure-explain", "description": "Explain structure and interface"},
+        {"name": "paper-reader", "description": "Literature search and summarization"},
+    ])

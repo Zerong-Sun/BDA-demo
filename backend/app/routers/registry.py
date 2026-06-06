@@ -1,16 +1,12 @@
 import sqlite3
-from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
 
 from ..db import get_connection
 from ..repositories import registry
+from ..utils.response import envelope
 
 router = APIRouter()
-
-
-def envelope(data):
-    return {"data": data, "trace_id": str(uuid4())}
 
 
 @router.get("/servers")
@@ -52,7 +48,11 @@ def compute_node_health_check(compute_node_id: str, connection: sqlite3.Connecti
     item = registry.get_compute_node(connection, compute_node_id)
     if item is None:
         raise HTTPException(status_code=404, detail="compute_node_not_found")
-    return envelope({"compute_node_id": compute_node_id, "status": item["status"], "accepting_jobs": item["status"] == "available"})
+    return envelope({
+        "compute_node_id": compute_node_id,
+        "status": item["status"],
+        "accepting_jobs": item["status"] == "available",
+    })
 
 
 @router.get("/model-plugins")
@@ -74,7 +74,11 @@ def validate_model_plugin(model_plugin_id: str, connection: sqlite3.Connection =
     if item is None:
         raise HTTPException(status_code=404, detail="model_plugin_not_found")
     required = ["input_schema_json", "output_schema_json", "parameter_schema_json", "resource_requirement_json"]
-    return envelope({"model_plugin_id": model_plugin_id, "valid": all(item.get(key) is not None for key in required), "status": item["status"]})
+    return envelope({
+        "model_plugin_id": model_plugin_id,
+        "valid": all(item.get(key) is not None for key in required),
+        "status": item["status"],
+    })
 
 
 @router.get("/method-plugins")
@@ -88,4 +92,3 @@ def method_plugin(method_plugin_id: str, connection: sqlite3.Connection = Depend
     if item is None:
         raise HTTPException(status_code=404, detail="method_plugin_not_found")
     return envelope(item)
-

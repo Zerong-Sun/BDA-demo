@@ -30,7 +30,66 @@ JSON_COLUMNS = {
     "allowed_scopes",
     "data_policy",
     "payload_json",
+    "input_artifacts",
+    "output_artifacts",
 }
+
+ALLOWED_TABLES = frozenset({
+    "projects",
+    "targets",
+    "design_tasks",
+    "workflow_runs",
+    "workflow_node_runs",
+    "candidates",
+    "experiment_results",
+    "delivery_packages",
+    "server_connections",
+    "compute_nodes",
+    "model_plugins",
+    "method_plugins",
+    "llm_providers",
+    "audit_logs",
+    "jobs",
+    "job_events",
+    "users",
+    "user_sessions",
+    "organizations",
+    "organization_members",
+    "project_members",
+})
+
+ALLOWED_ORDER_COLUMNS = frozenset({
+    "rowid",
+    "created_at",
+    "updated_at",
+    "project_id",
+    "candidate_id",
+    "interface_score",
+    "plddt",
+    "status",
+})
+
+
+class RepositoryError(ValueError):
+    pass
+
+
+def _validate_table(table: str) -> str:
+    if table not in ALLOWED_TABLES:
+        raise RepositoryError(f"invalid_table:{table}")
+    return table
+
+
+def _validate_order_by(order_by: str) -> str:
+    if order_by not in ALLOWED_ORDER_COLUMNS:
+        raise RepositoryError(f"invalid_order_by:{order_by}")
+    return order_by
+
+
+def _validate_id_column(id_column: str) -> str:
+    if not id_column.replace("_", "").isalnum():
+        raise RepositoryError(f"invalid_id_column:{id_column}")
+    return id_column
 
 
 def decode_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
@@ -55,11 +114,14 @@ def decode_rows(rows: list[sqlite3.Row]) -> list[dict[str, Any]]:
 
 
 def get_by_id(connection: sqlite3.Connection, table: str, id_column: str, item_id: str) -> dict[str, Any] | None:
+    table = _validate_table(table)
+    id_column = _validate_id_column(id_column)
     row = connection.execute(f"SELECT * FROM {table} WHERE {id_column} = ?", (item_id,)).fetchone()
     return decode_row(row)
 
 
 def list_table(connection: sqlite3.Connection, table: str, order_by: str = "rowid") -> list[dict[str, Any]]:
+    table = _validate_table(table)
+    order_by = _validate_order_by(order_by)
     rows = connection.execute(f"SELECT * FROM {table} ORDER BY {order_by}").fetchall()
     return decode_rows(rows)
-
