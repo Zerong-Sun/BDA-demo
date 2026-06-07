@@ -19,6 +19,8 @@ const seedMessages: ChatMessage[] = [
   },
 ]
 
+const MAX_COPILOT_HISTORY = 20
+
 export function useCopilotChat(projectId?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>(seedMessages)
   const [loading, setLoading] = useState(false)
@@ -34,7 +36,11 @@ export function useCopilotChat(projectId?: string) {
     setLoading(true)
     setError(null)
 
-    const payload = { messages: nextMessages, project_id: projectId, skill }
+    const payload = {
+      messages: nextMessages.slice(-MAX_COPILOT_HISTORY),
+      project_id: projectId,
+      skill,
+    }
 
     try {
       let streamed = ''

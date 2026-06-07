@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { fetchPaginatedList } from './pagination'
 import {
   WorkflowNodeSchema,
   WorkflowRunSchema,
@@ -6,14 +7,9 @@ import {
   type WorkflowNode,
   type WorkflowRun,
 } from '../schemas/workflow'
-import { z } from 'zod'
 
-export function listWorkflowNodes(workflowRunId: string) {
-  return apiRequest<WorkflowNode[]>(
-    `/workflow-runs/${workflowRunId}/nodes`,
-    {},
-    z.array(WorkflowNodeSchema),
-  )
+export function listWorkflowNodes(workflowRunId: string): Promise<WorkflowNode[]> {
+  return fetchPaginatedList(`/workflow-runs/${workflowRunId}/nodes`, WorkflowNodeSchema)
 }
 
 export interface SubmitWorkflowResponse {

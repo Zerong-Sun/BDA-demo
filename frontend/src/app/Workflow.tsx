@@ -37,10 +37,12 @@ export function WorkflowPage() {
     queryFn: () => getLatestWorkflowRunOrNull(projectId),
   })
 
+  const workflowRunId = workflowRun?.workflow_run_id
+
   const { data: workflowNodes = [] } = useQuery({
-    queryKey: ['workflow-nodes', workflowRun?.workflow_run_id],
-    queryFn: () => listWorkflowNodes(workflowRun!.workflow_run_id),
-    enabled: Boolean(workflowRun?.workflow_run_id),
+    queryKey: ['workflow-nodes', workflowRunId],
+    queryFn: () => listWorkflowNodes(workflowRunId!),
+    enabled: Boolean(workflowRunId),
     refetchInterval: (query) => {
       const nodes = query.state.data ?? []
       return nodes.some((node) => node.status === 'running') ? 3000 : false
@@ -64,14 +66,19 @@ export function WorkflowPage() {
   })
 
   const startWorkflow = useMutation({
-    mutationFn: () => submitWorkflowRun(workflowRun!.workflow_run_id),
+    mutationFn: () => {
+      if (!workflowRunId) {
+        throw new Error('No workflow run available')
+      }
+      return submitWorkflowRun(workflowRunId)
+    },
     onSuccess: (response) => {
       if (response.status === 'blocked') {
         showToast(response.message ?? 'Compute not connected', 'info')
       } else {
         showToast('Workflow submitted to compute', 'success')
       }
-      queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRunId] })
     },
     onError: () => showToast('Failed to start workflow', 'error'),
   })
@@ -140,7 +147,7 @@ export function WorkflowPage() {
               try {
                 await canvasRef.current?.addNodeFromTemplate(template, methods)
                 showToast(`Added ${template.title} to workflow`, 'success')
-                queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
+                queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRunId] })
               } catch {
                 showToast('Failed to add workflow node', 'error')
               }

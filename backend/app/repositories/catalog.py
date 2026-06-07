@@ -13,6 +13,21 @@ def list_projects(connection: sqlite3.Connection) -> list[dict]:
     return list_table(connection, "projects", "created_at DESC")
 
 
+def list_projects_paginated(
+    connection: sqlite3.Connection,
+    *,
+    limit: int = 50,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    count_row = connection.execute("SELECT COUNT(*) AS total FROM projects").fetchone()
+    total = int(count_row["total"]) if count_row else 0
+    rows = connection.execute(
+        "SELECT * FROM projects ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        (limit, offset),
+    ).fetchall()
+    return decode_rows(rows), total
+
+
 def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
     return get_by_id(connection, "projects", "project_id", project_id)
 
@@ -42,7 +57,11 @@ def list_project_candidates_filtered(
         "plddt": "plddt",
         "pred_kd": "pred_kd",
     }
-    sort_column = sort_columns.get(sort, "interface_score")
+    if sort not in sort_columns:
+        raise ValueError(f"invalid_sort:{sort}")
+    if order.lower() not in ("asc", "desc"):
+        raise ValueError(f"invalid_order:{order}")
+    sort_column = sort_columns[sort]
     sort_direction = "ASC" if order.lower() == "asc" else "DESC"
 
     clauses = ["project_id = ?"]
@@ -105,12 +124,49 @@ def get_workflow_run(connection: sqlite3.Connection, workflow_run_id: str) -> di
     return get_by_id(connection, "workflow_runs", "workflow_run_id", workflow_run_id)
 
 
+def get_workflow_run_project_id(connection: sqlite3.Connection, workflow_run_id: str) -> str | None:
+    row = connection.execute(
+        """
+        SELECT dt.project_id
+        FROM workflow_runs wr
+        JOIN design_tasks dt ON dt.task_id = wr.task_id
+        WHERE wr.workflow_run_id = ?
+        LIMIT 1
+        """,
+        (workflow_run_id,),
+    ).fetchone()
+    return row["project_id"] if row else None
+
+
+def get_workflow_node(connection: sqlite3.Connection, node_run_id: str) -> dict | None:
+    return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+
+
 def list_workflow_nodes(connection: sqlite3.Connection, workflow_run_id: str) -> list[dict]:
     rows = connection.execute(
         "SELECT * FROM workflow_node_runs WHERE workflow_run_id = ? ORDER BY rowid",
         (workflow_run_id,),
     ).fetchall()
     return decode_rows(rows)
+
+
+def list_workflow_nodes_paginated(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    *,
+    limit: int = 100,
+    offset: int = 0,
+) -> tuple[list[dict], int]:
+    count_row = connection.execute(
+        "SELECT COUNT(*) AS total FROM workflow_node_runs WHERE workflow_run_id = ?",
+        (workflow_run_id,),
+    ).fetchone()
+    total = int(count_row["total"]) if count_row else 0
+    rows = connection.execute(
+        "SELECT * FROM workflow_node_runs WHERE workflow_run_id = ? ORDER BY rowid LIMIT ? OFFSET ?",
+        (workflow_run_id, limit, offset),
+    ).fetchall()
+    return decode_rows(rows), total
 
 
 def get_latest_project_workflow_run(connection: sqlite3.Connection, project_id: str) -> dict | None:
@@ -304,7 +360,6 @@ def create_draft_workflow_run(connection: sqlite3.Connection, project_id: str) -
         """,
         (workflow_run_id, task_id),
     )
-    connection.commit()
     return get_workflow_run(connection, workflow_run_id) or {}
 
 
@@ -340,7 +395,6 @@ def add_workflow_node(
             position_json,
         ),
     )
-    connection.commit()
     return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id) or {}
 
 
@@ -370,7 +424,6 @@ def update_workflow_node(
         f"UPDATE workflow_node_runs SET {', '.join(updates)} WHERE node_run_id = ?",
         params,
     )
-    connection.commit()
     return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
 
 
@@ -379,7 +432,6 @@ def delete_workflow_node(connection: sqlite3.Connection, node_run_id: str) -> bo
         "DELETE FROM workflow_node_runs WHERE node_run_id = ?",
         (node_run_id,),
     )
-    connection.commit()
     return cursor.rowcount > 0
 
 
@@ -388,7 +440,6 @@ def save_workflow_layout(connection: sqlite3.Connection, workflow_run_id: str, l
         "UPDATE workflow_runs SET layout_json = ? WHERE workflow_run_id = ?",
         (layout_json, workflow_run_id),
     )
-    connection.commit()
     return get_workflow_run(connection, workflow_run_id)
 
 
@@ -442,6 +493,5 @@ def upsert_target_upload(
             ),
         )
 
-    connection.commit()
     return get_by_id(connection, "targets", "target_id", target_id) or {}
 

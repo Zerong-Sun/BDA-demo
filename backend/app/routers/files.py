@@ -1,12 +1,16 @@
 import re
+import sqlite3
 import tempfile
 import uuid
 import zipfile
 from pathlib import Path
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
 
+from ..auth.deps import get_current_user, require_candidate_access, require_project_access
+from ..auth.service import verify_project_access
 from ..db import get_connection
 from ..repositories import catalog
 from ..services.artifacts import (
@@ -31,12 +35,54 @@ def _safe_upload_filename(filename: str) -> str:
     return base
 
 
+def _process_pdb_upload(
+    connection: sqlite3.Connection,
+    *,
+    filename: str,
+    suffix: str,
+    stored_name: str,
+    relative_path: str,
+    project_id: str | None,
+    tmp_path: Path,
+) -> dict:
+    content_preview = tmp_path.read_text(encoding="utf-8", errors="replace")
+    metadata = parse_pdb_metadata(content_preview)
+    store = get_artifact_store()
+    store.save_file(relative_path, tmp_path)
+
+    target = None
+    if project_id:
+        target = catalog.upsert_target_upload(
+            connection,
+            project_id=project_id,
+            filename=filename,
+            structure_file_path=relative_path,
+            metadata=metadata,
+        )
+
+    return {
+        "file_id": stored_name.split(".")[0],
+        "filename": filename,
+        "project_id": project_id,
+        "atom_count": metadata["atom_count"],
+        "chain_count": metadata["chain_count"],
+        "chains": metadata["chains"],
+        "residue_count": metadata.get("residue_count"),
+        "preview_url": f"/api/v1/artifacts/uploads/{stored_name}",
+        "target": target,
+    }
+
+
 @router.post("/targets/upload-pdb")
 async def upload_pdb(
     file: UploadFile = File(...),
     project_id: str | None = Form(default=None),
-    connection=Depends(get_connection),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
 ):
+    if project_id and not verify_project_access(connection, user, project_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
     ensure_artifact_dirs()
     filename = _safe_upload_filename(file.filename or "upload.pdb")
     lower = filename.lower()
@@ -51,7 +97,6 @@ async def upload_pdb(
     max_bytes = get_settings().bda_max_upload_bytes
     with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=suffix) as tmp:
         tmp_path = Path(tmp.name)
-        content_preview = ""
         written = 0
         while chunk := await file.read(1024 * 1024):
             written += len(chunk)
@@ -66,38 +111,29 @@ async def upload_pdb(
         tmp.flush()
 
     try:
-        content_preview = tmp_path.read_text(encoding="utf-8", errors="replace")
-        metadata = parse_pdb_metadata(content_preview)
-        store = get_artifact_store()
-        store.save_file(relative_path, tmp_path)
+        payload = await run_in_threadpool(
+            _process_pdb_upload,
+            connection,
+            filename=filename,
+            suffix=suffix,
+            stored_name=stored_name,
+            relative_path=relative_path,
+            project_id=project_id,
+            tmp_path=tmp_path,
+        )
     finally:
         tmp_path.unlink(missing_ok=True)
 
-    target = None
-    if project_id:
-        target = catalog.upsert_target_upload(
-            connection,
-            project_id=project_id,
-            filename=filename,
-            structure_file_path=relative_path,
-            metadata=metadata,
-        )
-
-    return envelope({
-        "file_id": file_id,
-        "filename": filename,
-        "project_id": project_id,
-        "atom_count": metadata["atom_count"],
-        "chain_count": metadata["chain_count"],
-        "chains": metadata["chains"],
-        "residue_count": metadata.get("residue_count"),
-        "preview_url": f"/api/v1/artifacts/uploads/{stored_name}",
-        "target": target,
-    })
+    payload["file_id"] = file_id
+    return envelope(payload)
 
 
 @router.get("/candidates/{candidate_id}/structure-file")
-def candidate_structure_file(candidate_id: str, connection=Depends(get_connection)):
+def candidate_structure_file(
+    candidate_id: str,
+    connection=Depends(get_connection),
+    _user: dict = Depends(require_candidate_access),
+):
     candidate = catalog.get_candidate(connection, candidate_id)
     if candidate is None:
         raise HTTPException(status_code=404, detail="candidate_not_found")
@@ -115,7 +151,10 @@ def candidate_structure_file(candidate_id: str, connection=Depends(get_connectio
 
 
 @router.get("/artifacts/uploads/{filename}")
-def uploaded_structure_preview(filename: str):
+def uploaded_structure_preview(
+    filename: str,
+    _user: dict = Depends(get_current_user),
+):
     safe_name = _safe_upload_filename(filename)
     path = resolve_artifact_path(f"uploads/{safe_name}")
     media_type = "chemical/x-pdb" if path.suffix.lower() == ".pdb" else "chemical/x-mmcif"
@@ -123,11 +162,14 @@ def uploaded_structure_preview(filename: str):
 
 
 @router.get("/artifacts/{artifact_path:path}")
-def download_artifact(artifact_path: str):
+def download_artifact(
+    artifact_path: str,
+    _user: dict = Depends(get_current_user),
+):
     normalized = artifact_path.lstrip("/")
     if normalized.startswith("uploads/"):
         filename = normalized.split("/", 1)[1]
-        return uploaded_structure_preview(filename)
+        return uploaded_structure_preview(filename, _user=_user)
     path = resolve_artifact_path(normalized)
     return FileResponse(path, filename=path.name)
 
@@ -137,6 +179,7 @@ def download_delivery_package(
     project_id: str,
     background_tasks: BackgroundTasks,
     connection=Depends(get_connection),
+    _user: dict = Depends(require_project_access),
 ):
     package = catalog.get_project_delivery_package(connection, project_id)
     if package is None:

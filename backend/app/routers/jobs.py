@@ -2,6 +2,7 @@ import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth.deps import require_job_access, require_workflow_run_access
 from ..compute.factory import get_compute_adapter
 from ..db import get_connection
 from ..services import job_service
@@ -11,7 +12,11 @@ router = APIRouter()
 
 
 @router.get("/jobs/{job_id}")
-def get_job(job_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def get_job(
+    job_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_job_access),
+):
     job = job_service.get_job(connection, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job_not_found")
@@ -31,7 +36,12 @@ def get_job(job_id: str, connection: sqlite3.Connection = Depends(get_connection
 
 
 @router.get("/jobs/{job_id}/logs")
-def job_logs(job_id: str, tail: int = 200, connection: sqlite3.Connection = Depends(get_connection)):
+def job_logs(
+    job_id: str,
+    tail: int = 200,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_job_access),
+):
     job = job_service.get_job(connection, job_id)
     if job is None:
         raise HTTPException(status_code=404, detail="job_not_found")
@@ -43,7 +53,11 @@ def job_logs(job_id: str, tail: int = 200, connection: sqlite3.Connection = Depe
 
 
 @router.post("/jobs/{job_id}/cancel")
-def cancel_job(job_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def cancel_job(
+    job_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_job_access),
+):
     job = job_service.get_job(connection, job_id)
     if job is None:
         return envelope({"job_id": job_id, "status": "not_found", "demo_mode": True})
@@ -56,5 +70,9 @@ def cancel_job(job_id: str, connection: sqlite3.Connection = Depends(get_connect
 
 
 @router.get("/workflow-runs/{workflow_run_id}/jobs")
-def workflow_jobs(workflow_run_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def workflow_jobs(
+    workflow_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
+):
     return envelope({"items": job_service.list_workflow_jobs(connection, workflow_run_id)})

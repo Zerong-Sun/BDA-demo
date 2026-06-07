@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiRequest } from '../lib/api/client'
+import { ApiError, apiRequest } from '../lib/api/client'
 
 interface LoginResponse {
   access_token: string
@@ -11,6 +11,15 @@ interface LoginResponse {
     role: string
     display_name?: string
   }
+}
+
+function loginErrorMessage(err: unknown): string {
+  if (err instanceof ApiError) {
+    if (err.status === 401) return 'Invalid username or password.'
+    if (err.status === 429) return 'Too many login attempts. Please wait and try again.'
+    return err.message
+  }
+  return err instanceof Error ? err.message : 'Login failed.'
 }
 
 export function LoginPage() {
@@ -33,7 +42,7 @@ export function LoginPage() {
       sessionStorage.setItem('bda_user', JSON.stringify(data.user))
       navigate('/experiments')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      setError(loginErrorMessage(err))
     } finally {
       setLoading(false)
     }

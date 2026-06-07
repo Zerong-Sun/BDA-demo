@@ -3,8 +3,9 @@ import sqlite3
 from pathlib import Path
 from typing import Iterator
 
-from .config import DEFAULT_DB_PATH
-from .settings import get_settings
+from ..config import DEFAULT_DB_PATH
+from ..settings import get_settings
+from .pool import get_pool, release_connection as _release_from_pool
 
 
 def database_path() -> Path:
@@ -15,28 +16,29 @@ def database_path() -> Path:
 
 
 def connect_sqlite() -> sqlite3.Connection:
-    path = database_path()
     if get_settings().is_postgresql:
         raise RuntimeError("PostgreSQL mode: use get_db_session() instead of connect_sqlite()")
-    path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(str(path), check_same_thread=False)
-    connection.row_factory = sqlite3.Row
-    connection.execute("PRAGMA foreign_keys = ON")
-    connection.execute("PRAGMA journal_mode = WAL")
-    connection.execute("PRAGMA busy_timeout = 5000")
-    return connection
+    return get_pool().acquire()
 
 
 def connect() -> sqlite3.Connection:
     return connect_sqlite()
 
 
+def release_connection(connection: sqlite3.Connection) -> None:
+    _release_from_pool(connection)
+
+
 def get_connection() -> Iterator[sqlite3.Connection]:
     connection = connect()
     try:
         yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
     finally:
-        connection.close()
+        release_connection(connection)
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict | None:

@@ -57,7 +57,10 @@ def audit_logs(
 
 
 @router.get("/health-detail")
-def health_detail(connection: sqlite3.Connection = Depends(get_connection)):
+def health_detail(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
     settings = get_settings()
     checks = {"api": "ok", "database": "unknown", "redis": "unknown", "minio": "unknown"}
 

@@ -1,4 +1,5 @@
 import { apiRequest } from './client'
+import { fetchPaginatedList } from './pagination'
 import {
   ComputeNodeSchema,
   MethodPluginSchema,
@@ -9,22 +10,21 @@ import {
   type ModelPlugin,
   type ServerConnection,
 } from '../schemas/registry'
-import { z } from 'zod'
 
-export function listModelPlugins() {
-  return apiRequest<ModelPlugin[]>('/model-plugins', {}, z.array(ModelPluginSchema))
+export function listModelPlugins(): Promise<ModelPlugin[]> {
+  return fetchPaginatedList('/model-plugins', ModelPluginSchema)
 }
 
-export function listMethodPlugins() {
-  return apiRequest<MethodPlugin[]>('/method-plugins', {}, z.array(MethodPluginSchema))
+export function listMethodPlugins(): Promise<MethodPlugin[]> {
+  return fetchPaginatedList('/method-plugins', MethodPluginSchema)
 }
 
-export function listComputeNodes() {
-  return apiRequest<ComputeNode[]>('/compute-nodes', {}, z.array(ComputeNodeSchema))
+export function listComputeNodes(): Promise<ComputeNode[]> {
+  return fetchPaginatedList('/compute-nodes', ComputeNodeSchema)
 }
 
-export function listServers() {
-  return apiRequest<ServerConnection[]>('/servers', {}, z.array(ServerConnectionSchema))
+export function listServers(): Promise<ServerConnection[]> {
+  return fetchPaginatedList('/servers', ServerConnectionSchema)
 }
 
 export function checkComputeNodeHealth(computeNodeId: string) {

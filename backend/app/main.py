@@ -2,7 +2,8 @@ import uuid
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 
 from .logging_config import configure_logging, get_logger
 from .middleware.audit import AuditLogMiddleware
@@ -67,6 +68,12 @@ api_v1.include_router(workflow_mgmt.router)
 api_v1.include_router(admin.router)
 
 app.include_router(api_v1)
+
+
+@app.get("/api/v1/metrics")
+def prometheus_metrics():
+    """Prometheus scrape endpoint (internal network only in production)."""
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 def _trace_id(request: Request) -> str:

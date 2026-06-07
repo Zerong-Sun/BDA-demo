@@ -13,7 +13,8 @@ import { AgentWorkspace } from '../features/experiments/AgentWorkspace'
 export function ExperimentsPage() {
   const { t } = useI18n()
   const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
-  const { projects, projectsLoading, projectId, setProjectId } = useProjectContext()
+  const { projects, projectsLoading, projectsError, projectsQueryError, refetchProjects, projectId, setProjectId } =
+    useProjectContext()
 
   const {
     data: overview,
@@ -76,7 +77,12 @@ export function ExperimentsPage() {
 
       <AgentWorkspace projectId={projectId} />
 
-      <ApiState isLoading={projectsLoading}>
+      <ApiState
+        isLoading={projectsLoading}
+        isError={projectsError}
+        error={projectsQueryError}
+        onRetry={() => void refetchProjects()}
+      >
         {projects.length === 0 ? (
           <p className="text-sm text-bda-muted">No projects configured. Run `python3 backend/scripts/init_db.py`.</p>
         ) : (
