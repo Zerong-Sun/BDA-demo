@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import json
 import sqlite3
 from typing import Any
 
-from ..repositories import catalog
 from ..settings import get_settings
 
 
@@ -33,13 +33,38 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
 
     if message.tool_calls:
         tool_results = []
+        followup_messages = [
+            {"role": "system", "content": system},
+            *messages,
+            {
+                "role": "assistant",
+                "content": message.content or "",
+                "tool_calls": [
+                    {
+                        "id": call.id,
+                        "type": "function",
+                        "function": {"name": call.function.name, "arguments": call.function.arguments},
+                    }
+                    for call in message.tool_calls
+                ],
+            },
+        ]
+        last_tool_name = None
         for call in message.tool_calls:
             result = execute_tool(connection, call.function.name, call.function.arguments, payload.project_id)
-            tool_results.append(result)
+            tool_results.append({"tool": call.function.name, "result": result})
+            last_tool_name = call.function.name
+            followup_messages.append(
+                {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, default=str)}
+            )
+
+        followup = client.chat.completions.create(model=settings.llm_model, messages=followup_messages)
+        final_message = followup.choices[0].message.content or "Completed the requested analysis."
+
         return {
             "mode": "llm_with_tools",
-            "message": message.content or str(tool_results[0]) if tool_results else "Done.",
-            "skill_used": payload.skill or call.function.name,
+            "message": final_message,
+            "skill_used": payload.skill or last_tool_name or "general",
             "structured": {"tool_results": tool_results},
         }
 

@@ -1,8 +1,8 @@
 import json
-import re
 import sqlite3
 
 from fastapi import APIRouter, Depends
+from sse_starlette.sse import EventSourceResponse
 
 from ..db import get_connection
 from ..repositories import catalog
@@ -149,34 +149,39 @@ def candidate_explanation(
     })
 
 
-@router.post("/chat")
-async def copilot_chat(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
     from ..settings import get_settings
 
     settings = get_settings()
     if settings.llm_api_key:
         from ..copilot.service import chat_with_llm
 
-        result = chat_with_llm(connection, payload)
-        return envelope(result)
+        return chat_with_llm(connection, payload)
+    return _rule_based_chat(connection, payload)
 
-    return envelope(_rule_based_chat(connection, payload))
+
+@router.post("/chat")
+def copilot_chat(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+    return envelope(_resolve_chat(connection, payload))
 
 
 @router.post("/chat/stream")
 async def copilot_chat_stream(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
-    from sse_starlette.sse import EventSourceResponse
+    result = _resolve_chat(connection, payload)
 
     async def event_generator():
-        result = _rule_based_chat(connection, payload)
-        yield {"event": "message", "data": json.dumps(result)}
+        message = result.get("message", "")
+        chunk_size = 24
+        for i in range(0, len(message), chunk_size):
+            yield {"event": "message", "data": message[i : i + chunk_size]}
+        yield {"event": "done", "data": json.dumps({"skill_used": result.get("skill_used"), "mode": result.get("mode")})}
 
     return EventSourceResponse(event_generator())
 
 
 @router.post("/chat/sync")
 def copilot_chat_sync(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
-    return copilot_chat(payload, connection)
+    return envelope(_resolve_chat(connection, payload))
 
 
 @router.post("/result-interpretation")

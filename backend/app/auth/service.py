@@ -62,6 +62,8 @@ def create_user(
 ) -> dict:
     if role not in ROLES:
         raise ValueError("invalid_role")
+    if get_user_by_username(connection, username):
+        raise ValueError("username_taken")
     user_id = f"user_{uuid.uuid4().hex[:10]}"
     connection.execute(
         """

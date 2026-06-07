@@ -4,7 +4,6 @@ import json
 import sqlite3
 
 from ..repositories import catalog
-from ..repositories.base import get_by_id
 
 
 WORKFLOW_CHAIN = [

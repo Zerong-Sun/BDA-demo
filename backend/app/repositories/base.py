@@ -67,6 +67,13 @@ ALLOWED_ORDER_COLUMNS = frozenset({
     "interface_score",
     "plddt",
     "status",
+    "server_name",
+    "node_name",
+    "model_name",
+    "method_name",
+    "provider_name",
+    "username",
+    "name",
 })
 
 
@@ -81,9 +88,15 @@ def _validate_table(table: str) -> str:
 
 
 def _validate_order_by(order_by: str) -> str:
-    if order_by not in ALLOWED_ORDER_COLUMNS:
+    # Supports "column" or "column DESC"/"column ASC"
+    parts = order_by.strip().split()
+    column = parts[0]
+    direction = parts[1].upper() if len(parts) > 1 else "ASC"
+    if column not in ALLOWED_ORDER_COLUMNS:
         raise RepositoryError(f"invalid_order_by:{order_by}")
-    return order_by
+    if direction not in ("ASC", "DESC"):
+        raise RepositoryError(f"invalid_order_direction:{direction}")
+    return f"{column} {direction}" if len(parts) > 1 else column
 
 
 def _validate_id_column(id_column: str) -> str:

@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
 import { ChevronDown } from 'lucide-react'
 import { useI18n } from '../../lib/i18n'
@@ -12,10 +12,29 @@ const routes = [
   { to: '/results', key: 'results' as const },
 ]
 
+function currentUserLabel(): string | null {
+  try {
+    const raw = sessionStorage.getItem('bda_user')
+    if (!raw) return null
+    const user = JSON.parse(raw) as { display_name?: string; username?: string }
+    return user.display_name || user.username || null
+  } catch {
+    return null
+  }
+}
+
 export function Topbar() {
+  const navigate = useNavigate()
   const { language, setLanguage } = useAppStore()
   const { t } = useI18n()
   const { projects, activeProject, setProjectId } = useProjectContext()
+  const userLabel = currentUserLabel()
+
+  const logout = () => {
+    sessionStorage.removeItem('bda_token')
+    sessionStorage.removeItem('bda_user')
+    navigate('/login')
+  }
 
   return (
     <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-bda-border bg-bda-bg/95 px-6 py-3 backdrop-blur">
@@ -61,6 +80,26 @@ export function Topbar() {
           <span className="h-2 w-2 rounded-full bg-bda-amber" />
           {t.demoMode}
         </span>
+        {userLabel ? (
+          <>
+            <span className="hidden text-bda-text sm:inline">{userLabel}</span>
+            <button
+              type="button"
+              className="rounded-md border border-bda-border px-2 py-1 hover:bg-bda-panel"
+              onClick={logout}
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="rounded-md border border-bda-border px-2 py-1 hover:bg-bda-panel"
+            onClick={() => navigate('/login')}
+          >
+            Login
+          </button>
+        )}
         <button
           type="button"
           className="rounded-md border border-bda-border px-2 py-1 hover:bg-bda-panel"

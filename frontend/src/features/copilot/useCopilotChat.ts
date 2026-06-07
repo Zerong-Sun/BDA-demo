@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { matchSkill } from './skills/registry'
-import { sendCopilotMessage } from '../../lib/api/copilot'
+import { sendCopilotMessage, streamCopilotMessage } from '../../lib/api/copilot'
 
 interface ChatMessage {
   role: 'user' | 'assistant'
@@ -34,20 +34,38 @@ export function useCopilotChat(projectId?: string) {
     setLoading(true)
     setError(null)
 
+    const payload = { messages: nextMessages, project_id: projectId, skill }
+
     try {
-      const response = await sendCopilotMessage({
-        messages: nextMessages,
-        project_id: projectId,
-        skill,
+      let streamed = ''
+      setMessages((prev) => [...prev, { role: 'assistant', content: '' }])
+      await streamCopilotMessage(payload, (chunk) => {
+        streamed += chunk
+        setMessages((prev) => {
+          const copy = [...prev]
+          copy[copy.length - 1] = { role: 'assistant', content: streamed }
+          return copy
+        })
       })
-      setMessages((prev) => [...prev, { role: 'assistant', content: response.message }])
+      if (!streamed) {
+        const response = await sendCopilotMessage(payload)
+        setMessages((prev) => {
+          const copy = [...prev]
+          copy[copy.length - 1] = { role: 'assistant', content: response.message }
+          return copy
+        })
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Copilot request failed'
       setError(message)
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: 'Copilot is unavailable. Start the backend API and retry.' },
-      ])
+      setMessages((prev) => {
+        const copy = [...prev]
+        copy[copy.length - 1] = {
+          role: 'assistant',
+          content: 'Copilot is unavailable. Start the backend API and retry.',
+        }
+        return copy
+      })
     } finally {
       setLoading(false)
     }

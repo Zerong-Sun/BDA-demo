@@ -92,3 +92,28 @@ def method_plugin(method_plugin_id: str, connection: sqlite3.Connection = Depend
     if item is None:
         raise HTTPException(status_code=404, detail="method_plugin_not_found")
     return envelope(item)
+
+
+@router.get("/llm-providers")
+def llm_providers(connection: sqlite3.Connection = Depends(get_connection)):
+    from ..repositories.base import decode_rows
+
+    rows = connection.execute("SELECT * FROM llm_providers").fetchall()
+    return envelope(decode_rows(rows))
+
+
+@router.post("/llm-providers/{llm_provider_id}/test")
+def test_llm_provider(llm_provider_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+    from ..settings import get_settings
+
+    settings = get_settings()
+    if not settings.llm_api_key:
+        return envelope({"llm_provider_id": llm_provider_id, "connected": False, "reason": "no_api_key"})
+    try:
+        from ..copilot.provider import get_llm_provider
+
+        provider = get_llm_provider()
+        resp = provider.chat([{"role": "user", "content": "ping"}])
+        return envelope({"llm_provider_id": llm_provider_id, "connected": True, "sample": resp.content[:80]})
+    except Exception as exc:
+        return envelope({"llm_provider_id": llm_provider_id, "connected": False, "reason": str(exc)})

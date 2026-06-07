@@ -36,7 +36,7 @@ def poll_job_status(job_id: str) -> dict:
         adapter = get_compute_adapter()
         live = adapter.status(job_id, job.get("external_id"))
         if live.status != job.get("status"):
-            job_service.update_job_status(
+            updated = job_service.update_job_status(
                 connection,
                 job_id,
                 status=live.status,
@@ -44,6 +44,14 @@ def poll_job_status(job_id: str) -> dict:
                 output_artifacts=live.output_artifacts or None,
                 error_message=live.error_message,
             )
+            node_run_id = (updated or job).get("node_run_id")
+            if node_run_id and live.status in ("completed", "failed", "cancelled"):
+                from .repositories import catalog
+
+                node_status = "completed" if live.status == "completed" else "failed"
+                catalog.update_workflow_node(connection, node_run_id, status=node_status)
+        if live.status in ("queued", "running"):
+            poll_job_status.apply_async(args=[job_id], countdown=5)
         return {"job_id": job_id, "status": live.status}
     finally:
         connection.close()
