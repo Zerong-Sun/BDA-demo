@@ -18,8 +18,12 @@ jobs:
         run: pip install -r backend/requirements.txt
       - name: Init database
         run: python backend/scripts/init_db.py
+        env:
+          PYTHONPATH: .
       - name: Run tests
         run: python -m pytest backend/tests/test_api.py -q
+        env:
+          PYTHONPATH: .
       - name: Lint
         run: ruff check backend/
 

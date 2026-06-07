@@ -1,18 +1,16 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronDown, ChevronUp, MessageSquare, Play, Plus } from 'lucide-react'
+import { ChevronDown, ChevronUp, Play, Plus } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
 import { NodeBuilder } from '../features/workflow/NodeBuilder'
 import { mapApiNodesToGraph } from '../features/workflow/workflowMapper'
-import { CopilotPanel } from '../features/copilot/CopilotPanel'
 import { MolStarViewerLazy } from '../features/pdb-viewer/MolStarViewerLazy'
 import { PDBFileUpload } from '../features/pdb-viewer/PDBFileUpload'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { PluginRegistryPanel } from '../features/workflow/PluginRegistryPanel'
-import { LoopStepper } from '../components/ui/LoopStepper'
 import { ApiState } from '../components/ui/ApiState'
-import { getLatestWorkflowRun } from '../lib/api/projects'
-import { listWorkflowNodes, submitWorkflowRun } from '../lib/api/workflow'
+import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
+import { createWorkflowRun, listWorkflowNodes, submitWorkflowRun } from '../lib/api/workflow'
 import { useAppStore } from '../lib/store/appStore'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/Toast'
@@ -22,8 +20,6 @@ export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(true)
   const [uploadedFile, setUploadedFile] = useState<File | null>(null)
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
-  const copilotOpen = useAppStore((s) => s.copilotOpen)
-  const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
   const targetIntakeOpen = useAppStore((s) => s.targetIntakeOpen)
   const setTargetIntakeOpen = useAppStore((s) => s.setTargetIntakeOpen)
   const { projectId } = useProjectContext()
@@ -34,10 +30,11 @@ export function WorkflowPage() {
   const {
     data: workflowRun,
     isError: workflowError,
+    error: workflowQueryError,
     refetch: refetchWorkflow,
   } = useQuery({
     queryKey: ['workflow-run', projectId],
-    queryFn: () => getLatestWorkflowRun(projectId),
+    queryFn: () => getLatestWorkflowRunOrNull(projectId),
   })
 
   const { data: workflowNodes = [] } = useQuery({
@@ -57,6 +54,15 @@ export function WorkflowPage() {
 
   const readOnly = workflowRun?.status === 'completed'
 
+  const createWorkflow = useMutation({
+    mutationFn: () => createWorkflowRun(projectId),
+    onSuccess: (run) => {
+      queryClient.setQueryData(['workflow-run', projectId], run)
+      showToast('Workflow run created', 'success')
+    },
+    onError: () => showToast('Failed to create workflow run', 'error'),
+  })
+
   const startWorkflow = useMutation({
     mutationFn: () => submitWorkflowRun(workflowRun!.workflow_run_id),
     onSuccess: (response) => {
@@ -72,58 +78,75 @@ export function WorkflowPage() {
 
   return (
     <section>
-      <LoopStepper />
       <ComputeStatusStrip />
       <PluginRegistryPanel />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-          disabled={readOnly}
-          onClick={() => setBuilderOpen((v) => !v)}
-        >
-          <Plus className="h-4 w-4" />
-          {t.workflow.addNode}
-        </button>
-        <button
-          type="button"
-          className="inline-flex items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-          disabled={!workflowRun || startWorkflow.isPending}
-          onClick={() => startWorkflow.mutate()}
-        >
-          <Play className="h-4 w-4" />
-          {t.workflow.startWorkflow}
-        </button>
-        <button
-          type="button"
-          className="rounded-md border border-bda-border p-2 hover:bg-bda-panel"
-          onClick={() => setCopilotOpen(!copilotOpen)}
-          title={t.workflow.toggleCopilot}
-        >
-          <MessageSquare className="h-4 w-4" />
-        </button>
+        {!workflowRun ? (
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+            disabled={createWorkflow.isPending}
+            onClick={() => createWorkflow.mutate()}
+          >
+            <Plus className="h-4 w-4" />
+            Create workflow run
+          </button>
+        ) : (
+          <>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+              disabled={readOnly}
+              onClick={() => setBuilderOpen((v) => !v)}
+            >
+              <Plus className="h-4 w-4" />
+              {t.workflow.addNode}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+              disabled={startWorkflow.isPending}
+              onClick={() => startWorkflow.mutate()}
+            >
+              <Play className="h-4 w-4" />
+              {t.workflow.startWorkflow}
+            </button>
+          </>
+        )}
         {workflowRun ? (
           <span className="text-xs text-bda-muted">
             Run {workflowRun.workflow_run_id} · {workflowRun.status}
           </span>
-        ) : null}
+        ) : (
+          <span className="text-xs text-bda-muted">No workflow run for this project yet</span>
+        )}
       </div>
 
-      <ApiState isError={workflowError} onRetry={() => void refetchWorkflow()}>
-        <NodeBuilder
-          open={builderOpen && !readOnly}
-          onClose={() => setBuilderOpen(false)}
-          onAdd={async (template, methods) => {
-            try {
-              await canvasRef.current?.addNodeFromTemplate(template, methods)
-              showToast(`Added ${template.title} to workflow`, 'success')
-              queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
-            } catch {
-              showToast('Failed to add workflow node', 'error')
-            }
-          }}
-        />
+      <ApiState
+        isError={workflowError}
+        error={workflowQueryError}
+        onRetry={() => void refetchWorkflow()}
+      >
+        {!workflowRun ? (
+          <div className="mb-4 rounded-lg border border-dashed border-bda-border bg-bda-panel p-6 text-center text-sm text-bda-muted">
+            <p>Create a workflow run to add nodes, upload target structures, and submit to compute.</p>
+          </div>
+        ) : (
+          <NodeBuilder
+            open={builderOpen && !readOnly}
+            onClose={() => setBuilderOpen(false)}
+            onAdd={async (template, methods) => {
+              try {
+                await canvasRef.current?.addNodeFromTemplate(template, methods)
+                showToast(`Added ${template.title} to workflow`, 'success')
+                queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
+              } catch {
+                showToast('Failed to add workflow node', 'error')
+              }
+            }}
+          />
+        )}
 
         <div className="mb-4 rounded-lg border border-bda-border bg-bda-panel">
           <button
@@ -142,19 +165,16 @@ export function WorkflowPage() {
           ) : null}
         </div>
 
-        <div className={`grid gap-4 ${copilotOpen ? 'xl:grid-cols-[1fr_320px]' : ''}`}>
-          <WorkflowCanvas
-            ref={canvasRef}
-            initialNodes={graph?.nodes}
-            initialEdges={graph?.edges}
-            workflowRunId={workflowRun?.workflow_run_id}
-            readOnly={readOnly}
-            onNodeAdded={() =>
-              queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
-            }
-          />
-          <CopilotPanel open={copilotOpen} />
-        </div>
+        <WorkflowCanvas
+          ref={canvasRef}
+          initialNodes={graph?.nodes}
+          initialEdges={graph?.edges}
+          workflowRunId={workflowRun?.workflow_run_id}
+          readOnly={readOnly}
+          onNodeAdded={() =>
+            queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
+          }
+        />
       </ApiState>
     </section>
   )

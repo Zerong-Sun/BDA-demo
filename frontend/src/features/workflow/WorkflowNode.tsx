@@ -41,19 +41,19 @@ export function WorkflowNodeCard({ data, selected }: NodeProps) {
   return (
     <article
       className={clsx(
-        'w-56 rounded-lg border bg-bda-panel p-3 text-sm shadow-lg',
+        'w-56 max-w-[14rem] rounded-lg border bg-bda-panel p-3 text-sm shadow-lg',
         statusStyles[nodeData.status] ?? statusStyles.not_started,
         selected && 'ring-2 ring-bda-cyan/60',
       )}
     >
       <Handle type="target" position={Position.Left} className="!bg-bda-cyan !w-2 !h-2" />
-      <header className="mb-2 flex items-center gap-2 font-medium text-bda-text">
-        <Icon className="h-4 w-4 text-bda-cyan" />
-        <span>{nodeData.label}</span>
+      <header className="mb-2 flex min-w-0 items-center gap-2 font-medium text-bda-text">
+        <Icon className="h-4 w-4 shrink-0 text-bda-cyan" />
+        <span className="truncate">{nodeData.label}</span>
       </header>
-      <p className="mb-2 text-xs leading-relaxed text-bda-muted">{nodeData.description}</p>
-      <footer className="flex items-center justify-between text-xs text-bda-muted">
-        <span>{nodeData.footer}</span>
+      <p className="mb-2 line-clamp-3 text-xs leading-relaxed text-bda-muted">{nodeData.description}</p>
+      <footer className="flex min-w-0 items-center justify-between gap-2 text-xs text-bda-muted">
+        <span className="truncate">{nodeData.footer}</span>
         {nodeData.resource ? (
           <span className="rounded border border-bda-border px-1.5 py-0.5 uppercase">
             {nodeData.resource}

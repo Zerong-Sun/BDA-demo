@@ -7,7 +7,6 @@ import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/Toast'
 import { useI18n } from '../lib/i18n'
 import { PageHead } from '../components/ui/PageHead'
-import { LoopStepper } from '../components/ui/LoopStepper'
 import { ApiState } from '../components/ui/ApiState'
 import { CandidateFilters } from '../features/candidates/CandidateFilters'
 import { CandidateTable } from '../features/candidates/CandidateTable'
@@ -31,6 +30,7 @@ export function CandidatesPage() {
     data,
     isLoading,
     isError,
+    error: candidatesError,
     refetch,
   } = useQuery({
     queryKey: ['candidates', projectId, search, status, priorityOnly, page],
@@ -91,7 +91,6 @@ export function CandidatesPage() {
           </button>
         }
       />
-      <LoopStepper />
       <ComputeStatusStrip />
 
       <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
@@ -131,7 +130,7 @@ export function CandidatesPage() {
         }}
       />
 
-      <ApiState isLoading={isLoading} isError={isError} onRetry={() => void refetch()}>
+      <ApiState isLoading={isLoading} isError={isError} error={candidatesError} onRetry={() => void refetch()}>
         <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
           <div className="space-y-4">
             <CandidateTable

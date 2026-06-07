@@ -25,12 +25,15 @@ export function ValidationTable({ results, loading, isError }: ValidationTablePr
 
   const rows =
     results && results.length > 0
-      ? results.map((r) => [
-          r.experiment_type,
-          r.pass_status,
-          r.conclusion ?? r.value ?? '—',
-          r.failure_reason ?? '—',
-        ])
+      ? results.map((r) => ({
+          id: r.result_id,
+          cells: [
+            r.experiment_type,
+            r.pass_status,
+            r.conclusion ?? r.value ?? '—',
+            r.failure_reason ?? '—',
+          ],
+        }))
       : []
 
   return (
@@ -51,11 +54,11 @@ export function ValidationTable({ results, loading, isError }: ValidationTablePr
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr key={row.join('-')} className="border-t border-bda-border/70">
-                  <td className="py-2 pr-4">{row[0]}</td>
-                  <td className="py-2 pr-4">{row[1]}</td>
-                  <td className="py-2 pr-4">{row[2]}</td>
-                  <td className="py-2">{row[3]}</td>
+                <tr key={row.id} className="border-t border-bda-border/70">
+                  <td className="py-2 pr-4">{row.cells[0]}</td>
+                  <td className="py-2 pr-4">{row.cells[1]}</td>
+                  <td className="max-w-xs py-2 pr-4 break-words">{row.cells[2]}</td>
+                  <td className="max-w-xs py-2 break-words">{row.cells[3]}</td>
                 </tr>
               ))}
             </tbody>

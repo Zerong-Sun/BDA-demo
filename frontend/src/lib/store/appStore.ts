@@ -19,7 +19,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       language: 'en',
       activeProjectId: 'proj_pd1_0423',
-      copilotOpen: false,
+      copilotOpen: true,
       targetIntakeOpen: false,
       setLanguage: (language) => set({ language }),
       setActiveProjectId: (activeProjectId) => set({ activeProjectId }),

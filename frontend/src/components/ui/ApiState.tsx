@@ -27,10 +27,7 @@ export function ApiState({
   }
 
   if (isError) {
-    const message =
-      error instanceof ApiError
-        ? error.message
-        : 'Backend unavailable. Start the API on port 8100 and retry.'
+    const message = resolveApiErrorMessage(error)
     return (
       <div className="rounded-lg border border-bda-red/40 bg-bda-panel p-4 text-sm text-bda-red">
         <p>{message}</p>
@@ -52,4 +49,10 @@ export function ApiState({
   }
 
   return <>{children}</>
+}
+
+function resolveApiErrorMessage(error: unknown): string {
+  if (error instanceof ApiError) return error.message
+  if (error instanceof Error && error.message) return error.message
+  return 'Backend unavailable. Start the API on port 8100 and retry.'
 }

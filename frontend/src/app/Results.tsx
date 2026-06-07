@@ -1,12 +1,11 @@
+import { Link } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { PackageCheck } from 'lucide-react'
 import { listExperimentResults } from '../lib/api/experiments'
-import { getDeliveryPackage, getResultsSummary } from '../lib/api/projects'
+import { getDeliveryPackageOrNull, getResultsSummary } from '../lib/api/projects'
 import { interpretResults } from '../lib/api/copilot'
 import { deliveryPackageDownloadUrl } from '../lib/api/client'
 import { PageHead } from '../components/ui/PageHead'
-import { LoopStepper } from '../components/ui/LoopStepper'
-import { ApiState } from '../components/ui/ApiState'
 import { ResultsMetrics } from '../features/results/ResultsMetrics'
 import { ValidationTable } from '../features/results/ValidationTable'
 import { ExperimentUpload } from '../features/results/ExperimentUpload'
@@ -15,9 +14,28 @@ import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/Toast'
 import { useI18n } from '../lib/i18n'
 
+const DEMO_PROJECT_ID = 'proj_pd1_0423'
+
+function InlineError({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  return (
+    <div className="mb-4 rounded-lg border border-bda-red/40 bg-bda-panel p-3 text-sm text-bda-red">
+      <p>{message}</p>
+      {onRetry ? (
+        <button
+          type="button"
+          className="mt-2 rounded-md border border-bda-border px-3 py-1 text-bda-text hover:bg-bda-panel-hover"
+          onClick={onRetry}
+        >
+          Retry
+        </button>
+      ) : null}
+    </div>
+  )
+}
+
 export function ResultsPage() {
   const { t } = useI18n()
-  const { projectId } = useProjectContext()
+  const { projectId, setProjectId } = useProjectContext()
   const queryClient = useQueryClient()
   const showToast = useToastStore((s) => s.show)
 
@@ -25,20 +43,36 @@ export function ResultsPage() {
     data: results = [],
     isLoading: resultsLoading,
     isError: resultsError,
+    error: resultsQueryError,
     refetch: refetchResults,
   } = useQuery({
     queryKey: ['experiment-results', projectId],
     queryFn: () => listExperimentResults(projectId),
+    enabled: Boolean(projectId),
   })
 
-  const { data: summary, isLoading: summaryLoading } = useQuery({
+  const {
+    data: summary,
+    isLoading: summaryLoading,
+    isError: summaryError,
+    error: summaryQueryError,
+    refetch: refetchSummary,
+  } = useQuery({
     queryKey: ['results-summary', projectId],
     queryFn: () => getResultsSummary(projectId),
+    enabled: Boolean(projectId),
   })
 
-  const { data: deliveryPackage, isLoading: packageLoading } = useQuery({
+  const {
+    data: deliveryPackage,
+    isLoading: packageLoading,
+    isError: packageError,
+    error: packageQueryError,
+    refetch: refetchPackage,
+  } = useQuery({
     queryKey: ['delivery-package', projectId],
-    queryFn: () => getDeliveryPackage(projectId),
+    queryFn: () => getDeliveryPackageOrNull(projectId),
+    enabled: Boolean(projectId),
   })
 
   const invalidateResults = () => {
@@ -60,6 +94,18 @@ export function ResultsPage() {
       showToast('Failed to interpret results', 'error')
     }
   }
+
+  const showDemoPrompt =
+    !resultsLoading && !resultsError && results.length === 0 && projectId !== DEMO_PROJECT_ID
+
+  const resultsErrorMessage =
+    resultsQueryError instanceof Error ? resultsQueryError.message : 'Failed to load validation readouts.'
+
+  const summaryErrorMessage =
+    summaryQueryError instanceof Error ? summaryQueryError.message : 'Failed to load results summary.'
+
+  const packageErrorMessage =
+    packageQueryError instanceof Error ? packageQueryError.message : 'Failed to load delivery package.'
 
   return (
     <section>
@@ -86,32 +132,68 @@ export function ResultsPage() {
           </div>
         }
       />
-      <LoopStepper />
 
       <div className="mb-5 rounded-lg border border-bda-amber/30 bg-bda-panel p-4 text-sm text-bda-muted">
         {t.results.disclaimer}
       </div>
 
-      <ResultsMetrics summary={summary ?? null} loading={summaryLoading} />
+      {summaryError ? (
+        <InlineError message={summaryErrorMessage} onRetry={() => void refetchSummary()} />
+      ) : (
+        <ResultsMetrics summary={summary ?? null} loading={summaryLoading} />
+      )}
 
-      <div className="mb-5 rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
+      <div className="mb-5 rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted break-words">
         {summary?.experiment_summary ?? t.results.disclaimer}
       </div>
+
+      {showDemoPrompt ? (
+        <div className="mb-5 rounded-lg border border-bda-cyan/30 bg-bda-panel p-4 text-sm">
+          <p className="text-bda-text">
+            This project has no wet-lab readouts yet. Switch to the PD-1 demo project to explore BLI/SEC
+            evidence and the delivery package.
+          </p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg"
+              onClick={() => setProjectId(DEMO_PROJECT_ID)}
+            >
+              Open PD-1 demo results
+            </button>
+            <Link
+              to={`/results?project=${encodeURIComponent(DEMO_PROJECT_ID)}`}
+              className="rounded-md border border-bda-border px-3 py-2 text-sm hover:bg-bda-panel-hover"
+              onClick={() => setProjectId(DEMO_PROJECT_ID)}
+            >
+              View demo delivery package
+            </Link>
+          </div>
+        </div>
+      ) : null}
 
       <div className="mb-5">
         <ExperimentUpload projectId={projectId} onUploaded={invalidateResults} />
       </div>
 
-      <ApiState isError={resultsError} onRetry={() => void refetchResults()}>
-        <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <div>
+          {resultsError ? (
+            <InlineError message={resultsErrorMessage} onRetry={() => void refetchResults()} />
+          ) : null}
           <ValidationTable results={results} loading={resultsLoading} isError={resultsError} />
+        </div>
+        <div>
+          {packageError ? (
+            <InlineError message={packageErrorMessage} onRetry={() => void refetchPackage()} />
+          ) : null}
           <DeliveryPackage
             packageData={deliveryPackage ?? null}
             loading={packageLoading}
             projectId={projectId}
           />
         </div>
-      </ApiState>
+      </div>
     </section>
   )
 }

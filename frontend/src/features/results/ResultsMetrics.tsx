@@ -12,7 +12,11 @@ export function ResultsMetrics({ summary, loading }: ResultsMetricsProps) {
   }
 
   if (!summary) {
-    return null
+    return (
+      <div className="mb-5 rounded-lg border border-dashed border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
+        Results summary is not available for this project yet.
+      </div>
+    )
   }
 
   return (

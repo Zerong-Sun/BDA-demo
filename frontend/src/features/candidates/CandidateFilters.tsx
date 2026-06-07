@@ -20,13 +20,13 @@ export function CandidateFilters({
   return (
     <div className="mb-3 flex flex-wrap items-center gap-2">
       <input
-        className="min-w-[220px] flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm"
+        className="min-w-[220px] flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
         placeholder="Search candidate or family"
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
       />
       <select
-        className="rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm"
+        className="rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
         value={status}
         onChange={(e) => onStatusChange(e.target.value)}
       >

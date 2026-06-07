@@ -1,23 +1,25 @@
-import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
+import { useQuery } from '@tanstack/react-query'
 import { getProjectOverview } from '../lib/api/projects'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
+import { useAppStore } from '../lib/store/appStore'
 import { useI18n } from '../lib/i18n'
 import { PageHead } from '../components/ui/PageHead'
 import { StatusPill, statusTone } from '../components/ui/StatusPill'
-import { LoopStepper } from '../components/ui/LoopStepper'
 import { ApiState } from '../components/ui/ApiState'
 import { OverviewCards } from '../features/experiments/OverviewCards'
 import { AgentWorkspace } from '../features/experiments/AgentWorkspace'
 
 export function ExperimentsPage() {
   const { t } = useI18n()
+  const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
   const { projects, projectsLoading, projectId, setProjectId } = useProjectContext()
 
   const {
     data: overview,
     isLoading: overviewLoading,
     isError: overviewError,
+    error: overviewQueryError,
     refetch,
   } = useQuery({
     queryKey: ['project-overview', projectId],
@@ -37,13 +39,18 @@ export function ExperimentsPage() {
           </Link>
         }
       />
-      <LoopStepper />
-
       <section className="mb-6 rounded-lg border border-bda-border bg-bda-panel p-4">
         <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
         <h2 className="mt-1 text-xl font-semibold">{t.experiments.copilotTitle}</h2>
         <p className="mt-2 max-w-3xl text-sm text-bda-muted">{t.experiments.copilotBody}</p>
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            type="button"
+            className="rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg"
+            onClick={() => setCopilotOpen(true)}
+          >
+            Open Copilot chat
+          </button>
           <Link to={`/workflow${query}`} className="rounded-md border border-bda-border px-3 py-2 text-sm hover:border-bda-cyan/50">
             {t.experiments.planRoute} → Workflow
           </Link>
@@ -59,6 +66,7 @@ export function ExperimentsPage() {
       <ApiState
         isLoading={overviewLoading}
         isError={overviewError}
+        error={overviewQueryError}
         isEmpty={!overviewLoading && !overviewError && !overview}
         emptyMessage={t.common.loading}
         onRetry={() => void refetch()}

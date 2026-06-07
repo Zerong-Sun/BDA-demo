@@ -5,7 +5,7 @@ import { useProjectContext } from '../../lib/hooks/useProjectContext'
 
 export function CopilotChat() {
   const { projectId } = useProjectContext()
-  const { messages, loading, send } = useCopilotChat(projectId)
+  const { messages, loading, error, send } = useCopilotChat(projectId)
   const [input, setInput] = useState('Explain why c4361 should anchor round two')
 
   const handleSend = async () => {
@@ -16,8 +16,13 @@ export function CopilotChat() {
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-[480px] flex-col">
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {error ? (
+          <div className="rounded-lg border border-bda-red/40 bg-bda-panel p-3 text-sm text-bda-red">
+            {error}
+          </div>
+        ) : null}
         {messages.map((msg, idx) => (
           <div
             key={`${msg.role}-${idx}`}
@@ -33,7 +38,7 @@ export function CopilotChat() {
       </div>
       <div className="flex items-center gap-2 border-t border-bda-border p-3">
         <input
-          className="flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm"
+          className="flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
           value={input}
           disabled={loading}
           onChange={(e) => setInput(e.target.value)}

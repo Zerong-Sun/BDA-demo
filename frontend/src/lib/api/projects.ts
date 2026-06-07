@@ -1,4 +1,4 @@
-import { apiRequest } from './client'
+import { ApiError, apiRequest } from './client'
 import {
   CandidateFunnelSchema,
   DeliveryPackageSchema,
@@ -43,8 +43,26 @@ export function getDeliveryPackage(projectId: string) {
   )
 }
 
+export async function getDeliveryPackageOrNull(projectId: string): Promise<DeliveryPackageData | null> {
+  try {
+    return await getDeliveryPackage(projectId)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
+}
+
 export function getLatestWorkflowRun(projectId: string) {
   return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs/latest`, {}, WorkflowRunSchema)
+}
+
+export async function getLatestWorkflowRunOrNull(projectId: string): Promise<WorkflowRun | null> {
+  try {
+    return await getLatestWorkflowRun(projectId)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
 }
 
 export type { CandidateFunnel, DeliveryPackageData, ResultsSummary, Project, ProjectOverview }

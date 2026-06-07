@@ -122,7 +122,7 @@ npm install
 npm run dev
 ```
 
-打开 **http://127.0.0.1:5173?project=proj_pd1_0423**（API 运行在 `8100` 端口，经 Vite 代理）。
+打开 **http://127.0.0.1:5173/#/experiments?project=proj_pd1_0423**（API 运行在 `8100` 端口，经 Vite 代理）。
 
 ### Docker Compose（类生产环境）
 

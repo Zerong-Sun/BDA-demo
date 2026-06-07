@@ -47,26 +47,61 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes ?? defaultWorkflowNodes)
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges ?? defaultWorkflowEdges)
     const saveTimer = useRef<number | null>(null)
+    const isInitialMount = useRef(true)
     const nodesRef = useRef(nodes)
     const edgesRef = useRef(edges)
     nodesRef.current = nodes
     edgesRef.current = edges
 
     useEffect(() => {
-      if (initialNodes && initialNodes.length > 0) {
-        setNodes(initialNodes)
-      }
-    }, [initialNodes, setNodes])
+      if (!initialNodes || initialNodes.length === 0) return
 
-    useEffect(() => {
-      if (initialEdges && initialEdges.length > 0) {
-        setEdges(initialEdges)
+      if (isInitialMount.current) {
+        isInitialMount.current = false
+        setNodes(initialNodes)
+        if (initialEdges && initialEdges.length > 0) {
+          setEdges(initialEdges)
+        }
+        return
       }
-    }, [initialEdges, setEdges])
+
+      // Merge: preserve positions of existing nodes, add new ones from polling
+      const existingPositions = new Map(
+        nodesRef.current.map((n) => [n.id, n.position]),
+      )
+      const incomingIds = new Set(initialNodes.map((n) => n.id))
+      const hasChange =
+        incomingIds.size !== nodesRef.current.length ||
+        initialNodes.some((n) => !nodesRef.current.find((e) => e.id === n.id))
+
+      if (!hasChange) return
+
+      setNodes((current) => {
+        const currentIds = new Set(current.map((n) => n.id))
+        const merged = [
+          ...current.filter((n) => incomingIds.has(n.id)),
+          ...initialNodes
+            .filter((n) => !currentIds.has(n.id))
+            .map((n) => ({
+              ...n,
+              position: existingPositions.get(n.id) ?? n.position,
+            })),
+        ]
+        return merged
+      })
+
+      if (initialEdges && initialEdges.length > 0) {
+        setEdges((current) => {
+          const currentIds = new Set(current.map((e) => e.id))
+          const newEdges = initialEdges!.filter((e) => !currentIds.has(e.id))
+          return newEdges.length > 0 ? [...current, ...newEdges] : current
+        })
+      }
+    }, [initialNodes, initialEdges, setNodes, setEdges])
 
     const persistLayout = useCallback(
       (currentNodes: Node[], currentEdges: BdaWorkflowEdge[]) => {
-        if (!workflowRunId || readOnly) return
+        if (!workflowRunId) return
         if (saveTimer.current) window.clearTimeout(saveTimer.current)
         saveTimer.current = window.setTimeout(() => {
           void saveWorkflowLayout(workflowRunId, {
@@ -82,7 +117,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
           }).catch(() => undefined)
         }, 500)
       },
-      [workflowRunId, readOnly],
+      [workflowRunId],
     )
 
     const onConnect = useCallback(
@@ -96,6 +131,10 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
       },
       [readOnly, setEdges, persistLayout],
     )
+
+    const onNodeDragStop = useCallback(() => {
+      persistLayout(nodesRef.current, edgesRef.current)
+    }, [persistLayout])
 
     const addNodeFromTemplate = useCallback(
       async (template: NodeTemplate, methods: string[]) => {
@@ -158,27 +197,25 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
       <div className="h-[640px] rounded-lg border border-bda-border bg-bda-bg-elevated">
         {readOnly ? (
           <p className="border-b border-bda-border px-3 py-2 text-xs text-bda-muted">
-            Completed workflow run is read-only.
+            Completed run — nodes can be repositioned; adding or rewiring steps is locked.
           </p>
         ) : null}
         <ReactFlow
           nodes={nodes}
           edges={edges}
-          onNodesChange={(changes) => {
-            onNodesChange(changes)
-            if (!readOnly) persistLayout(nodesRef.current, edgesRef.current)
-          }}
+          onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onNodeDragStop={onNodeDragStop}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
           proOptions={proOptions}
-          nodesDraggable={!readOnly}
+          nodesDraggable
           nodesConnectable={!readOnly}
           edgesReconnectable={!readOnly}
           panOnScroll
-          selectionOnDrag={!readOnly}
+          selectionOnDrag={false}
         >
           <Background gap={20} color="#2c323d" />
           <MiniMap
