@@ -1,0 +1,43 @@
+groups:
+  - name: bda-api-availability
+    rules:
+      - alert: ApiDown
+        expr: up{job="bda-api"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "BDA API is down"
+          description: "Prometheus has not been able to scrape the BDA API for over 1 minute."
+
+      - alert: HighApi5xxRate
+        expr: |
+          sum(rate(http_requests_total{job="bda-api",status=~"5.."}[5m]))
+            / sum(rate(http_requests_total{job="bda-api"}[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Elevated 5xx error rate on BDA API"
+          description: "More than 5% of API requests have failed with 5xx for 5 minutes."
+
+      - alert: HighApiLatencyP99
+        expr: |
+          histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job="bda-api"}[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "BDA API p99 latency above 2s"
+          description: "99th percentile request latency has exceeded 2 seconds for 5 minutes."
+
+  - name: bda-infra
+    rules:
+      - alert: PrometheusTargetMissing
+        expr: up == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Prometheus target missing ({{ $labels.job }})"
+          description: "A scrape target has been unreachable for more than 2 minutes."

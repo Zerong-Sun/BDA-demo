@@ -4,19 +4,37 @@ import { useEffect } from 'react'
 import { Topbar } from './components/ui/Topbar'
 import { Toast } from './components/ui/Toast'
 import { CopilotDrawer } from './components/ui/CopilotDrawer'
+import { ErrorBoundary } from './components/ui/ErrorBoundary'
 import { ExperimentsPage } from './app/Experiments'
 import { WorkflowPage } from './app/Workflow'
 import { CandidatesPage } from './app/Candidates'
 import { ResultsPage } from './app/Results'
 import { LoginPage } from './app/Login'
-import { setUnauthorizedHandler } from './lib/api/client'
+import { ApiError, setUnauthorizedHandler } from './lib/api/client'
 import { useAppStore } from './lib/store/appStore'
 
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      // Retry transient failures up to 3 times, but never retry client errors
+      // (4xx) such as 401/404 where retrying cannot help.
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          return false
+        }
+        return failureCount < 3
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 30_000),
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
+          return false
+        }
+        return failureCount < 2
+      },
+      retryDelay: (attempt) => Math.min(1000 * 2 ** attempt, 10_000),
     },
   },
 })
@@ -40,7 +58,9 @@ function AppShell() {
     <>
       <Topbar />
       <main className="mx-auto max-w-[1440px] px-6 py-6">
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
       <CopilotDrawer open={copilotOpen} onClose={() => setCopilotOpen(false)} />
       <Toast />

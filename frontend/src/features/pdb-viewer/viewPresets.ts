@@ -1,7 +1,5 @@
 import type { ViewPreset } from './ColorPresets'
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MolPlugin = any
+import type { MolPlugin } from './molstar-types'
 
 const VIEW_DIRECTIONS: Record<
   Exclude<ViewPreset, 'focus'>,

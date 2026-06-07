@@ -16,6 +16,7 @@ from ..services.artifacts import (
     resolve_artifact_path,
 )
 from ..services.artifact_store import get_artifact_store
+from ..settings import get_settings
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -47,10 +48,20 @@ async def upload_pdb(
     stored_name = f"{file_id}{suffix}"
     relative_path = f"uploads/{stored_name}"
 
+    max_bytes = get_settings().bda_max_upload_bytes
     with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=suffix) as tmp:
         tmp_path = Path(tmp.name)
         content_preview = ""
+        written = 0
         while chunk := await file.read(1024 * 1024):
+            written += len(chunk)
+            if written > max_bytes:
+                tmp.flush()
+                tmp_path.unlink(missing_ok=True)
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"file_too_large_max_{max_bytes}_bytes",
+                )
             tmp.write(chunk)
         tmp.flush()
 

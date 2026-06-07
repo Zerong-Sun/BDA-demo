@@ -6,6 +6,8 @@ interface ApiStateProps {
   isError?: boolean
   error?: unknown
   loadingMessage?: string
+  /** Optional skeleton UI shown while loading instead of the text message. */
+  loadingSkeleton?: ReactNode
   emptyMessage?: string
   isEmpty?: boolean
   onRetry?: () => void
@@ -17,13 +19,21 @@ export function ApiState({
   isError,
   error,
   loadingMessage = 'Loading...',
+  loadingSkeleton,
   emptyMessage,
   isEmpty,
   onRetry,
   children,
 }: ApiStateProps) {
   if (isLoading) {
-    return <p className="text-sm text-bda-muted">{loadingMessage}</p>
+    if (loadingSkeleton) {
+      return <>{loadingSkeleton}</>
+    }
+    return (
+      <p className="text-sm text-bda-muted" role="status" aria-live="polite">
+        {loadingMessage}
+      </p>
+    )
   }
 
   if (isError) {

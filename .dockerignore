@@ -1,0 +1,37 @@
+# Version control / CI
+.git
+.github
+.gitignore
+
+# Python caches & local envs
+.venv
+**/__pycache__
+**/*.pyc
+.pytest_cache
+.ruff_cache
+*.egg-info
+
+# Node / frontend build artifacts
+**/node_modules
+frontend/dist
+frontend/.vite
+
+# Local data, secrets, and artifacts (never bake into images)
+.env
+.env.*
+!.env.example
+backend/db/*.sqlite3*
+artifacts/uploads
+artifacts/structures
+
+# Editor / OS noise
+.DS_Store
+.cursor
+.idea
+.vscode
+*.log
+
+# Docs & demo assets not needed at runtime
+docs
+fig
+README*.md
