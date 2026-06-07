@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from './client'
+import { fetchPaginatedList } from './pagination'
 import {
   CandidateFunnelSchema,
   DeliveryPackageSchema,
@@ -9,17 +10,9 @@ import {
 } from '../schemas/delivery'
 import { ProjectOverviewSchema, ProjectSchema, type Project, type ProjectOverview } from '../schemas/project'
 import { WorkflowRunSchema, type WorkflowRun } from '../schemas/workflow'
-import { z } from 'zod'
-
-const PaginatedProjectsSchema = z.object({
-  items: z.array(ProjectSchema),
-  total: z.number(),
-  limit: z.number(),
-  offset: z.number(),
-})
 
 export function listProjects(): Promise<Project[]> {
-  return apiRequest('/projects', {}, PaginatedProjectsSchema).then((page) => page.items)
+  return fetchPaginatedList('/projects', ProjectSchema)
 }
 
 export function getProjectOverview(projectId: string) {

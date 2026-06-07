@@ -8,7 +8,13 @@ const DEFAULT_PROJECT_ID = 'proj_pd1_0423'
 export function useProjectContext() {
   const [searchParams, setSearchParams] = useSearchParams()
 
-  const { data: projects = [], isLoading: projectsLoading } = useQuery({
+  const {
+    data: projects = [],
+    isLoading: projectsLoading,
+    isError: projectsError,
+    error: projectsQueryError,
+    refetch: refetchProjects,
+  } = useQuery({
     queryKey: ['projects'],
     queryFn: listProjects,
     staleTime: 30_000,
@@ -45,6 +51,9 @@ export function useProjectContext() {
     activeProject,
     projects,
     projectsLoading,
+    projectsError,
+    projectsQueryError,
+    refetchProjects,
     setProjectId,
   }
 }
