@@ -96,6 +96,28 @@ def update_job_status(
     return get_job(connection, job_id)
 
 
+def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
+    if not plugin:
+        return {}
+    requirements = plugin.get("resource_requirement_json") or {}
+    if isinstance(requirements, str):
+        requirements = json.loads(requirements)
+    env = dict((requirements.get("runtime_env") or {}))
+    gpu_count = requirements.get("gpu_count") or 0
+    if gpu_count:
+        env.setdefault("BDA_GPU", "1")
+    return env
+
+
+def _enqueue_poll(job_id: str) -> None:
+    try:
+        from ..celery_app import poll_job_status
+
+        poll_job_status.delay(job_id)
+    except Exception:
+        pass
+
+
 def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_node_id: str | None = None) -> dict:
     node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
     if node is None:
@@ -116,40 +138,39 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         compute_node_id=compute_node_id,
     )
 
-    if plugin and plugin.get("container_image"):
-        spec = JobSpec(
-            job_id=job["job_id"],
-            workflow_run_id=node.get("workflow_run_id"),
-            node_run_id=node_run_id,
-            plugin_id=plugin_id,
-            container_image=plugin["container_image"],
-            command=plugin.get("command_template") or "",
-            input_artifacts=node.get("input_files_json") or {},
-            compute_node_id=compute_node_id,
-        )
-        adapter = get_compute_adapter()
+    runtime_env = _plugin_runtime_env(plugin)
+    container_image = (plugin or {}).get("container_image") or "bda/demo:latest"
+    command = (plugin or {}).get("command_template") or "echo demo"
+
+    spec = JobSpec(
+        job_id=job["job_id"],
+        workflow_run_id=node.get("workflow_run_id"),
+        node_run_id=node_run_id,
+        plugin_id=plugin_id,
+        container_image=container_image,
+        command=command,
+        input_artifacts=node.get("input_files_json") or {},
+        compute_node_id=compute_node_id,
+        env=runtime_env,
+    )
+    adapter = get_compute_adapter()
+    try:
         handle = adapter.submit(spec)
-        update_job_status(connection, job["job_id"], status="running", external_id=handle.external_id)
+    except RuntimeError as exc:
+        update_job_status(connection, job["job_id"], status="failed", error_message=str(exc))
+        raise ValueError(str(exc)) from exc
+
+    st = adapter.status(job["job_id"], handle.external_id)
+    update_job_status(
+        connection,
+        job["job_id"],
+        status=st.status if st.status != "blocked" else "queued",
+        logs=st.logs,
+        external_id=handle.external_id,
+    )
+    if st.status not in ("blocked", "failed"):
         catalog.update_workflow_node(connection, node_run_id, status="queued")
-    else:
-        adapter = get_compute_adapter()
-        spec = JobSpec(
-            job_id=job["job_id"],
-            workflow_run_id=node.get("workflow_run_id"),
-            node_run_id=node_run_id,
-            plugin_id=plugin_id,
-            container_image="bda/demo:latest",
-            command="echo demo",
-        )
-        handle = adapter.submit(spec)
-        st = adapter.status(job["job_id"], handle.external_id)
-        update_job_status(
-            connection,
-            job["job_id"],
-            status=st.status if st.status != "blocked" else "queued",
-            logs=st.logs,
-            external_id=handle.external_id,
-        )
+    _enqueue_poll(job["job_id"])
 
     return get_job(connection, job["job_id"]) or job
 

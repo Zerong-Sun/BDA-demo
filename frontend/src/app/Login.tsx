@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { apiRequest } from '../api/client'
+import { apiRequest } from '../lib/api/client'
 
 interface LoginResponse {
   access_token: string

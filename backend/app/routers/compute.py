@@ -27,32 +27,14 @@ def submit_workflow_run(
     connection: sqlite3.Connection = Depends(get_connection),
 ):
     payload = payload or SubmitWorkflowRequest()
-    jobs = job_service.submit_workflow_jobs(
-        connection, workflow_run_id, payload.compute_node_id
-    )
+    jobs = job_service.submit_workflow_jobs(connection, workflow_run_id, payload.compute_node_id)
     if not jobs:
-        from ..compute.factory import get_compute_adapter
-        from ..compute.adapter import JobSpec
-        import uuid
-
-        adapter = get_compute_adapter()
-        demo_id = f"job_{uuid.uuid4().hex[:8]}"
-        spec = JobSpec(
-            job_id=demo_id,
-            workflow_run_id=workflow_run_id,
-            node_run_id=None,
-            plugin_id="demo",
-            container_image="bda/demo:latest",
-            command="echo demo",
-        )
-        handle = adapter.submit(spec)
-        st = adapter.status(demo_id, handle.external_id)
         return envelope({
             "workflow_run_id": workflow_run_id,
-            "status": st.status,
-            "reason": "compute_not_connected" if st.status == "blocked" else None,
-            "message": st.logs or "Workflow submitted.",
-            "job_ids": [demo_id] if st.status != "blocked" else [],
+            "status": "blocked",
+            "reason": "no_submittable_nodes",
+            "message": "No pending workflow nodes to submit, or compute is in demo mode.",
+            "job_ids": [],
         })
     return envelope({
         "workflow_run_id": workflow_run_id,
@@ -71,7 +53,9 @@ def submit_workflow_node(
     try:
         job = job_service.submit_node_job(connection, node_run_id, payload.compute_node_id)
     except ValueError as exc:
-        raise HTTPException(status_code=404, detail=str(exc)) from exc
+        detail = str(exc)
+        status = 404 if detail == "node_not_found" else 400
+        raise HTTPException(status_code=status, detail=detail) from exc
     return envelope({
         "node_run_id": node_run_id,
         "job_id": job.get("job_id"),

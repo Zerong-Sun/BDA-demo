@@ -35,6 +35,7 @@ app.add_middleware(AuditLogMiddleware)
 api_v1 = APIRouter(prefix="/api/v1")
 
 api_v1.include_router(auth.router)
+api_v1.include_router(auth.users_router)
 api_v1.include_router(core.router)
 api_v1.include_router(files.router)
 api_v1.include_router(experiments.router)

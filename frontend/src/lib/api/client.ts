@@ -25,9 +25,8 @@ export function setUnauthorizedHandler(handler: () => void) {
   onUnauthorized = handler
 }
 
-function authHeaders(): HeadersInit {
-  const token = sessionStorage.getItem('bda_token')
-  return token ? { Authorization: `Bearer ${token}` } : {}
+function authToken(): string | null {
+  return sessionStorage.getItem('bda_token')
 }
 
 export async function apiRequest<T>(
@@ -39,9 +38,9 @@ export async function apiRequest<T>(
   if (!(options.body instanceof FormData)) {
     headers.set('content-type', 'application/json')
   }
-  const auth = authHeaders()
-  if (auth.Authorization) {
-    headers.set('Authorization', auth.Authorization as string)
+  const token = authToken()
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`)
   }
 
   const response = await fetch(`${API_BASE}${path}`, {

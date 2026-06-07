@@ -112,6 +112,16 @@ def test_auth_login():
     assert data["user"]["role"] == "admin"
 
 
+def test_users_requires_admin():
+    login = client.post(f"{API}/auth/login", json={"username": "admin", "password": "admin123"})
+    token = login.json()["data"]["access_token"]
+    headers = {"Authorization": f"Bearer {token}"}
+    assert client.get(f"{API}/users").status_code == 401
+    ok = client.get(f"{API}/users", headers=headers)
+    assert ok.status_code == 200
+    assert any(u["username"] == "admin" for u in ok.json()["data"])
+
+
 def test_copilot_skills():
     response = client.get(f"{API}/copilot/skills")
     assert response.status_code == 200

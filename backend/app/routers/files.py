@@ -4,10 +4,9 @@ import uuid
 import zipfile
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
-from ..config import UPLOADS_ROOT
 from ..db import get_connection
 from ..repositories import catalog
 from ..services.artifacts import (
@@ -123,7 +122,11 @@ def download_artifact(artifact_path: str):
 
 
 @router.get("/projects/{project_id}/delivery-package/download")
-def download_delivery_package(project_id: str, connection=Depends(get_connection)):
+def download_delivery_package(
+    project_id: str,
+    background_tasks: BackgroundTasks,
+    connection=Depends(get_connection),
+):
     package = catalog.get_project_delivery_package(connection, project_id)
     if package is None:
         raise HTTPException(status_code=404, detail="delivery_package_not_found")
@@ -154,11 +157,11 @@ def download_delivery_package(project_id: str, connection=Depends(get_connection
                         f"Placeholder for missing artifact: {relative}\n",
                     )
 
+        background_tasks.add_task(tmp_path.unlink, missing_ok=True)
         return FileResponse(
             tmp_path,
             media_type="application/zip",
             filename=f"{project_id}_delivery.zip",
-            background=None,
         )
     except Exception:
         tmp_path.unlink(missing_ok=True)

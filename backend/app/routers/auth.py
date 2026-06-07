@@ -96,5 +96,3 @@ def post_user(
         "role": user["role"],
         "display_name": user.get("display_name"),
     })
-
-router.include_router(users_router)
