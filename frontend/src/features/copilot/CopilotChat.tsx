@@ -37,7 +37,13 @@ export function CopilotChat() {
         ))}
       </div>
       <div className="flex items-center gap-2 border-t border-bda-border p-3">
+        <label htmlFor="copilot-input" className="sr-only">
+          Ask the Copilot a question
+        </label>
         <input
+          id="copilot-input"
+          aria-label="Ask the Copilot a question"
+          placeholder="Ask about candidates, results, or next steps…"
           className="flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
           value={input}
           disabled={loading}
@@ -46,11 +52,12 @@ export function CopilotChat() {
         />
         <button
           type="button"
+          aria-label="Send message"
           className="rounded-md border border-bda-border p-2 hover:bg-bda-panel-hover disabled:opacity-50"
           disabled={loading}
           onClick={() => void handleSend()}
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-4 w-4" aria-hidden="true" />
         </button>
       </div>
     </div>

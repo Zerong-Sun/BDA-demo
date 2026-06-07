@@ -18,6 +18,20 @@ security = HTTPBearer(auto_error=False)
 
 ROLES = frozenset({"admin", "researcher", "viewer"})
 
+MIN_PASSWORD_LENGTH = 8
+
+
+def validate_password_strength(password: str) -> None:
+    """Enforce a minimum length and basic complexity.
+
+    Raises ``ValueError('weak_password')`` when the password fails the policy:
+    at least 8 characters and a mix of letters and digits.
+    """
+    if len(password) < MIN_PASSWORD_LENGTH:
+        raise ValueError("weak_password")
+    if not any(c.isalpha() for c in password) or not any(c.isdigit() for c in password):
+        raise ValueError("weak_password")
+
 
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -62,6 +76,7 @@ def create_user(
 ) -> dict:
     if role not in ROLES:
         raise ValueError("invalid_role")
+    validate_password_strength(password)
     if get_user_by_username(connection, username):
         raise ValueError("username_taken")
     user_id = f"user_{uuid.uuid4().hex[:10]}"

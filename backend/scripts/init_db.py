@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 import sqlite3
 import sys
@@ -32,7 +33,16 @@ def seed_admin_user(connection: sqlite3.Connection) -> None:
         return
     from backend.app.auth.service import create_user
 
-    create_user(connection, username="admin", password="admin123", role="admin", display_name="Administrator")
+    # Bootstrap password is environment-driven; the demo default is only used
+    # when BDA_ADMIN_PASSWORD is unset. Set a strong value for any real deployment.
+    admin_password = os.environ.get("BDA_ADMIN_PASSWORD", "admin123")
+    create_user(
+        connection,
+        username="admin",
+        password=admin_password,
+        role="admin",
+        display_name="Administrator",
+    )
 
     org_id = "org_default"
     connection.execute(
@@ -71,6 +81,11 @@ def init_db(seed: bool = True) -> Path:
 
 
 if __name__ == "__main__":
+    # --if-missing makes container startup safe to run on every boot: it will
+    # not re-apply schema/seed (and risk clobbering data) once the DB exists.
+    if "--if-missing" in sys.argv and DB_PATH.exists():
+        print(f"BDA database already present, skipping init: {DB_PATH}")
+        sys.exit(0)
     should_seed = "--no-seed" not in sys.argv
     path = init_db(seed=should_seed)
     print(f"Initialized BDA database: {path}")

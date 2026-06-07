@@ -6,6 +6,7 @@ import {
   molstarColorTheme,
   molstarRepresentation,
 } from './ColorPresets'
+import type { MolPlugin } from './molstar-types'
 import { ViewerControls } from './ViewerControls'
 import { applyViewPreset } from './viewPresets'
 
@@ -17,9 +18,6 @@ export interface MolStarViewerProps {
   onReady?: () => void
   onError?: (message: string) => void
 }
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type MolPlugin = any
 
 async function createMolPlugin(container: HTMLDivElement): Promise<MolPlugin> {
   const [{ createPluginUI }, { renderReact18 }, { DefaultPluginUISpec }, { PluginConfig }] =
@@ -47,11 +45,12 @@ async function createMolPlugin(container: HTMLDivElement): Promise<MolPlugin> {
     [PluginConfig.Viewport.ShowAnimation, false],
   ]
 
-  return createPluginUI({
+  const plugin = await createPluginUI({
     target: container,
     render: renderReact18,
     spec,
   })
+  return plugin as unknown as MolPlugin
 }
 
 async function applyVisualPreset(
@@ -88,6 +87,16 @@ export function MolStarViewer({
   const [error, setError] = useState<string | null>(null)
   const [structureLoaded, setStructureLoaded] = useState(false)
 
+  // Keep the latest callbacks in refs so the (expensive) init effect can run
+  // exactly once on mount instead of tearing down and rebuilding the Mol*
+  // plugin every time the parent passes new inline onReady/onError handlers.
+  const onReadyRef = useRef(onReady)
+  const onErrorRef = useRef(onError)
+  useEffect(() => {
+    onReadyRef.current = onReady
+    onErrorRef.current = onError
+  }, [onReady, onError])
+
   useEffect(() => {
     let disposed = false
 
@@ -102,11 +111,11 @@ export function MolStarViewer({
           return
         }
         pluginRef.current = plugin
-        onReady?.()
+        onReadyRef.current?.()
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to initialize Mol* viewer'
         setError(message)
-        onError?.(message)
+        onErrorRef.current?.(message)
       } finally {
         if (!disposed) setLoading(false)
       }
@@ -119,39 +128,39 @@ export function MolStarViewer({
       pluginRef.current?.destroy()
       pluginRef.current = null
     }
-  }, [onError, onReady])
+  }, [])
 
   useEffect(() => {
     const plugin = pluginRef.current
     if (!plugin || loading) return
 
-    async function loadStructure() {
+    async function loadStructure(activePlugin: MolPlugin) {
       if (!file && !sourceUrl) {
         setStructureLoaded(false)
         return
       }
       try {
         setError(null)
-        await plugin.clear()
+        await activePlugin.clear()
         if (file) {
           const text = await file.text()
-          await plugin.loadStructureFromData(text, file.name.endsWith('.cif') ? 'mmcif' : 'pdb')
+          await activePlugin.loadStructureFromData(text, file.name.endsWith('.cif') ? 'mmcif' : 'pdb')
         } else if (sourceUrl) {
           const format = sourceUrl.endsWith('.cif') ? 'mmcif' : 'pdb'
-          await plugin.loadStructureFromUrl(sourceUrl, format)
+          await activePlugin.loadStructureFromUrl(sourceUrl, format)
         }
-        await applyVisualPreset(plugin, representation, color)
+        await applyVisualPreset(activePlugin, representation, color)
         setStructureLoaded(true)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load structure'
         setError(message)
-        onError?.(message)
+        onErrorRef.current?.(message)
         setStructureLoaded(false)
       }
     }
 
-    loadStructure()
-  }, [sourceUrl, file, loading, representation, color, onError])
+    loadStructure(plugin)
+  }, [sourceUrl, file, loading, representation, color])
 
   useEffect(() => {
     const plugin = pluginRef.current

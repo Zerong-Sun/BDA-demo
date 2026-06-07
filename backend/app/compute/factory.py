@@ -83,10 +83,28 @@ class LocalDockerAdapter:
         return container.logs(tail=tail).decode("utf-8", errors="replace")
 
 
+_adapter_cache: dict[str, ComputeAdapter] = {}
+
+
 def get_compute_adapter() -> ComputeAdapter:
+    """Return a cached compute adapter for the configured mode.
+
+    Adapters (notably ``LocalDockerAdapter``, which opens a Docker client) are
+    expensive to construct, so we memoize one instance per compute mode instead
+    of building a fresh adapter on every call.
+    """
     from ..settings import get_settings
 
     mode = get_settings().bda_compute_mode
-    if mode == "docker":
-        return LocalDockerAdapter()
-    return DemoComputeAdapter()
+    cached = _adapter_cache.get(mode)
+    if cached is not None:
+        return cached
+
+    adapter: ComputeAdapter = LocalDockerAdapter() if mode == "docker" else DemoComputeAdapter()
+    _adapter_cache[mode] = adapter
+    return adapter
+
+
+def reset_compute_adapter_cache() -> None:
+    """Clear the cached adapters (useful in tests or after a settings change)."""
+    _adapter_cache.clear()

@@ -29,6 +29,13 @@ function authToken(): string | null {
   return sessionStorage.getItem('bda_token')
 }
 
+const MAX_RETRIES = 2
+const RETRYABLE_STATUS = new Set([429, 502, 503, 504])
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 export async function apiRequest<T>(
   path: string,
   options: RequestInit = {},
@@ -43,10 +50,37 @@ export async function apiRequest<T>(
     headers.set('Authorization', `Bearer ${token}`)
   }
 
-  const response = await fetch(`${API_BASE}${path}`, {
-    ...options,
-    headers,
-  })
+  // Only idempotent requests are safe to auto-retry on transient failures.
+  const method = (options.method ?? 'GET').toUpperCase()
+  const isIdempotent = method === 'GET' || method === 'HEAD'
+
+  let response: Response
+  let attempt = 0
+  // Retry loop: handles transient network errors and retryable status codes
+  // with exponential backoff for idempotent requests.
+  for (;;) {
+    try {
+      response = await fetch(`${API_BASE}${path}`, { ...options, headers })
+    } catch (networkError) {
+      if (isIdempotent && attempt < MAX_RETRIES) {
+        await sleep(300 * 2 ** attempt)
+        attempt += 1
+        continue
+      }
+      throw new ApiError(
+        networkError instanceof Error ? networkError.message : 'Network request failed',
+        0,
+        networkError,
+      )
+    }
+
+    if (isIdempotent && RETRYABLE_STATUS.has(response.status) && attempt < MAX_RETRIES) {
+      await sleep(300 * 2 ** attempt)
+      attempt += 1
+      continue
+    }
+    break
+  }
 
   if (response.status === 401) {
     onUnauthorized?.()
