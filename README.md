@@ -122,7 +122,7 @@ npm install
 npm run dev
 ```
 
-Open **http://127.0.0.1:5173?project=proj_pd1_0423** (API on port `8100`, proxied via Vite).
+Open **http://127.0.0.1:5173/#/experiments?project=proj_pd1_0423** (API on port `8100`, proxied via Vite).
 
 ### Docker Compose (production-like)
 

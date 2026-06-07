@@ -1,4 +1,4 @@
-import { artifactUrl } from '../../lib/api/client'
+import { artifactUrl, deliveryPackageDownloadUrl } from '../../lib/api/client'
 import type { DeliveryPackageData } from '../../lib/api/projects'
 
 interface DeliveryPackageProps {
@@ -98,13 +98,15 @@ export function DeliveryPackage({ packageData, loading, projectId }: DeliveryPac
             <h3 className="text-sm font-medium text-bda-text">Round-two design brief</h3>
             <ul className="mt-2 space-y-1 text-sm text-bda-muted">
               {briefItems.map((item) => (
-                <li key={item}>{item}</li>
+                <li key={item} className="break-words">
+                  {item}
+                </li>
               ))}
             </ul>
           </div>
           <a
             className="mt-4 inline-flex text-sm text-bda-cyan hover:underline"
-            href={`/api/projects/${projectId}/delivery-package/download`}
+            href={deliveryPackageDownloadUrl(projectId)}
             target="_blank"
             rel="noreferrer"
           >

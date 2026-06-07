@@ -4,6 +4,8 @@ import { ChevronDown } from 'lucide-react'
 import { useI18n } from '../../lib/i18n'
 import { useProjectContext } from '../../lib/hooks/useProjectContext'
 import { useAppStore } from '../../lib/store/appStore'
+import { BackendHealthBanner } from './BackendHealthBanner'
+import { CopilotToggleButton } from './CopilotDrawer'
 
 const routes = [
   { to: '/experiments', key: 'experiments' as const },
@@ -25,10 +27,11 @@ function currentUserLabel(): string | null {
 
 export function Topbar() {
   const navigate = useNavigate()
-  const { language, setLanguage } = useAppStore()
+  const { language, setLanguage, copilotOpen, setCopilotOpen } = useAppStore()
   const { t } = useI18n()
-  const { projects, activeProject, setProjectId } = useProjectContext()
+  const { projects, activeProject, projectId, setProjectId } = useProjectContext()
   const userLabel = currentUserLabel()
+  const projectQuery = `?project=${encodeURIComponent(projectId)}`
 
   const logout = () => {
     sessionStorage.removeItem('bda_token')
@@ -37,15 +40,16 @@ export function Topbar() {
   }
 
   return (
+    <>
     <header className="sticky top-0 z-40 flex items-center gap-4 border-b border-bda-border bg-bda-bg/95 px-6 py-3 backdrop-blur">
-      <NavLink to="/experiments" className="text-sm font-semibold text-bda-cyan">
+      <NavLink to={`/experiments${projectQuery}`} className="text-sm font-semibold text-bda-cyan">
         {t.brand}
       </NavLink>
       <nav className="flex flex-1 items-center gap-1 overflow-x-auto">
         {routes.map((route) => (
           <NavLink
             key={route.to}
-            to={route.to}
+            to={`${route.to}${projectQuery}`}
             className={({ isActive }) =>
               clsx(
                 'rounded-md px-3 py-1.5 text-sm transition-colors',
@@ -76,6 +80,7 @@ export function Topbar() {
         <ChevronDown className="pointer-events-none absolute right-1 h-4 w-4" />
       </label>
       <div className="flex items-center gap-3 text-xs text-bda-muted">
+        <CopilotToggleButton active={copilotOpen} onClick={() => setCopilotOpen(!copilotOpen)} />
         <span className="inline-flex items-center gap-1.5">
           <span className="h-2 w-2 rounded-full bg-bda-amber" />
           {t.demoMode}
@@ -109,5 +114,7 @@ export function Topbar() {
         </button>
       </div>
     </header>
+    <BackendHealthBanner />
+    </>
   )
 }

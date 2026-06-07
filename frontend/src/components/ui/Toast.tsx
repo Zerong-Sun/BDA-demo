@@ -8,14 +8,28 @@ interface ToastState {
   clear: () => void
 }
 
+let dismissTimer: number | null = null
+
 export const useToastStore = create<ToastState>((set) => ({
   message: null,
   tone: 'info',
   show: (message, tone = 'info') => {
+    if (dismissTimer !== null) {
+      window.clearTimeout(dismissTimer)
+    }
     set({ message, tone })
-    window.setTimeout(() => set({ message: null }), 3200)
+    dismissTimer = window.setTimeout(() => {
+      set({ message: null })
+      dismissTimer = null
+    }, 3200)
   },
-  clear: () => set({ message: null }),
+  clear: () => {
+    if (dismissTimer !== null) {
+      window.clearTimeout(dismissTimer)
+      dismissTimer = null
+    }
+    set({ message: null })
+  },
 }))
 
 export function Toast() {
