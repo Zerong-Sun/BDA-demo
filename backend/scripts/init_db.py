@@ -3,6 +3,9 @@ import sqlite3
 import sys
 
 ROOT = Path(__file__).resolve().parents[1]
+REPO_ROOT = ROOT.parent
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
 DB_PATH = ROOT / "db" / "bda.sqlite3"
 SCHEMA = ROOT / "db" / "schema.sql"
 SCHEMA_EXTENDED = ROOT / "db" / "schema_extended.sql"
