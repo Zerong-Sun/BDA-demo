@@ -94,7 +94,6 @@ def create_user(
             datetime.now(timezone.utc).isoformat(),
         ),
     )
-    connection.commit()
     return get_user_by_username(connection, username) or {}
 
 

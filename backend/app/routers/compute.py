@@ -3,6 +3,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from ..auth.deps import require_node_run_access, require_workflow_run_access
 from ..db import get_connection
 from ..services import job_service
 from ..utils.response import envelope
@@ -25,6 +26,7 @@ def submit_workflow_run(
     workflow_run_id: str,
     payload: SubmitWorkflowRequest | None = None,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
 ):
     payload = payload or SubmitWorkflowRequest()
     jobs = job_service.submit_workflow_jobs(connection, workflow_run_id, payload.compute_node_id)
@@ -48,7 +50,14 @@ def submit_workflow_node(
     node_run_id: str,
     payload: SubmitNodeRequest | None = None,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_node_run_access),
 ):
+    from ..repositories import catalog
+
+    node = catalog.get_workflow_node(connection, node_run_id)
+    if node is None:
+        raise HTTPException(status_code=404, detail="node_not_found")
+
     payload = payload or SubmitNodeRequest()
     try:
         job = job_service.submit_node_job(connection, node_run_id, payload.compute_node_id)

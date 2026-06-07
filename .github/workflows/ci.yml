@@ -25,7 +25,7 @@ jobs:
         env:
           PYTHONPATH: .
       - name: Run tests
-        run: python -m pytest backend/tests/test_api.py -q
+        run: python -m pytest backend/tests/ -q
         env:
           PYTHONPATH: .
       - name: Lint

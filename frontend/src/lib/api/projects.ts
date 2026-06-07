@@ -11,8 +11,15 @@ import { ProjectOverviewSchema, ProjectSchema, type Project, type ProjectOvervie
 import { WorkflowRunSchema, type WorkflowRun } from '../schemas/workflow'
 import { z } from 'zod'
 
-export function listProjects() {
-  return apiRequest<Project[]>('/projects', {}, z.array(ProjectSchema))
+const PaginatedProjectsSchema = z.object({
+  items: z.array(ProjectSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+})
+
+export function listProjects(): Promise<Project[]> {
+  return apiRequest('/projects', {}, PaginatedProjectsSchema).then((page) => page.items)
 }
 
 export function getProjectOverview(projectId: string) {

@@ -8,11 +8,16 @@ import {
 } from '../schemas/workflow'
 import { z } from 'zod'
 
-export function listWorkflowNodes(workflowRunId: string) {
-  return apiRequest<WorkflowNode[]>(
-    `/workflow-runs/${workflowRunId}/nodes`,
-    {},
-    z.array(WorkflowNodeSchema),
+const PaginatedNodesSchema = z.object({
+  items: z.array(WorkflowNodeSchema),
+  total: z.number(),
+  limit: z.number(),
+  offset: z.number(),
+})
+
+export function listWorkflowNodes(workflowRunId: string): Promise<WorkflowNode[]> {
+  return apiRequest(`/workflow-runs/${workflowRunId}/nodes`, {}, PaginatedNodesSchema).then(
+    (page) => page.items,
   )
 }
 

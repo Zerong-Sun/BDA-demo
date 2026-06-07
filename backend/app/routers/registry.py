@@ -1,7 +1,8 @@
 import sqlite3
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
+from ..auth.deps import get_current_user, require_role
 from ..db import get_connection
 from ..repositories import registry
 from ..utils.response import envelope
@@ -10,12 +11,22 @@ router = APIRouter()
 
 
 @router.get("/servers")
-def servers(connection: sqlite3.Connection = Depends(get_connection)):
-    return envelope(registry.list_servers(connection))
+def servers(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items, total = registry.list_servers_paginated(connection, limit=limit, offset=offset)
+    return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @router.get("/servers/{server_id}")
-def server(server_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def server(
+    server_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
     item = registry.get_server(connection, server_id)
     if item is None:
         raise HTTPException(status_code=404, detail="server_not_found")
@@ -23,7 +34,11 @@ def server(server_id: str, connection: sqlite3.Connection = Depends(get_connecti
 
 
 @router.post("/servers/{server_id}/health-check")
-def server_health_check(server_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def server_health_check(
+    server_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
     item = registry.get_server(connection, server_id)
     if item is None:
         raise HTTPException(status_code=404, detail="server_not_found")
@@ -31,12 +46,22 @@ def server_health_check(server_id: str, connection: sqlite3.Connection = Depends
 
 
 @router.get("/compute-nodes")
-def compute_nodes(connection: sqlite3.Connection = Depends(get_connection)):
-    return envelope(registry.list_compute_nodes(connection))
+def compute_nodes(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items, total = registry.list_compute_nodes_paginated(connection, limit=limit, offset=offset)
+    return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @router.get("/compute-nodes/{compute_node_id}")
-def compute_node(compute_node_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def compute_node(
+    compute_node_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
     item = registry.get_compute_node(connection, compute_node_id)
     if item is None:
         raise HTTPException(status_code=404, detail="compute_node_not_found")
@@ -44,7 +69,11 @@ def compute_node(compute_node_id: str, connection: sqlite3.Connection = Depends(
 
 
 @router.post("/compute-nodes/{compute_node_id}/health-check")
-def compute_node_health_check(compute_node_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def compute_node_health_check(
+    compute_node_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
     item = registry.get_compute_node(connection, compute_node_id)
     if item is None:
         raise HTTPException(status_code=404, detail="compute_node_not_found")
@@ -56,12 +85,22 @@ def compute_node_health_check(compute_node_id: str, connection: sqlite3.Connecti
 
 
 @router.get("/model-plugins")
-def model_plugins(connection: sqlite3.Connection = Depends(get_connection)):
-    return envelope(registry.list_model_plugins(connection))
+def model_plugins(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items, total = registry.list_model_plugins_paginated(connection, limit=limit, offset=offset)
+    return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @router.get("/model-plugins/{model_plugin_id}")
-def model_plugin(model_plugin_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def model_plugin(
+    model_plugin_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
     item = registry.get_model_plugin(connection, model_plugin_id)
     if item is None:
         raise HTTPException(status_code=404, detail="model_plugin_not_found")
@@ -69,7 +108,11 @@ def model_plugin(model_plugin_id: str, connection: sqlite3.Connection = Depends(
 
 
 @router.post("/model-plugins/{model_plugin_id}/validate-schema")
-def validate_model_plugin(model_plugin_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def validate_model_plugin(
+    model_plugin_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
     item = registry.get_model_plugin(connection, model_plugin_id)
     if item is None:
         raise HTTPException(status_code=404, detail="model_plugin_not_found")
@@ -82,12 +125,22 @@ def validate_model_plugin(model_plugin_id: str, connection: sqlite3.Connection =
 
 
 @router.get("/method-plugins")
-def method_plugins(connection: sqlite3.Connection = Depends(get_connection)):
-    return envelope(registry.list_method_plugins(connection))
+def method_plugins(
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items, total = registry.list_method_plugins_paginated(connection, limit=limit, offset=offset)
+    return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
 @router.get("/method-plugins/{method_plugin_id}")
-def method_plugin(method_plugin_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def method_plugin(
+    method_plugin_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
     item = registry.get_method_plugin(connection, method_plugin_id)
     if item is None:
         raise HTTPException(status_code=404, detail="method_plugin_not_found")
@@ -95,7 +148,10 @@ def method_plugin(method_plugin_id: str, connection: sqlite3.Connection = Depend
 
 
 @router.get("/llm-providers")
-def llm_providers(connection: sqlite3.Connection = Depends(get_connection)):
+def llm_providers(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
     from ..repositories.base import decode_rows
 
     rows = connection.execute("SELECT * FROM llm_providers").fetchall()
@@ -103,7 +159,11 @@ def llm_providers(connection: sqlite3.Connection = Depends(get_connection)):
 
 
 @router.post("/llm-providers/{llm_provider_id}/test")
-def test_llm_provider(llm_provider_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def test_llm_provider(
+    llm_provider_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
     from ..settings import get_settings
 
     settings = get_settings()

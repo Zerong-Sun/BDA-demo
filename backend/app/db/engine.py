@@ -26,7 +26,14 @@ def get_async_engine():
         raise RuntimeError("PostgreSQL not configured")
     if _engine is None:
         url = settings.bda_db_path.replace("postgresql://", "postgresql+asyncpg://")
-        _engine = create_async_engine(url, echo=False)
+        _engine = create_async_engine(
+            url,
+            echo=False,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+            pool_recycle=3600,
+        )
         _session_factory = async_sessionmaker(_engine, expire_on_commit=False)
     return _engine
 

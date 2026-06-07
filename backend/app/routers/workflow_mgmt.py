@@ -4,6 +4,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from ..auth.deps import require_project_access, require_workflow_run_access
 from ..db import get_connection
 from ..repositories import catalog
 from ..utils.response import envelope
@@ -33,7 +34,11 @@ class WorkflowLayoutRequest(BaseModel):
 
 
 @router.post("/projects/{project_id}/workflow-runs")
-def create_workflow_run(project_id: str, connection: sqlite3.Connection = Depends(get_connection)):
+def create_workflow_run(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
     project = catalog.get_project(connection, project_id)
     if project is None:
         raise HTTPException(status_code=404, detail="project_not_found")
@@ -46,6 +51,7 @@ def add_workflow_node(
     workflow_run_id: str,
     payload: AddWorkflowNodeRequest,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
 ):
     run = catalog.get_workflow_run(connection, workflow_run_id)
     if run is None:
@@ -72,6 +78,7 @@ def patch_workflow_node(
     node_run_id: str,
     payload: UpdateWorkflowNodeRequest,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
 ):
     run = catalog.get_workflow_run(connection, workflow_run_id)
     if run is None:
@@ -96,6 +103,7 @@ def remove_workflow_node(
     workflow_run_id: str,
     node_run_id: str,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
 ):
     run = catalog.get_workflow_run(connection, workflow_run_id)
     if run is None:
@@ -112,6 +120,7 @@ def patch_workflow_layout(
     workflow_run_id: str,
     payload: WorkflowLayoutRequest,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
 ):
     run = catalog.get_workflow_run(connection, workflow_run_id)
     if run is None:

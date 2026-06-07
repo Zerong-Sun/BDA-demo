@@ -24,7 +24,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
 
         connection = None
         try:
-            from ..db import connect
+            from ..db import connect, release_connection
 
             connection = connect()
             actor_id = self._resolve_actor(request, connection)
@@ -46,7 +46,8 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
             )
             connection.commit()
         except Exception as exc:  # noqa: BLE001
-            # Auditing must never break the request, but failures must be observable.
+            if connection is not None:
+                connection.rollback()
             logger.warning(
                 "audit_log_write_failed",
                 path=request.url.path,
@@ -54,9 +55,10 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                 error=str(exc),
             )
         finally:
-            # Always release the connection, even if INSERT/commit raised mid-way.
             if connection is not None:
-                connection.close()
+                from ..db import release_connection
+
+                release_connection(connection)
         return response
 
     @staticmethod

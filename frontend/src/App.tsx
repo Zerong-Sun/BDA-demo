@@ -50,6 +50,14 @@ function AuthHandler() {
   return null
 }
 
+function RequireAuth() {
+  const token = sessionStorage.getItem('bda_token')
+  if (!token) {
+    return <Navigate to="/login" replace />
+  }
+  return <Outlet />
+}
+
 function AppShell() {
   const copilotOpen = useAppStore((s) => s.copilotOpen)
   const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
@@ -76,12 +84,14 @@ export default function App() {
         <div className="min-h-screen bg-bda-bg text-bda-text">
           <Routes>
             <Route path="/login" element={<LoginPage />} />
-            <Route element={<AppShell />}>
-              <Route index element={<Navigate to="/experiments" replace />} />
-              <Route path="/experiments" element={<ExperimentsPage />} />
-              <Route path="/workflow" element={<WorkflowPage />} />
-              <Route path="/candidates" element={<CandidatesPage />} />
-              <Route path="/results" element={<ResultsPage />} />
+            <Route element={<RequireAuth />}>
+              <Route element={<AppShell />}>
+                <Route index element={<Navigate to="/experiments" replace />} />
+                <Route path="/experiments" element={<ExperimentsPage />} />
+                <Route path="/workflow" element={<WorkflowPage />} />
+                <Route path="/candidates" element={<CandidatesPage />} />
+                <Route path="/results" element={<ResultsPage />} />
+              </Route>
             </Route>
           </Routes>
         </div>

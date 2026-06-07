@@ -11,20 +11,28 @@ import {
 } from '../schemas/registry'
 import { z } from 'zod'
 
-export function listModelPlugins() {
-  return apiRequest<ModelPlugin[]>('/model-plugins', {}, z.array(ModelPluginSchema))
+const paginated = <T extends z.ZodTypeAny>(itemSchema: T) =>
+  z.object({
+    items: z.array(itemSchema),
+    total: z.number(),
+    limit: z.number(),
+    offset: z.number(),
+  })
+
+export function listModelPlugins(): Promise<ModelPlugin[]> {
+  return apiRequest('/model-plugins', {}, paginated(ModelPluginSchema)).then((page) => page.items)
 }
 
-export function listMethodPlugins() {
-  return apiRequest<MethodPlugin[]>('/method-plugins', {}, z.array(MethodPluginSchema))
+export function listMethodPlugins(): Promise<MethodPlugin[]> {
+  return apiRequest('/method-plugins', {}, paginated(MethodPluginSchema)).then((page) => page.items)
 }
 
-export function listComputeNodes() {
-  return apiRequest<ComputeNode[]>('/compute-nodes', {}, z.array(ComputeNodeSchema))
+export function listComputeNodes(): Promise<ComputeNode[]> {
+  return apiRequest('/compute-nodes', {}, paginated(ComputeNodeSchema)).then((page) => page.items)
 }
 
-export function listServers() {
-  return apiRequest<ServerConnection[]>('/servers', {}, z.array(ServerConnectionSchema))
+export function listServers(): Promise<ServerConnection[]> {
+  return apiRequest('/servers', {}, paginated(ServerConnectionSchema)).then((page) => page.items)
 }
 
 export function checkComputeNodeHealth(computeNodeId: string) {

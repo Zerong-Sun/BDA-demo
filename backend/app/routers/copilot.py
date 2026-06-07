@@ -1,9 +1,12 @@
 import json
 import sqlite3
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.concurrency import run_in_threadpool
 from sse_starlette.sse import EventSourceResponse
 
+from ..auth.deps import get_current_user
+from ..auth.service import verify_project_access
 from ..db import get_connection
 from ..repositories import catalog
 from ..schemas import CandidateExplanationRequest, CopilotChatRequest, ResultInterpretationRequest, RoutePlanRequest
@@ -104,8 +107,29 @@ def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest
     }
 
 
+def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
+    from ..settings import get_settings
+
+    settings = get_settings()
+    if settings.llm_api_key:
+        from ..copilot.service import chat_with_llm
+
+        return chat_with_llm(connection, payload)
+    return _rule_based_chat(connection, payload)
+
+
+def _ensure_project_access(connection: sqlite3.Connection, user: dict, project_id: str | None) -> None:
+    if project_id and not verify_project_access(connection, user, project_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
 @router.post("/route-plan")
-def route_plan(payload: RoutePlanRequest, connection: sqlite3.Connection = Depends(get_connection)):
+def route_plan(
+    payload: RoutePlanRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
     nodes = catalog.list_workflow_nodes(connection, "run_pd1_round1") if payload.project_id else []
     return envelope({
         "mode": "rule_based_demo",
@@ -129,6 +153,7 @@ def route_plan(payload: RoutePlanRequest, connection: sqlite3.Connection = Depen
 def candidate_explanation(
     payload: CandidateExplanationRequest,
     connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
 ):
     candidate = catalog.get_candidate(connection, payload.candidate_id)
     reasons = [
@@ -149,25 +174,24 @@ def candidate_explanation(
     })
 
 
-def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
-    from ..settings import get_settings
-
-    settings = get_settings()
-    if settings.llm_api_key:
-        from ..copilot.service import chat_with_llm
-
-        return chat_with_llm(connection, payload)
-    return _rule_based_chat(connection, payload)
-
-
 @router.post("/chat")
-def copilot_chat(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+def copilot_chat(
+    payload: CopilotChatRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
     return envelope(_resolve_chat(connection, payload))
 
 
 @router.post("/chat/stream")
-async def copilot_chat_stream(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
-    result = _resolve_chat(connection, payload)
+async def copilot_chat_stream(
+    payload: CopilotChatRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
+    result = await run_in_threadpool(_resolve_chat, connection, payload)
 
     async def event_generator():
         message = result.get("message", "")
@@ -180,7 +204,12 @@ async def copilot_chat_stream(payload: CopilotChatRequest, connection: sqlite3.C
 
 
 @router.post("/chat/sync")
-def copilot_chat_sync(payload: CopilotChatRequest, connection: sqlite3.Connection = Depends(get_connection)):
+def copilot_chat_sync(
+    payload: CopilotChatRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
     return envelope(_resolve_chat(connection, payload))
 
 
@@ -188,7 +217,9 @@ def copilot_chat_sync(payload: CopilotChatRequest, connection: sqlite3.Connectio
 def result_interpretation(
     payload: ResultInterpretationRequest,
     connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
 ):
+    _ensure_project_access(connection, user, payload.project_id)
     summary = catalog.get_project_results_summary(connection, payload.project_id)
     package = catalog.get_project_delivery_package(connection, payload.project_id)
     constraints = (package or {}).get("redesign_constraints") or {}
@@ -206,7 +237,7 @@ def result_interpretation(
 
 
 @router.get("/skills")
-def list_skills():
+def list_skills(_user: dict = Depends(get_current_user)):
     return envelope([
         {"name": "workflow-adjust", "description": "Adjust workflow parameters and constraints"},
         {"name": "result-interpret", "description": "Interpret BLI/SEC experiment results"},

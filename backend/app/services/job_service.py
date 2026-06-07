@@ -43,7 +43,6 @@ def create_job(
             _now_iso(),
         ),
     )
-    connection.commit()
     return get_job(connection, job_id) or {}
 
 
@@ -92,7 +91,6 @@ def update_job_status(
         params.append(_now_iso())
     params.append(job_id)
     connection.execute(f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?", params)
-    connection.commit()
     return get_job(connection, job_id)
 
 
