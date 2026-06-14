@@ -17,7 +17,7 @@
     "@tanstack/react-table": "^8.21.3",
     "@xyflow/react": "^12.11.0",
     "clsx": "^2.1.1",
-    "lucide-react": "^1.17.0",
+    "lucide-react": "^1.18.0",
     "molstar": "^5.9.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
