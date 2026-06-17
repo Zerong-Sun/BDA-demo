@@ -5,6 +5,7 @@ import sqlite3
 from typing import Any
 
 from ..settings import get_settings
+from .biomaterials_skill import BIOMATERIALS_SYSTEM_PROMPT
 
 
 def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
@@ -16,10 +17,7 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
     client = OpenAI(base_url=settings.llm_api_base, api_key=settings.llm_api_key)
 
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
-    system = (
-        "You are BDA Copilot, an assistant for protein binder design workflows. "
-        "Use available tools to query candidates, interpret results, and suggest workflow changes."
-    )
+    system = BIOMATERIALS_SYSTEM_PROMPT
 
     response = client.chat.completions.create(
         model=settings.llm_model,

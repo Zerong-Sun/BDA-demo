@@ -236,6 +236,25 @@ CREATE TABLE IF NOT EXISTS llm_providers (
   status TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS knowledge_entries (
+  knowledge_entry_id TEXT PRIMARY KEY,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  subcategory TEXT,
+  summary TEXT NOT NULL,
+  content TEXT NOT NULL,
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  related_model_plugins TEXT NOT NULL DEFAULT '[]',
+  related_method_plugins TEXT NOT NULL DEFAULT '[]',
+  source_type TEXT NOT NULL DEFAULT 'curated',
+  citation TEXT,
+  confidence TEXT NOT NULL DEFAULT 'curated',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   audit_id TEXT PRIMARY KEY,
   actor_id TEXT,
@@ -258,6 +277,8 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_workflow_run_id ON artifacts(workflow_run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_node_run_id ON artifacts(node_run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
+CREATE INDEX IF NOT EXISTS idx_knowledge_entries_category ON knowledge_entries(category);
+CREATE INDEX IF NOT EXISTS idx_knowledge_entries_status ON knowledge_entries(status);
 CREATE INDEX IF NOT EXISTS idx_candidates_project_id ON candidates(project_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_workflow_run_id ON candidates(workflow_run_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(status);

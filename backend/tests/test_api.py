@@ -51,16 +51,123 @@ def test_candidates_invalid_sort(client: TestClient, auth_headers: dict[str, str
 
 
 def test_copilot_chat(client: TestClient, auth_headers: dict[str, str]):
+    from backend.app.settings import get_settings
+
+    settings = get_settings()
+    original_api_key = settings.llm_api_key
+    settings.llm_api_key = ""
+    try:
+        response = client.post(
+            f"{API}/copilot/chat",
+            headers=auth_headers,
+            json={
+                "messages": [{"role": "user", "content": "Which candidates should we order?"}],
+                "project_id": "proj_pd1_0423",
+            },
+        )
+        assert response.status_code == 200
+        assert response.json()["data"]["mode"] == "rule_based_demo"
+    finally:
+        settings.llm_api_key = original_api_key
+
+
+def test_copilot_rejects_out_of_domain_chat(client: TestClient, auth_headers: dict[str, str]):
     response = client.post(
         f"{API}/copilot/chat",
         headers=auth_headers,
-        json={
-            "messages": [{"role": "user", "content": "Which candidates should we order?"}],
-            "project_id": "proj_pd1_0423",
-        },
+        json={"messages": [{"role": "user", "content": "Write a travel plan for Paris."}]},
     )
     assert response.status_code == 200
-    assert response.json()["data"]["mode"] == "rule_based_demo"
+    data = response.json()["data"]
+    assert data["mode"] == "domain_guard"
+    assert data["skill_used"] == "programmable-biomaterials-expert"
+
+
+def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str, str]):
+    from backend.app.settings import get_settings
+
+    settings = get_settings()
+    original = {
+        "llm_api_base": settings.llm_api_base,
+        "llm_api_key": settings.llm_api_key,
+        "llm_model": settings.llm_model,
+    }
+    try:
+        response = client.put(
+            f"{API}/copilot/config",
+            headers=auth_headers,
+            json={
+                "llm_api_base": "https://llm.example.test/v1",
+                "llm_api_key": "sk-test-programmable-biomaterials",
+                "llm_model": "bda-specialist",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["llm_api_base"] == "https://llm.example.test/v1"
+        assert data["llm_model"] == "bda-specialist"
+        assert data["api_key_configured"] is True
+        assert data["api_key_preview"] == "...ials"
+        assert "sk-test-programmable-biomaterials" not in str(data)
+    finally:
+        settings.llm_api_base = original["llm_api_base"]
+        settings.llm_api_key = original["llm_api_key"]
+        settings.llm_model = original["llm_model"]
+
+
+def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, str]):
+    response = client.get(f"{API}/copilot/knowledge?q=ProteinMPNN", headers=auth_headers)
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["total"] >= 1
+    assert any(item["knowledge_entry_id"] == "kb_proteinmpnn" for item in data["items"])
+
+
+def test_copilot_uses_biomaterials_knowledge_base(client: TestClient, auth_headers: dict[str, str]):
+    from backend.app.settings import get_settings
+
+    settings = get_settings()
+    original_api_key = settings.llm_api_key
+    settings.llm_api_key = ""
+    try:
+        response = client.post(
+            f"{API}/copilot/chat",
+            headers=auth_headers,
+            json={
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": "How should RFdiffusion and ProteinMPNN connect in the workflow?",
+                    }
+                ],
+                "skill": "programmable-biomaterials-expert",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["mode"] == "rule_based_demo"
+        assert "Relevant programmable biomaterials knowledge" in data["message"]
+        assert "RFdiffusion" in data["message"]
+    finally:
+        settings.llm_api_key = original_api_key
+
+
+def test_copilot_knowledge_tool(client: TestClient, auth_headers: dict[str, str]):
+    from backend.app.copilot.tools import execute_tool
+    from backend.app.db import connect, release_connection
+
+    connection = connect()
+    try:
+        result = execute_tool(
+            connection,
+            "search_biomaterials_knowledge",
+            '{"query":"Rosetta interface metrics","limit":3}',
+            None,
+        )
+    finally:
+        release_connection(connection)
+    assert result["items"]
+    assert any("Rosetta" in item["title"] or "interface" in item["title"].lower() for item in result["items"])
 
 
 def test_experiment_upload_csv(client: TestClient, auth_headers: dict[str, str]):
