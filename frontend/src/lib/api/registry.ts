@@ -19,6 +19,31 @@ export function listMethodPlugins(): Promise<MethodPlugin[]> {
   return fetchPaginatedList('/method-plugins', MethodPluginSchema)
 }
 
+export interface CreateMethodPluginPayload {
+  method_name: string
+  method_type?: string
+  description?: string | null
+  input_schema_json?: Record<string, unknown>
+  output_schema_json?: Record<string, unknown>
+  parameter_schema_json?: Record<string, unknown>
+  compatible_model_types?: string[]
+  compatible_workflow_nodes?: string[]
+  default_parameters_json?: Record<string, unknown>
+  version?: string
+  status?: 'active' | 'experimental' | 'disabled'
+}
+
+export function createMethodPlugin(payload: CreateMethodPluginPayload): Promise<MethodPlugin> {
+  return apiRequest<MethodPlugin>(
+    '/method-plugins',
+    {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    },
+    MethodPluginSchema,
+  )
+}
+
 export function listComputeNodes(): Promise<ComputeNode[]> {
   return fetchPaginatedList('/compute-nodes', ComputeNodeSchema)
 }

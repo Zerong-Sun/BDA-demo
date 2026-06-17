@@ -77,25 +77,17 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
       const existingPositions = new Map(
         nodesRef.current.map((n) => [n.id, n.position]),
       )
-      const incomingIds = new Set(initialNodes.map((n) => n.id))
-      const hasChange =
-        incomingIds.size !== nodesRef.current.length ||
-        initialNodes.some((n) => !nodesRef.current.find((e) => e.id === n.id))
-
-      if (!hasChange) return
 
       setNodes((current) => {
-        const currentIds = new Set(current.map((n) => n.id))
-        const merged = [
-          ...current.filter((n) => incomingIds.has(n.id)),
-          ...initialNodes
-            .filter((n) => !currentIds.has(n.id))
-            .map((n) => ({
-              ...n,
-              position: existingPositions.get(n.id) ?? n.position,
-            })),
-        ]
-        return merged
+        const currentById = new Map(current.map((node) => [node.id, node]))
+        return initialNodes.map((node) => {
+          const existing = currentById.get(node.id)
+          return {
+            ...node,
+            position: existingPositions.get(node.id) ?? node.position,
+            selected: existing?.selected,
+          }
+        })
       })
 
       if (initialEdges && initialEdges.length > 0) {
@@ -119,8 +111,11 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
             })),
             edges: currentEdges.map((edge) => ({
               id: edge.id,
-              source: edge.source,
-              target: edge.target,
+              source_node_run_id: edge.source,
+              target_node_run_id: edge.target,
+              source_port: typeof edge.sourceHandle === 'string' ? edge.sourceHandle : 'output',
+              target_port: typeof edge.targetHandle === 'string' ? edge.targetHandle : 'input',
+              edge_type: edge.label === 'feedback' ? 'feedback' : 'data',
             })),
           }).catch(() => undefined)
         }, 500)

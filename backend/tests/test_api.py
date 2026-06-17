@@ -75,6 +75,78 @@ def test_experiment_upload_csv(client: TestClient, auth_headers: dict[str, str])
     assert response.json()["data"]["imported"] == 1
 
 
+def test_artifact_upload_preview_download_and_list(client: TestClient, auth_headers: dict[str, str]):
+    fasta_body = ">design_1\nACDEFGHIKLMNPQRSTVWY\n"
+    upload = client.post(
+        f"{API}/artifacts/upload",
+        headers=auth_headers,
+        files={"file": ("designs.fasta", io.BytesIO(fasta_body.encode()), "text/plain")},
+        data={
+            "project_id": "proj_pd1_0423",
+            "artifact_type": "sequence_set",
+            "metadata_json": '{"source":"pytest"}',
+        },
+    )
+    assert upload.status_code == 200
+    artifact = upload.json()["data"]
+    assert artifact["artifact_type"] == "sequence_set"
+    assert artifact["format"] == "fasta"
+    assert artifact["metadata_json"]["source"] == "pytest"
+    assert artifact["metadata_json"]["sequence_count"] == 1
+
+    detail = client.get(f"{API}/artifacts/{artifact['artifact_id']}", headers=auth_headers)
+    assert detail.status_code == 200
+    assert detail.json()["data"]["download_url"].endswith("/download")
+
+    preview = client.get(f"{API}/artifacts/{artifact['artifact_id']}/preview", headers=auth_headers)
+    assert preview.status_code == 200
+    assert "design_1" in preview.json()["data"]["preview"]["text"]
+
+    download = client.get(f"{API}/artifacts/{artifact['artifact_id']}/download", headers=auth_headers)
+    assert download.status_code == 200
+    assert download.text == fasta_body
+
+    listed = client.get(f"{API}/projects/proj_pd1_0423/artifacts?artifact_type=sequence_set", headers=auth_headers)
+    assert listed.status_code == 200
+    assert any(item["artifact_id"] == artifact["artifact_id"] for item in listed.json()["data"]["items"])
+
+
+def test_artifact_batch_download(client: TestClient, auth_headers: dict[str, str]):
+    upload = client.post(
+        f"{API}/artifacts/upload",
+        headers=auth_headers,
+        files={"file": ("scores.csv", io.BytesIO(b"name,score\nx,-1.2\n"), "text/csv")},
+        data={"project_id": "proj_pd1_0423", "artifact_type": "score_table"},
+    )
+    assert upload.status_code == 200
+    artifact_id = upload.json()["data"]["artifact_id"]
+    response = client.post(
+        f"{API}/artifacts/batch-download",
+        headers=auth_headers,
+        json={"artifact_ids": [artifact_id], "filename": "scores.zip"},
+    )
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/zip"
+
+
+def test_target_pdb_upload_registers_artifact(client: TestClient, auth_headers: dict[str, str]):
+    pdb_body = (
+        "ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00  0.00           N\n"
+        "END\n"
+    )
+    response = client.post(
+        f"{API}/targets/upload-pdb",
+        headers=auth_headers,
+        files={"file": ("target.pdb", io.BytesIO(pdb_body.encode()), "chemical/x-pdb")},
+        data={"project_id": "proj_pd1_0423"},
+    )
+    assert response.status_code == 200
+    payload = response.json()["data"]
+    assert payload["artifact"]["artifact_type"] == "target_structure"
+    assert payload["artifact"]["format"] == "pdb"
+    assert payload["artifact"]["download_url"].endswith("/download")
+
+
 def test_workflow_create_and_add_node(client: TestClient, auth_headers: dict[str, str]):
     create = client.post(f"{API}/projects/proj_nanocage_0518/workflow-runs", headers=auth_headers)
     assert create.status_code == 200
@@ -100,7 +172,57 @@ def test_registry_requires_auth(client: TestClient):
 def test_registry_list(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/model-plugins", headers=auth_headers)
     assert response.status_code == 200
-    assert "items" in response.json()["data"]
+    data = response.json()["data"]
+    assert "items" in data
+    names = {item["model_name"] for item in data["items"]}
+    assert {"RFdiffusion", "ProteinMPNN", "AlphaFold2", "Rosetta", "Mask RGN"}.issubset(names)
+
+
+def test_model_plugin_schema_is_frontend_renderable(client: TestClient, auth_headers: dict[str, str]):
+    response = client.get(f"{API}/model-plugins/plugin_rfdiffusion", headers=auth_headers)
+    assert response.status_code == 200
+    plugin = response.json()["data"]
+    assert plugin["container_image"] == "bda/rfdiffusion:1.1.0"
+    assert plugin["input_schema_json"]["ports"][0]["name"] == "target_structure"
+    assert plugin["output_schema_json"]["ports"][0]["name"] == "backbone_set"
+    fields = plugin["parameter_schema_json"]["fields"]
+    assert any(field["key"] == "num_designs" and field["type"] == "integer" for field in fields)
+    assert any(field["key"] == "diffusion_steps" and field["advanced"] is True for field in fields)
+
+
+def test_create_method_plugin_for_workflow_reference(client: TestClient, auth_headers: dict[str, str]):
+    response = client.post(
+        f"{API}/method-plugins",
+        headers=auth_headers,
+        json={
+            "method_name": "Interface energy gate",
+            "method_type": "scoring_filter",
+            "description": "Reject designs above a Rosetta interface energy cutoff.",
+            "compatible_model_types": ["Rosetta"],
+            "compatible_workflow_nodes": ["scoring"],
+            "default_parameters_json": {"interface_delta_g_max": -8.0},
+        },
+    )
+    assert response.status_code == 200
+    method = response.json()["data"]
+    assert method["method_plugin_id"].startswith("method_")
+    assert method["method_name"] == "Interface energy gate"
+    assert method["compatible_model_types"] == ["Rosetta"]
+    assert method["default_parameters_json"]["interface_delta_g_max"] == -8.0
+
+    listed = client.get(f"{API}/method-plugins", headers=auth_headers)
+    assert listed.status_code == 200
+    ids = {item["method_plugin_id"] for item in listed.json()["data"]["items"]}
+    assert method["method_plugin_id"] in ids
+
+
+def test_maskrgn_plugin_registered(client: TestClient, auth_headers: dict[str, str]):
+    response = client.get(f"{API}/model-plugins/plugin_maskrgn", headers=auth_headers)
+    assert response.status_code == 200
+    plugin = response.json()["data"]
+    assert plugin["provider"] == "internal"
+    assert plugin["status"] == "experimental"
+    assert plugin["parameter_schema_json"]["fields"][0]["key"] == "checkpoint_key"
 
 
 def test_artifact_path_traversal_blocked(client: TestClient, auth_headers: dict[str, str]):

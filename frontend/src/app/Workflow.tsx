@@ -3,13 +3,14 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Plus } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
 import { NodeBuilder } from '../features/workflow/NodeBuilder'
-import { mapApiNodesToGraph } from '../features/workflow/workflowMapper'
+import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
-import { createWorkflowRun, listWorkflowNodes, submitWorkflowRun } from '../lib/api/workflow'
+import { createWorkflowRun, getWorkflowGraph, submitWorkflowRun } from '../lib/api/workflow'
+import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
@@ -38,22 +39,37 @@ export function WorkflowPage() {
 
   const workflowRunId = workflowRun?.workflow_run_id
 
-  const { data: workflowNodes = [] } = useQuery({
-    queryKey: ['workflow-nodes', workflowRunId],
-    queryFn: () => listWorkflowNodes(workflowRunId!),
+  const { data: workflowGraph } = useQuery({
+    queryKey: ['workflow-graph', workflowRunId],
+    queryFn: () => getWorkflowGraph(workflowRunId!),
     enabled: Boolean(workflowRunId),
     refetchInterval: (query) => {
-      const nodes = query.state.data ?? []
-      return nodes.some((node) => node.status === 'running') ? 3000 : false
+      const nodes = query.state.data?.nodes ?? []
+      return nodes.some((node) => ['queued', 'staging', 'running', 'collecting_outputs'].includes(node.status)) ? 3000 : false
     },
   })
 
+  const { data: projectArtifacts = [] } = useQuery({
+    queryKey: ['project-artifacts', projectId],
+    queryFn: () => listProjectArtifacts(projectId),
+  })
+
+  const workflowNodes = workflowGraph?.nodes ?? []
+  const workflowArtifacts = workflowGraph?.artifacts ?? []
+  const visibleArtifacts = useMemo(() => {
+    const byId = new Map<string, Artifact>()
+    for (const artifact of [...workflowArtifacts, ...projectArtifacts, ...artifacts]) {
+      byId.set(artifact.artifact_id, artifact)
+    }
+    return Array.from(byId.values())
+  }, [artifacts, projectArtifacts, workflowArtifacts])
+
   const graph = useMemo(
-    () => (workflowNodes.length > 0 ? mapApiNodesToGraph(workflowNodes) : null),
-    [workflowNodes],
+    () => (workflowNodes.length > 0 ? mapApiGraphToGraph(workflowNodes, workflowGraph?.edges ?? []) : null),
+    [workflowGraph?.edges, workflowNodes],
   )
   const selectedNode = workflowNodes.find((node) => node.node_run_id === selectedNodeId) ?? null
-  const selectedArtifact = artifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) ?? null
+  const selectedArtifact = visibleArtifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) ?? null
 
   const readOnly = workflowRun?.status === 'completed'
 
@@ -79,7 +95,8 @@ export function WorkflowPage() {
       } else {
         showToast('Workflow submitted to compute', 'success')
       }
-      queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRunId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
     },
     onError: () => showToast('Failed to start workflow', 'error'),
   })
@@ -144,10 +161,11 @@ export function WorkflowPage() {
         <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
           <WorkflowResourceSidebar
             projectId={projectId}
-            artifacts={artifacts}
+            artifacts={visibleArtifacts}
             selectedArtifactId={selectedArtifactId}
             onArtifactUploaded={(artifact) => {
               setArtifacts((current) => [artifact, ...current.filter((item) => item.artifact_id !== artifact.artifact_id)])
+              queryClient.invalidateQueries({ queryKey: ['project-artifacts', projectId] })
               setSelectedArtifactId(artifact.artifact_id)
               setSelectedNodeId(null)
             }}
@@ -159,39 +177,45 @@ export function WorkflowPage() {
 
           <main className="min-w-0">
             {workflowRun ? (
-              <NodeBuilder
-                open={builderOpen && !readOnly}
-                onClose={() => setBuilderOpen(false)}
-                onAdd={async (template, nodeName, methods, parameters) => {
-                  try {
-                    await canvasRef.current?.addNodeFromTemplate(template, nodeName, methods, parameters)
-                    showToast(`Added "${nodeName}" to workflow`, 'success')
-                    setBuilderOpen(false)
-                    queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRunId] })
-                  } catch (err) {
-                    const message =
-                      err instanceof Error ? err.message : 'Failed to add workflow node'
-                    showToast(message, 'error')
-                    throw err
-                  }
-                }}
-              />
-            ) : null}
+              <>
+                <NodeBuilder
+                  open={builderOpen && !readOnly}
+                  onClose={() => setBuilderOpen(false)}
+                  onAdd={async (template, nodeName, methods, parameters) => {
+                    try {
+                      await canvasRef.current?.addNodeFromTemplate(template, nodeName, methods, parameters)
+                      showToast(`Added "${nodeName}" to workflow`, 'success')
+                      setBuilderOpen(false)
+                      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+                    } catch (err) {
+                      const message =
+                        err instanceof Error ? err.message : 'Failed to add workflow node'
+                      showToast(message, 'error')
+                      throw err
+                    }
+                  }}
+                />
 
-            <WorkflowCanvas
-              ref={canvasRef}
-              initialNodes={graph?.nodes}
-              initialEdges={graph?.edges}
-              workflowRunId={workflowRun?.workflow_run_id}
-              readOnly={readOnly}
-              onNodeSelected={(nodeId) => {
-                setSelectedNodeId(nodeId)
-                if (nodeId) setSelectedArtifactId(undefined)
-              }}
-              onNodeAdded={() =>
-                queryClient.invalidateQueries({ queryKey: ['workflow-nodes', workflowRun?.workflow_run_id] })
-              }
-            />
+                <WorkflowCanvas
+                  ref={canvasRef}
+                  initialNodes={graph?.nodes ?? []}
+                  initialEdges={graph?.edges ?? []}
+                  workflowRunId={workflowRun.workflow_run_id}
+                  readOnly={readOnly}
+                  onNodeSelected={(nodeId) => {
+                    setSelectedNodeId(nodeId)
+                    if (nodeId) setSelectedArtifactId(undefined)
+                  }}
+                  onNodeAdded={() =>
+                    queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRun.workflow_run_id] })
+                  }
+                />
+              </>
+            ) : (
+              <div className="rounded-lg border border-dashed border-bda-border bg-bda-bg-elevated px-4 py-16 text-center text-sm text-bda-muted">
+                Create a workflow run to open the canvas.
+              </div>
+            )}
           </main>
 
           <WorkflowInspector

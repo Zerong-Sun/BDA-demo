@@ -145,7 +145,7 @@ docker compose up -d
 
 Default admin credentials (Docker): `admin` / `admin123`
 
-Set `BDA_COMPUTE_MODE=docker` to submit jobs to real model plugin containers instead of demo mode.
+Set `BDA_COMPUTE_MODE=docker` to submit jobs to real model plugin containers instead of demo mode. For local stub runner tests without Docker, use `BDA_COMPUTE_MODE=local`.
 
 ---
 
@@ -156,7 +156,7 @@ Copy `.env.example` to `.env`. Key variables:
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `BDA_DB_PATH` | `backend/db/bda.sqlite3` | SQLite path or PostgreSQL URL |
-| `BDA_COMPUTE_MODE` | `demo` | `demo` (blocked jobs) or `docker` (real containers) |
+| `BDA_COMPUTE_MODE` | `demo` | `demo` (blocked jobs), `local` (built-in stub runners), or `docker` (real containers) |
 | `BDA_ARTIFACTS_BACKEND` | `local` | `local` or MinIO-backed storage |
 | `BDA_JWT_SECRET` | — | JWT signing secret (change in production) |
 | `VITE_API_BASE` | `/api/v1` | Frontend API base (build-time) |

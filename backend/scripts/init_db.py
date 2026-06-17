@@ -62,6 +62,12 @@ def seed_admin_user(connection: sqlite3.Connection) -> None:
     connection.commit()
 
 
+def register_builtin_plugins(connection: sqlite3.Connection) -> None:
+    from backend.app.plugins.defaults import register_default_model_plugins
+
+    register_default_model_plugins(connection)
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -74,6 +80,7 @@ def init_db(seed: bool = True) -> Path:
         if seed:
             connection.executescript(SEED.read_text())
             seed_admin_user(connection)
+        register_builtin_plugins(connection)
         connection.commit()
     finally:
         connection.close()

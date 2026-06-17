@@ -1,9 +1,14 @@
 import { apiRequest } from './client'
-import { fetchPaginatedList } from './pagination'
 import { JobSchema, type Job } from '../schemas/job'
 
 export function listWorkflowJobs(workflowRunId: string): Promise<Job[]> {
-  return fetchPaginatedList(`/workflow-runs/${workflowRunId}/jobs`, JobSchema)
+  return apiRequest<{ items: unknown[] }>(`/workflow-runs/${workflowRunId}/jobs`).then((payload) =>
+    payload.items.map((item) => JobSchema.parse(item)),
+  )
+}
+
+export function getJob(jobId: string): Promise<Job> {
+  return apiRequest<Job>(`/jobs/${jobId}`, {}, JobSchema)
 }
 
 export function getJobLogs(jobId: string, tail = 200): Promise<{ job_id: string; logs: string }> {

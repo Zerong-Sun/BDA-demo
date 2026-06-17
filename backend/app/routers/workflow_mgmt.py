@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 
 from ..auth.deps import require_project_access, require_workflow_run_access
 from ..db import get_connection
-from ..repositories import catalog
+from ..repositories import artifacts as artifact_repo
+from ..repositories import catalog, registry
+from ..services import job_service
+from ..services.workflow_graph import validate_workflow_graph
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -33,6 +36,24 @@ class WorkflowLayoutRequest(BaseModel):
     edges: list[dict] = Field(default_factory=list)
 
 
+class WorkflowGraphRequest(BaseModel):
+    nodes: list[dict] = Field(default_factory=list)
+    edges: list[dict] = Field(default_factory=list)
+
+
+def _graph_payload(connection: sqlite3.Connection, workflow_run_id: str) -> dict:
+    run = catalog.get_workflow_run(connection, workflow_run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="workflow_run_not_found")
+    return {
+        "workflow_run": run,
+        "nodes": catalog.list_workflow_nodes(connection, workflow_run_id),
+        "edges": catalog.list_workflow_edges(connection, workflow_run_id),
+        "artifacts": artifact_repo.list_workflow_artifacts(connection, workflow_run_id),
+        "jobs": job_service.list_workflow_jobs(connection, workflow_run_id),
+    }
+
+
 @router.post("/projects/{project_id}/workflow-runs")
 def create_workflow_run(
     project_id: str,
@@ -44,6 +65,57 @@ def create_workflow_run(
         raise HTTPException(status_code=404, detail="project_not_found")
     item = catalog.create_draft_workflow_run(connection, project_id)
     return envelope(item)
+
+
+@router.get("/workflow-runs/{workflow_run_id}/graph")
+def get_workflow_graph(
+    workflow_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
+):
+    return envelope(_graph_payload(connection, workflow_run_id))
+
+
+@router.patch("/workflow-runs/{workflow_run_id}/graph")
+def patch_workflow_graph(
+    workflow_run_id: str,
+    payload: WorkflowGraphRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
+):
+    run = catalog.get_workflow_run(connection, workflow_run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="workflow_run_not_found")
+    if run["status"] == "completed":
+        raise HTTPException(status_code=409, detail="workflow_run_read_only")
+
+    for node in payload.nodes:
+        node_run_id = node.get("node_run_id")
+        position = node.get("position")
+        if node_run_id and position:
+            catalog.update_workflow_node(
+                connection,
+                node_run_id,
+                position_json=json.dumps(position),
+            )
+    edges = catalog.replace_workflow_edges(connection, workflow_run_id, payload.edges)
+    catalog.save_workflow_layout(connection, workflow_run_id, json.dumps({"nodes": payload.nodes, "edges": edges}))
+    return envelope(_graph_payload(connection, workflow_run_id))
+
+
+@router.post("/workflow-runs/{workflow_run_id}/validate")
+def validate_workflow(
+    workflow_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_workflow_run_access),
+):
+    run = catalog.get_workflow_run(connection, workflow_run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="workflow_run_not_found")
+    nodes = catalog.list_workflow_nodes(connection, workflow_run_id)
+    edges = catalog.list_workflow_edges(connection, workflow_run_id)
+    plugins = registry.list_model_plugins(connection)
+    return envelope(validate_workflow_graph(nodes, edges, plugins))
 
 
 @router.post("/workflow-runs/{workflow_run_id}/nodes")
@@ -139,5 +211,6 @@ def patch_workflow_layout(
                 position_json=json.dumps(position),
             )
 
+    catalog.replace_workflow_edges(connection, workflow_run_id, payload.edges)
     item = catalog.save_workflow_layout(connection, workflow_run_id, layout_json)
     return envelope(item)

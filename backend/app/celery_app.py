@@ -62,6 +62,8 @@ def poll_job_status(self, job_id: str) -> dict:
                 output_artifacts=live.output_artifacts or None,
                 error_message=live.error_message,
             )
+            if live.status == "completed":
+                job_service.collect_job_outputs(connection, job_id)
             node_run_id = (updated or job).get("node_run_id")
             if node_run_id and live.status in ("completed", "failed", "cancelled"):
                 from .repositories import catalog

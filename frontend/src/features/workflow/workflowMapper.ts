@@ -1,4 +1,4 @@
-import type { WorkflowNode } from '../../lib/schemas/workflow'
+import type { WorkflowEdge, WorkflowNode } from '../../lib/schemas/workflow'
 import type { BdaWorkflowEdge, BdaWorkflowNode, WorkflowNodeData, WorkflowNodeStatus } from './workflowTypes'
 
 const NODE_META: Record<
@@ -22,6 +22,8 @@ function mapStatus(status: string): WorkflowNodeStatus {
     case 'completed':
       return 'completed'
     case 'running':
+    case 'staging':
+    case 'collecting_outputs':
       return 'running'
     case 'failed':
       return 'failed'
@@ -116,6 +118,32 @@ export function mapApiNodesToGraph(apiNodes: WorkflowNode[]): {
   }))
 
   return { nodes, edges }
+}
+
+export function mapApiGraphToGraph(apiNodes: WorkflowNode[], apiEdges: WorkflowEdge[]): {
+  nodes: BdaWorkflowNode[]
+  edges: BdaWorkflowEdge[]
+} {
+  const mapped = mapApiNodesToGraph(apiNodes)
+  if (apiEdges.length === 0) return { ...mapped, edges: [] }
+  return {
+    nodes: mapped.nodes,
+    edges: apiEdges.map((edge) => ({
+      id: edge.edge_id,
+      source: edge.source_node_run_id,
+      target: edge.target_node_run_id,
+      sourceHandle: edge.source_port,
+      targetHandle: edge.target_port,
+      type: 'workflowEdge',
+      animated: edge.edge_type === 'data',
+      label: edge.edge_type === 'feedback' ? 'feedback' : undefined,
+      data: {
+        edgeType: edge.edge_type,
+        sourcePort: edge.source_port,
+        targetPort: edge.target_port,
+      },
+    })),
+  }
 }
 
 export function mapStatusForTest(status: string): WorkflowNodeStatus {

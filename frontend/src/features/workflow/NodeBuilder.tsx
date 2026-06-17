@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
-import { Loader2, X } from 'lucide-react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Plus, X } from 'lucide-react'
 import { nodeTemplates, type NodeTemplate } from './workflowTypes'
-import { listModelPlugins, listMethodPlugins } from '../../lib/api/registry'
+import { createMethodPlugin, listMethodPlugins, listModelPlugins } from '../../lib/api/registry'
 import { ParameterSchemaForm } from '../plugins'
 import { defaultsFromFields, fieldsFromParameterSchema } from '../../lib/forms/parameterSchema'
 import type { MethodPlugin } from '../../lib/schemas/registry'
@@ -32,6 +32,10 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const [parameters, setParameters] = useState<Record<string, unknown>>({})
   const [adding, setAdding] = useState(false)
   const [nameError, setNameError] = useState('')
+  const [newMethodName, setNewMethodName] = useState('')
+  const [newMethodType, setNewMethodType] = useState('custom')
+  const [newMethodDescription, setNewMethodDescription] = useState('')
+  const queryClient = useQueryClient()
 
   const { data: plugins = [] } = useQuery({
     queryKey: ['model-plugins'],
@@ -46,9 +50,10 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const methodOptions = useMemo(() => {
     if (methodPlugins.length > 0) {
       return methodPlugins.map((mp) => ({
-        key: mp.method_name,
+        key: mp.method_plugin_id,
         label: mp.method_name,
         description: mp.description,
+        method: mp,
       }))
     }
     const fallback = [
@@ -63,8 +68,40 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
       key,
       label: key,
       description: undefined as string | undefined,
+      method: undefined as MethodPlugin | undefined,
     }))
   }, [methodPlugins])
+
+  const activeMethodKeys = useMemo(() => {
+    const optionKeys = new Set(methodOptions.map((method) => method.key))
+    if (methods.some((method) => optionKeys.has(method))) return methods
+    return methodOptions.slice(0, 3).map((method) => method.key)
+  }, [methodOptions, methods])
+
+  const selectedMethodOptions = useMemo(
+    () => methodOptions.filter((method) => activeMethodKeys.includes(method.key)),
+    [activeMethodKeys, methodOptions],
+  )
+
+  const createMethod = useMutation({
+    mutationFn: () =>
+      createMethodPlugin({
+        method_name: newMethodName.trim(),
+        method_type: newMethodType.trim() || 'custom',
+        description: newMethodDescription.trim() || null,
+        compatible_model_types: template.modelName ? [template.modelName] : [],
+        compatible_workflow_nodes: [template.nodeType],
+        default_parameters_json: {},
+        status: 'active',
+      }),
+    onSuccess: async (method) => {
+      setNewMethodName('')
+      setNewMethodType('custom')
+      setNewMethodDescription('')
+      setMethods((prev) => Array.from(new Set([...prev, method.method_plugin_id])))
+      await queryClient.invalidateQueries({ queryKey: ['method-plugins'] })
+    },
+  })
 
   const templates = useMemo(() => {
     if (!plugins.length) return Object.values(nodeTemplates)
@@ -109,13 +146,30 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
       setNameError('Enter node name')
       return
     }
-    if (methods.length === 0) return
+    if (selectedMethodOptions.length === 0) return
     setNameError('')
     setAdding(true)
     try {
-      await onAdd(template, trimmedName, methods, {
+      const methodRefs = selectedMethodOptions.map((method) => {
+        if (method.method) {
+          return {
+            method_plugin_id: method.method.method_plugin_id,
+            method_name: method.method.method_name,
+            method_type: method.method.method_type,
+            default_parameters_json: method.method.default_parameters_json ?? {},
+          }
+        }
+        return {
+          method_plugin_id: null,
+          method_name: method.label,
+          method_type: 'built_in',
+          default_parameters_json: {},
+        }
+      })
+      await onAdd(template, trimmedName, selectedMethodOptions.map((method) => method.label), {
         ...defaultsFromFields(parameterFields),
         ...parameters,
+        method_refs: methodRefs,
       })
     } finally {
       setAdding(false)
@@ -202,10 +256,12 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
                 <input
                   type="checkbox"
                   className="mt-0.5 shrink-0"
-                  checked={methods.includes(method.key)}
+                  checked={activeMethodKeys.includes(method.key)}
                   onChange={(e) => {
-                    setMethods((prev) =>
-                      e.target.checked ? [...prev, method.key] : prev.filter((m) => m !== method.key),
+                    setMethods(
+                      e.target.checked
+                        ? Array.from(new Set([...activeMethodKeys, method.key]))
+                        : activeMethodKeys.filter((m) => m !== method.key),
                     )
                   }}
                   disabled={adding}
@@ -219,7 +275,46 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
               </label>
             ))}
           </div>
-          {methods.length === 0 ? (
+          <div className="mt-3 rounded-md border border-dashed border-bda-border p-2">
+            <div className="grid gap-2 sm:grid-cols-[1fr_0.75fr]">
+              <input
+                type="text"
+                className="min-w-0 rounded-md border border-bda-border bg-bda-bg px-2 py-1.5 text-sm text-bda-text placeholder:text-bda-muted"
+                placeholder="New method name"
+                value={newMethodName}
+                onChange={(e) => setNewMethodName(e.target.value)}
+                disabled={adding || createMethod.isPending}
+              />
+              <input
+                type="text"
+                className="min-w-0 rounded-md border border-bda-border bg-bda-bg px-2 py-1.5 text-sm text-bda-text placeholder:text-bda-muted"
+                placeholder="Type"
+                value={newMethodType}
+                onChange={(e) => setNewMethodType(e.target.value)}
+                disabled={adding || createMethod.isPending}
+              />
+            </div>
+            <textarea
+              className="mt-2 min-h-14 w-full resize-y rounded-md border border-bda-border bg-bda-bg px-2 py-1.5 text-sm text-bda-text placeholder:text-bda-muted"
+              placeholder="Method note"
+              value={newMethodDescription}
+              onChange={(e) => setNewMethodDescription(e.target.value)}
+              disabled={adding || createMethod.isPending}
+            />
+            <button
+              type="button"
+              className="mt-2 inline-flex items-center gap-1 rounded-md border border-bda-border px-2.5 py-1.5 text-xs text-bda-text hover:bg-bda-panel-hover disabled:opacity-40"
+              onClick={() => createMethod.mutate()}
+              disabled={adding || createMethod.isPending || !newMethodName.trim()}
+            >
+              {createMethod.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+              Create method
+            </button>
+            {createMethod.isError ? (
+              <p className="mt-1 text-xs text-bda-red">Failed to create method</p>
+            ) : null}
+          </div>
+          {selectedMethodOptions.length === 0 ? (
             <p className="mt-2 text-xs text-bda-red">Select at least one method</p>
           ) : null}
         </div>
@@ -231,7 +326,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
             <strong>{nodeName || template.title}</strong>
             <p className="mt-1 text-xs text-bda-muted">{template.body}</p>
             <p className="mt-2 text-xs text-bda-muted">
-              {methods.join(' · ')}
+              {selectedMethodOptions.map((method) => method.label).join(' · ')}
             </p>
           </article>
           <div>
@@ -255,7 +350,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
               type="button"
               className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
               onClick={() => void handleAdd()}
-              disabled={adding || methods.length === 0}
+              disabled={adding || selectedMethodOptions.length === 0}
             >
               {adding ? (
                 <>

@@ -7,6 +7,7 @@ DELETE FROM server_connections;
 DELETE FROM delivery_packages;
 DELETE FROM experiment_results;
 DELETE FROM candidates;
+DELETE FROM workflow_edges;
 DELETE FROM workflow_node_runs;
 DELETE FROM workflow_runs;
 DELETE FROM design_tasks;
@@ -97,4 +98,3 @@ VALUES
 INSERT INTO llm_providers (llm_provider_id, provider_name, provider_type, base_url, model_names, auth_type, credential_ref, tool_calling_supported, json_schema_supported, max_context_tokens, default_temperature, allowed_scopes, data_policy, status)
 VALUES
   ('llm_demo_rules', 'Demo rule-based Copilot', 'local_model', NULL, '["bda-demo-rules"]', 'none', NULL, 0, 1, 8000, 0.2, '["route_planning","candidate_explanation","result_interpretation","report_generation"]', '{"send_sequences":false,"send_structure_files":false,"send_internal_paths":false}', 'active');
-

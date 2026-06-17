@@ -1,6 +1,8 @@
 import sqlite3
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from ..auth.deps import get_current_user, require_role
 from ..db import get_connection
@@ -8,6 +10,20 @@ from ..repositories import registry
 from ..utils.response import envelope
 
 router = APIRouter()
+
+
+class CreateMethodPluginRequest(BaseModel):
+    method_name: str = Field(min_length=1, max_length=120)
+    method_type: str = Field(default="custom", min_length=1, max_length=80)
+    description: str | None = Field(default=None, max_length=1000)
+    input_schema_json: dict = Field(default_factory=dict)
+    output_schema_json: dict = Field(default_factory=dict)
+    parameter_schema_json: dict = Field(default_factory=dict)
+    compatible_model_types: list[str] = Field(default_factory=list)
+    compatible_workflow_nodes: list[str] = Field(default_factory=list)
+    default_parameters_json: dict = Field(default_factory=dict)
+    version: str = Field(default="custom-1.0", min_length=1, max_length=80)
+    status: str = Field(default="active", pattern="^(active|experimental|disabled)$")
 
 
 @router.get("/servers")
@@ -144,6 +160,37 @@ def method_plugin(
     item = registry.get_method_plugin(connection, method_plugin_id)
     if item is None:
         raise HTTPException(status_code=404, detail="method_plugin_not_found")
+    return envelope(item)
+
+
+@router.post("/method-plugins")
+def create_method_plugin(
+    payload: CreateMethodPluginRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    if user.get("role") == "viewer":
+        raise HTTPException(status_code=403, detail="forbidden")
+    method_name = payload.method_name.strip()
+    method_type = payload.method_type.strip()
+    if not method_name or not method_type:
+        raise HTTPException(status_code=422, detail="method_name_and_type_required")
+    item = registry.create_method_plugin(
+        connection,
+        method_plugin_id=f"method_{uuid.uuid4().hex[:12]}",
+        method_name=method_name,
+        method_type=method_type,
+        description=payload.description,
+        input_schema=payload.input_schema_json,
+        output_schema=payload.output_schema_json,
+        parameter_schema=payload.parameter_schema_json,
+        compatible_model_types=payload.compatible_model_types,
+        compatible_workflow_nodes=payload.compatible_workflow_nodes,
+        default_parameters=payload.default_parameters_json,
+        version=payload.version,
+        owner_id=user.get("user_id"),
+        status=payload.status,
+    )
     return envelope(item)
 
 

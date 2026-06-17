@@ -65,6 +65,35 @@ CREATE TABLE IF NOT EXISTS workflow_node_runs (
   position_json TEXT NOT NULL DEFAULT '{"x":0,"y":0}'
 );
 
+CREATE TABLE IF NOT EXISTS workflow_edges (
+  edge_id TEXT PRIMARY KEY,
+  workflow_run_id TEXT NOT NULL REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+  source_node_run_id TEXT NOT NULL REFERENCES workflow_node_runs(node_run_id) ON DELETE CASCADE,
+  source_port TEXT NOT NULL DEFAULT 'output',
+  target_node_run_id TEXT NOT NULL REFERENCES workflow_node_runs(node_run_id) ON DELETE CASCADE,
+  target_port TEXT NOT NULL DEFAULT 'input',
+  edge_type TEXT NOT NULL DEFAULT 'data',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(workflow_run_id, source_node_run_id, source_port, target_node_run_id, target_port, edge_type)
+);
+
+CREATE TABLE IF NOT EXISTS artifacts (
+  artifact_id TEXT PRIMARY KEY,
+  project_id TEXT REFERENCES projects(project_id) ON DELETE CASCADE,
+  workflow_run_id TEXT REFERENCES workflow_runs(workflow_run_id) ON DELETE SET NULL,
+  node_run_id TEXT REFERENCES workflow_node_runs(node_run_id) ON DELETE SET NULL,
+  artifact_type TEXT NOT NULL,
+  format TEXT NOT NULL,
+  storage_uri TEXT NOT NULL,
+  display_name TEXT NOT NULL,
+  size_bytes INTEGER NOT NULL DEFAULT 0,
+  checksum TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS candidates (
   candidate_id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
@@ -222,8 +251,14 @@ CREATE INDEX IF NOT EXISTS idx_targets_project_id ON targets(project_id);
 CREATE INDEX IF NOT EXISTS idx_design_tasks_project_id ON design_tasks(project_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_runs_task_id ON workflow_runs(task_id);
 CREATE INDEX IF NOT EXISTS idx_workflow_node_runs_workflow_run_id ON workflow_node_runs(workflow_run_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_edges_workflow_run_id ON workflow_edges(workflow_run_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_edges_source ON workflow_edges(source_node_run_id);
+CREATE INDEX IF NOT EXISTS idx_workflow_edges_target ON workflow_edges(target_node_run_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_workflow_run_id ON artifacts(workflow_run_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_node_run_id ON artifacts(node_run_id);
+CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
 CREATE INDEX IF NOT EXISTS idx_candidates_project_id ON candidates(project_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_workflow_run_id ON candidates(workflow_run_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(status);
 CREATE INDEX IF NOT EXISTS idx_experiment_results_candidate_id ON experiment_results(candidate_id);
-

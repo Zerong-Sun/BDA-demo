@@ -1,4 +1,5 @@
 import sqlite3
+from typing import Any
 
 from .base import decode_rows, get_by_id, list_table
 
@@ -86,3 +87,50 @@ def list_method_plugins_paginated(
 
 def get_method_plugin(connection: sqlite3.Connection, method_plugin_id: str) -> dict | None:
     return get_by_id(connection, "method_plugins", "method_plugin_id", method_plugin_id)
+
+
+def create_method_plugin(
+    connection: sqlite3.Connection,
+    *,
+    method_plugin_id: str,
+    method_name: str,
+    method_type: str,
+    description: str | None = None,
+    input_schema: dict[str, Any] | None = None,
+    output_schema: dict[str, Any] | None = None,
+    parameter_schema: dict[str, Any] | None = None,
+    compatible_model_types: list[str] | None = None,
+    compatible_workflow_nodes: list[str] | None = None,
+    default_parameters: dict[str, Any] | None = None,
+    version: str = "custom-1.0",
+    owner_id: str | None = None,
+    status: str = "active",
+) -> dict:
+    import json
+
+    connection.execute(
+        """
+        INSERT INTO method_plugins (
+            method_plugin_id, method_name, method_type, description,
+            input_schema_json, output_schema_json, parameter_schema_json,
+            compatible_model_types, compatible_workflow_nodes,
+            default_parameters_json, version, owner_id, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            method_plugin_id,
+            method_name,
+            method_type,
+            description,
+            json.dumps(input_schema or {}),
+            json.dumps(output_schema or {}),
+            json.dumps(parameter_schema or {}),
+            json.dumps(compatible_model_types or []),
+            json.dumps(compatible_workflow_nodes or []),
+            json.dumps(default_parameters or {}),
+            version,
+            owner_id,
+            status,
+        ),
+    )
+    return get_method_plugin(connection, method_plugin_id) or {}

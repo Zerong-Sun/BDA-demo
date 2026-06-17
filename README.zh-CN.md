@@ -145,7 +145,7 @@ docker compose up -d
 
 Docker 默认管理员账号：`admin` / `admin123`
 
-将 `BDA_COMPUTE_MODE=docker` 设为 `docker`，可向真实模型插件容器提交任务（默认为 `demo` 演示模式）。
+将 `BDA_COMPUTE_MODE=docker` 设为 `docker`，可向真实模型插件容器提交任务（默认为 `demo` 演示模式）。如果本机没有 Docker，但要跑内置 stub runner 测试，可使用 `BDA_COMPUTE_MODE=local`。
 
 ---
 
@@ -156,7 +156,7 @@ Docker 默认管理员账号：`admin` / `admin123`
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
 | `BDA_DB_PATH` | `backend/db/bda.sqlite3` | SQLite 路径或 PostgreSQL URL |
-| `BDA_COMPUTE_MODE` | `demo` | `demo`（阻塞任务）或 `docker`（真实容器） |
+| `BDA_COMPUTE_MODE` | `demo` | `demo`（阻塞任务）、`local`（内置 stub runner）或 `docker`（真实容器） |
 | `BDA_ARTIFACTS_BACKEND` | `local` | `local` 或 MinIO 存储 |
 | `BDA_JWT_SECRET` | — | JWT 签名密钥（生产环境请修改） |
 | `VITE_API_BASE` | `/api/v1` | 前端 API 基址（构建时注入） |

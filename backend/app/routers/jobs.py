@@ -32,6 +32,9 @@ def get_job(
                 output_artifacts=live.output_artifacts or None,
                 error_message=live.error_message,
             ) or job
+            if live.status == "completed":
+                job_service.collect_job_outputs(connection, job_id)
+                job = job_service.get_job(connection, job_id) or job
     return envelope(job)
 
 

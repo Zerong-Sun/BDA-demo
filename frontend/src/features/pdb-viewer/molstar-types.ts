@@ -51,8 +51,4 @@ export interface MolPlugin {
     }
   }
   readonly canvas3d: MolCanvas3D | undefined
-  clear(): Promise<void>
-  loadStructureFromData(data: string, format: string): Promise<void>
-  loadStructureFromUrl(url: string, format: string): Promise<void>
-  destroy(): void
 }
