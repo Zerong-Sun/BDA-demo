@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Loader2, Plus, X } from 'lucide-react'
 import { nodeTemplates, type NodeTemplate } from './workflowTypes'
@@ -35,6 +35,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const [newMethodName, setNewMethodName] = useState('')
   const [newMethodType, setNewMethodType] = useState('custom')
   const [newMethodDescription, setNewMethodDescription] = useState('')
+  const methodDefaultsApplied = useRef(false)
   const queryClient = useQueryClient()
 
   const { data: plugins = [] } = useQuery({
@@ -72,10 +73,23 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
     }))
   }, [methodPlugins])
 
+  useEffect(() => {
+    if (!open) {
+      methodDefaultsApplied.current = false
+      return
+    }
+    if (methodDefaultsApplied.current || methodOptions.length === 0) return
+    const optionKeys = new Set(methodOptions.map((method) => method.key))
+    setMethods((current) => {
+      methodDefaultsApplied.current = true
+      const validCurrent = current.filter((method) => optionKeys.has(method))
+      return validCurrent.length > 0 ? validCurrent : methodOptions.slice(0, 3).map((method) => method.key)
+    })
+  }, [methodOptions, open])
+
   const activeMethodKeys = useMemo(() => {
     const optionKeys = new Set(methodOptions.map((method) => method.key))
-    if (methods.some((method) => optionKeys.has(method))) return methods
-    return methodOptions.slice(0, 3).map((method) => method.key)
+    return methods.filter((method) => optionKeys.has(method))
   }, [methodOptions, methods])
 
   const selectedMethodOptions = useMemo(

@@ -62,14 +62,18 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
     edgesRef.current = edges
 
     useEffect(() => {
-      if (!initialNodes || initialNodes.length === 0) return
+      if (!initialNodes) return
 
       if (isInitialMount.current) {
         isInitialMount.current = false
         setNodes(initialNodes)
-        if (initialEdges && initialEdges.length > 0) {
-          setEdges(initialEdges)
-        }
+        setEdges(initialEdges ?? [])
+        return
+      }
+
+      if (initialNodes.length === 0) {
+        setNodes([])
+        setEdges(initialEdges ?? [])
         return
       }
 
@@ -90,13 +94,14 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
         })
       })
 
-      if (initialEdges && initialEdges.length > 0) {
-        setEdges((current) => {
-          const currentIds = new Set(current.map((e) => e.id))
-          const newEdges = initialEdges!.filter((e) => !currentIds.has(e.id))
-          return newEdges.length > 0 ? [...current, ...newEdges] : current
-        })
-      }
+      setEdges((current) => {
+        const incoming = initialEdges ?? []
+        const incomingIds = new Set(incoming.map((e) => e.id))
+        const retained = current.filter((edge) => incomingIds.has(edge.id))
+        const retainedIds = new Set(retained.map((e) => e.id))
+        const added = incoming.filter((edge) => !retainedIds.has(edge.id))
+        return [...retained, ...added]
+      })
     }, [initialNodes, initialEdges, setNodes, setEdges])
 
     const persistLayout = useCallback(
