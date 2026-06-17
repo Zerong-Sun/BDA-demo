@@ -11,7 +11,7 @@ import { ValidationTable } from '../features/results/ValidationTable'
 import { ExperimentUpload } from '../features/results/ExperimentUpload'
 import { DeliveryPackage } from '../features/results/DeliveryPackage'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
-import { useToastStore } from '../components/ui/Toast'
+import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 
 const DEMO_PROJECT_ID = 'proj_pd1_0423'

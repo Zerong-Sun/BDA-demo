@@ -1,6 +1,7 @@
 import clsx from 'clsx'
+import type { StatusTone } from './statusTone'
 
-const toneMap: Record<string, string> = {
+const toneMap: Record<StatusTone, string> = {
   green: 'bg-bda-green/15 text-bda-green border-bda-green/30',
   amber: 'bg-bda-amber/15 text-bda-amber border-bda-amber/30',
   blue: 'bg-bda-blue/15 text-bda-blue border-bda-blue/30',
@@ -13,7 +14,7 @@ export function StatusPill({
   tone = 'neutral',
 }: {
   label: string
-  tone?: keyof typeof toneMap
+  tone?: StatusTone
 }) {
   return (
     <span
@@ -25,18 +26,4 @@ export function StatusPill({
       {label}
     </span>
   )
-}
-
-export function statusTone(status: string): keyof typeof toneMap {
-  const normalized = status.toLowerCase()
-  if (['validated', 'completed', 'pass', 'running', 'anchor', 'order'].some((s) => normalized.includes(s))) {
-    return 'green'
-  }
-  if (['retest', 'queued', 'review', 'qc risk', 'hold'].some((s) => normalized.includes(s))) {
-    return 'amber'
-  }
-  if (['failed', 'fail', 'reject'].some((s) => normalized.includes(s))) {
-    return 'red'
-  }
-  return 'neutral'
 }

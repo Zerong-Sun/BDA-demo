@@ -1,17 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { X } from 'lucide-react'
+import { Loader2, X } from 'lucide-react'
 import { nodeTemplates, type NodeTemplate } from './workflowTypes'
-import { listModelPlugins } from '../../lib/api/registry'
-
-const methodOptions = [
-  'Affinity score',
-  'Diversity cap',
-  'Expression risk',
-  'Aggregation penalty',
-  'Hydrophobic patch penalty',
-  'Auto report',
-]
+import { listModelPlugins, listMethodPlugins } from '../../lib/api/registry'
+import { ParameterSchemaForm } from '../plugins'
+import { defaultsFromFields, fieldsFromParameterSchema } from '../../lib/forms/parameterSchema'
+import type { MethodPlugin } from '../../lib/schemas/registry'
 
 const PLUGIN_ICON: Record<string, string> = {
   RFdiffusion: 'wand-sparkles',
@@ -23,16 +17,54 @@ const PLUGIN_ICON: Record<string, string> = {
 interface NodeBuilderProps {
   open: boolean
   onClose: () => void
-  onAdd: (template: NodeTemplate, methods: string[]) => void | Promise<void>
+  onAdd: (
+    template: NodeTemplate,
+    nodeName: string,
+    methods: string[],
+    parameters: Record<string, unknown>,
+  ) => Promise<void>
 }
 
 export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const [selected, setSelected] = useState('rf')
   const [methods, setMethods] = useState<string[]>(['Affinity score', 'Diversity cap', 'Auto report'])
+  const [nodeName, setNodeName] = useState('')
+  const [parameters, setParameters] = useState<Record<string, unknown>>({})
+  const [adding, setAdding] = useState(false)
+  const [nameError, setNameError] = useState('')
+
   const { data: plugins = [] } = useQuery({
     queryKey: ['model-plugins'],
     queryFn: listModelPlugins,
   })
+
+  const { data: methodPlugins = [] } = useQuery<MethodPlugin[]>({
+    queryKey: ['method-plugins'],
+    queryFn: listMethodPlugins,
+  })
+
+  const methodOptions = useMemo(() => {
+    if (methodPlugins.length > 0) {
+      return methodPlugins.map((mp) => ({
+        key: mp.method_name,
+        label: mp.method_name,
+        description: mp.description,
+      }))
+    }
+    const fallback = [
+      'Affinity score',
+      'Diversity cap',
+      'Expression risk',
+      'Aggregation penalty',
+      'Hydrophobic patch penalty',
+      'Auto report',
+    ]
+    return fallback.map((key) => ({
+      key,
+      label: key,
+      description: undefined as string | undefined,
+    }))
+  }, [methodPlugins])
 
   const templates = useMemo(() => {
     if (!plugins.length) return Object.values(nodeTemplates)
@@ -53,10 +85,50 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
       modelName: plugin.model_name,
       modelVersion: plugin.version,
       pluginId: plugin.model_plugin_id,
+      parameterSchema: plugin.parameter_schema_json,
     }))
   }, [plugins])
 
   const template = templates.find((item) => item.id === selected) ?? templates[0] ?? nodeTemplates.rf
+  const parameterFields = useMemo(
+    () => fieldsFromParameterSchema(template.parameterSchema, template.modelName),
+    [template.modelName, template.parameterSchema],
+  )
+  const parameterSchemaForForm = useMemo(() => ({ fields: parameterFields }), [parameterFields])
+
+  const selectTemplate = (item: NodeTemplate) => {
+    setSelected(item.id)
+    setNodeName(item.title)
+    setParameters(defaultsFromFields(fieldsFromParameterSchema(item.parameterSchema, item.modelName)))
+    setNameError('')
+  }
+
+  const handleAdd = async () => {
+    const trimmedName = nodeName.trim()
+    if (!trimmedName) {
+      setNameError('Enter node name')
+      return
+    }
+    if (methods.length === 0) return
+    setNameError('')
+    setAdding(true)
+    try {
+      await onAdd(template, trimmedName, methods, {
+        ...defaultsFromFields(parameterFields),
+        ...parameters,
+      })
+    } finally {
+      setAdding(false)
+    }
+  }
+
+  const handleClose = () => {
+    if (adding) return
+    setNodeName('')
+    setParameters({})
+    setNameError('')
+    onClose()
+  }
 
   if (!open) return null
 
@@ -65,13 +137,20 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
       <div className="flex items-start justify-between border-b border-bda-border px-4 py-3">
         <div>
           <p className="text-xs uppercase tracking-wide text-bda-cyan">Add workflow card</p>
-          <h2 className="text-lg font-semibold">Choose a model or method</h2>
+          <h2 className="text-lg font-semibold">Choose a model and configure settings</h2>
         </div>
-        <button type="button" className="rounded border border-bda-border p-1 hover:bg-bda-panel-hover" onClick={onClose}>
+        <button
+          type="button"
+          className="rounded border border-bda-border p-1 hover:bg-bda-panel-hover disabled:opacity-40"
+          onClick={handleClose}
+          disabled={adding}
+        >
           <X className="h-4 w-4" />
         </button>
       </div>
+
       <div className="grid gap-4 p-4 lg:grid-cols-[2fr_1.2fr_1fr]">
+        {/* Model cards */}
         <div>
           <span className="text-xs text-bda-muted">Model cards</span>
           <div className="mt-2 grid grid-cols-2 gap-2">
@@ -79,12 +158,15 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
               <button
                 key={item.id}
                 type="button"
-                className={`rounded-lg border p-3 text-left ${
+                className={`rounded-lg border p-3 text-left transition-colors ${
                   selected === item.id
                     ? 'border-bda-cyan bg-bda-cyan/10'
                     : 'border-bda-border hover:border-bda-cyan/40'
                 }`}
-                onClick={() => setSelected(item.id)}
+                onClick={() => {
+                  selectTemplate(item)
+                }}
+                disabled={adding}
               >
                 <strong className="block text-sm">{item.title}</strong>
                 <small className="text-xs text-bda-muted">{item.body}</small>
@@ -92,39 +174,99 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
             ))}
           </div>
         </div>
+
+        {/* Method controls + node name */}
         <div>
-          <span className="text-xs text-bda-muted">Method controls</span>
+          <span className="text-xs text-bda-muted">Node name</span>
+          <div className="mt-2">
+            <input
+              type="text"
+              className={`w-full rounded-md border bg-bda-bg px-2.5 py-1.5 text-sm text-bda-text placeholder:text-bda-muted ${
+                nameError ? 'border-bda-red' : 'border-bda-border'
+              }`}
+              placeholder="Enter node name"
+              value={nodeName}
+              onChange={(e) => {
+                setNodeName(e.target.value)
+                if (nameError) setNameError('')
+              }}
+              disabled={adding}
+            />
+            {nameError ? <p className="mt-1 text-xs text-bda-red">{nameError}</p> : null}
+          </div>
+
+          <span className="mt-4 block text-xs text-bda-muted">Method controls</span>
           <div className="mt-2 space-y-2">
             {methodOptions.map((method) => (
-              <label key={method} className="flex items-center gap-2 text-sm text-bda-text">
+              <label key={method.key} className="flex items-start gap-2 text-sm text-bda-text">
                 <input
                   type="checkbox"
-                  checked={methods.includes(method)}
+                  className="mt-0.5 shrink-0"
+                  checked={methods.includes(method.key)}
                   onChange={(e) => {
                     setMethods((prev) =>
-                      e.target.checked ? [...prev, method] : prev.filter((m) => m !== method),
+                      e.target.checked ? [...prev, method.key] : prev.filter((m) => m !== method.key),
                     )
                   }}
+                  disabled={adding}
                 />
-                {method}
+                <div className="min-w-0">
+                  <span className="block leading-snug">{method.label}</span>
+                  {method.description ? (
+                    <span className="block text-xs text-bda-muted">{method.description}</span>
+                  ) : null}
+                </div>
               </label>
             ))}
           </div>
+          {methods.length === 0 ? (
+            <p className="mt-2 text-xs text-bda-red">Select at least one method</p>
+          ) : null}
         </div>
-        <aside className="rounded-lg border border-bda-border bg-bda-bg p-3">
+
+        {/* Preview card + action */}
+        <aside className="space-y-3 rounded-lg border border-bda-border bg-bda-bg p-3">
           <span className="text-xs text-bda-muted">Preview card</span>
           <article className="mt-2 rounded-lg border border-bda-border bg-bda-panel p-3 text-sm">
-            <strong>{template.title}</strong>
+            <strong>{nodeName || template.title}</strong>
             <p className="mt-1 text-xs text-bda-muted">{template.body}</p>
-            <p className="mt-2 text-xs text-bda-muted">{methods.join(', ')}</p>
+            <p className="mt-2 text-xs text-bda-muted">
+              {methods.join(' · ')}
+            </p>
           </article>
-          <button
-            type="button"
-            className="mt-3 w-full rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg"
-            onClick={() => void onAdd(template, methods)}
-          >
-            Add card to workflow
-          </button>
+          <div>
+            <span className="mb-2 block text-xs text-bda-muted">Plugin parameters</span>
+            <ParameterSchemaForm
+              schema={parameterSchemaForForm}
+              values={{ ...defaultsFromFields(parameterFields), ...parameters }}
+              onChange={setParameters}
+            />
+          </div>
+          <div className="mt-3 flex gap-2">
+            <button
+              type="button"
+              className="flex-1 rounded-md border border-bda-border px-3 py-2 text-sm text-bda-text hover:bg-bda-panel-hover disabled:opacity-40"
+              onClick={handleClose}
+              disabled={adding}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              className="flex flex-1 items-center justify-center gap-1.5 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+              onClick={() => void handleAdd()}
+              disabled={adding || methods.length === 0}
+            >
+              {adding ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                'Add card to workflow'
+              )}
+            </button>
+          </div>
         </aside>
       </div>
     </section>

@@ -9,7 +9,8 @@ import {
 } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
 import type { Candidate } from '../../lib/schemas/candidate'
-import { StatusPill, statusTone } from '../../components/ui/StatusPill'
+import { StatusPill } from '../../components/ui/StatusPill'
+import { statusTone } from '../../components/ui/statusTone'
 
 const columnHelper = createColumnHelper<Candidate>()
 

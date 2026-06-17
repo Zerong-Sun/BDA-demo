@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react'
 import { Upload } from 'lucide-react'
 import { uploadPdb } from '../../lib/api/targets'
-import { useToastStore } from '../../components/ui/Toast'
+import { useToastStore } from '../../components/ui/toastStore'
 
 interface PDBFileUploadProps {
   projectId?: string

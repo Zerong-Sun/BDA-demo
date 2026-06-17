@@ -5,9 +5,10 @@ import { artifactUrl, structureFileUrl } from '../../lib/api/client'
 import { explainCandidate } from '../../lib/api/copilot'
 import type { Candidate } from '../../lib/schemas/candidate'
 import { ScoreBars } from './ScoreBars'
-import { StatusPill, statusTone } from '../../components/ui/StatusPill'
+import { StatusPill } from '../../components/ui/StatusPill'
+import { statusTone } from '../../components/ui/statusTone'
 import { useI18n } from '../../lib/i18n'
-import { useToastStore } from '../../components/ui/Toast'
+import { useToastStore } from '../../components/ui/toastStore'
 
 interface CandidateDetailProps {
   candidate: Candidate | null

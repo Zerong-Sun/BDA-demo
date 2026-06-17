@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Upload } from 'lucide-react'
 import { uploadExperimentResults } from '../../lib/api/experiments'
-import { useToastStore } from '../../components/ui/Toast'
+import { useToastStore } from '../../components/ui/toastStore'
 
 interface ExperimentUploadProps {
   projectId: string
