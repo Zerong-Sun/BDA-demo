@@ -21,6 +21,13 @@ export const MethodPluginSchema = z.object({
   method_name: z.string(),
   method_type: z.string(),
   description: z.string().nullable().optional(),
+  input_schema_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  output_schema_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  parameter_schema_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  compatible_model_types: z.union([z.string(), z.array(z.string())]).optional(),
+  compatible_workflow_nodes: z.union([z.string(), z.array(z.string())]).optional(),
+  default_parameters_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  version: z.string().optional(),
   status: z.string(),
 })
 

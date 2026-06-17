@@ -1,4 +1,5 @@
 DELETE FROM audit_logs;
+DELETE FROM knowledge_entries;
 DELETE FROM llm_providers;
 DELETE FROM method_plugins;
 DELETE FROM model_plugins;
@@ -7,6 +8,7 @@ DELETE FROM server_connections;
 DELETE FROM delivery_packages;
 DELETE FROM experiment_results;
 DELETE FROM candidates;
+DELETE FROM workflow_edges;
 DELETE FROM workflow_node_runs;
 DELETE FROM workflow_runs;
 DELETE FROM design_tasks;
@@ -98,3 +100,168 @@ INSERT INTO llm_providers (llm_provider_id, provider_name, provider_type, base_u
 VALUES
   ('llm_demo_rules', 'Demo rule-based Copilot', 'local_model', NULL, '["bda-demo-rules"]', 'none', NULL, 0, 1, 8000, 0.2, '["route_planning","candidate_explanation","result_interpretation","report_generation"]', '{"send_sequences":false,"send_structure_files":false,"send_internal_paths":false}', 'active');
 
+INSERT INTO knowledge_entries (
+  knowledge_entry_id, title, category, subcategory, summary, content, tags_json,
+  related_model_plugins, related_method_plugins, source_type, citation, confidence, metadata_json, status
+)
+VALUES
+  (
+    'kb_rfdiffusion',
+    'RFdiffusion backbone generation',
+    'model',
+    'backbone_generation',
+    'RFdiffusion generates protein backbones from structural constraints such as contigs, motifs, hotspots, and target context.',
+    'Use RFdiffusion when the workflow needs new backbone geometry, binder scaffolds, motif placement, or symmetric assemblies. Typical inputs are target_structure artifacts in PDB/mmCIF plus contig maps, hotspot residues, symmetry settings, and number of designs. Expected outputs are backbone_set artifacts, usually PDB files plus a score or manifest table. Downstream ProteinMPNN designs sequences for these backbones.',
+    '["RFdiffusion","diffusion","backbone","contig","hotspot","target_structure","backbone_set"]',
+    '["plugin_rfdiffusion"]',
+    '[]',
+    'curated',
+    'RFdiffusion upstream documentation and publication.',
+    'curated',
+    '{"data_ports":{"input":["target_structure"],"output":["backbone_set","score_table"]}}',
+    'active'
+  ),
+  (
+    'kb_proteinmpnn',
+    'ProteinMPNN sequence design',
+    'model',
+    'sequence_generation',
+    'ProteinMPNN designs amino acid sequences conditioned on fixed or partially fixed protein backbone coordinates.',
+    'Use ProteinMPNN after backbone generation or scaffold preparation. Inputs are backbone_set or prepared PDB structures, with optional fixed positions, omitted amino acids, chain masks, and sampling temperature. Outputs are sequence_set artifacts in FASTA/JSONL and score_table artifacts. Higher sampling temperature increases diversity but can reduce confidence; diversity caps and fixed residue constraints are common methods.',
+    '["ProteinMPNN","sequence","FASTA","backbone_set","sequence_set","fixed_positions","temperature"]',
+    '["plugin_proteinmpnn"]',
+    '["method_diversity_cap","method_expression_risk"]',
+    'curated',
+    'ProteinMPNN upstream documentation and publication.',
+    'curated',
+    '{"data_ports":{"input":["backbone_set"],"output":["sequence_set","score_table"]}}',
+    'active'
+  ),
+  (
+    'kb_alphafold2',
+    'AlphaFold2 structure prediction and confidence',
+    'model',
+    'fold_prediction',
+    'AlphaFold2 predicts monomer or complex structures and reports confidence metrics such as pLDDT and PAE.',
+    'Use AlphaFold2 after sequence generation to check whether designed sequences fold into the intended geometry or binder complex. Inputs are sequence_set FASTA artifacts and optional target structures or paired chains. Outputs are predicted_structure artifacts, confidence JSON, PAE matrix artifacts, and ranking score tables. pLDDT measures local confidence; PAE estimates relative domain or interface placement uncertainty.',
+    '["AlphaFold2","AF2","pLDDT","PAE","structure","complex","sequence_set","predicted_structure"]',
+    '["plugin_alphafold2"]',
+    '["method_affinity_score"]',
+    'curated',
+    'AlphaFold and AlphaFold-Multimer publications and documentation.',
+    'curated',
+    '{"data_ports":{"input":["sequence_set","target_structure"],"output":["predicted_structure","pae_matrix","score_table"]}}',
+    'active'
+  ),
+  (
+    'kb_rosetta',
+    'Rosetta relax and interface scoring',
+    'model',
+    'scoring',
+    'Rosetta provides physics-inspired relax, packing, interface analysis, and energy scoring for protein designs.',
+    'Use Rosetta after structure prediction or docking to refine structures and calculate interface metrics. Inputs are predicted_structure or complex_structure PDB artifacts. Outputs are relaxed_structure, score_table, and interface_metrics artifacts. Common metrics include interface energy, buried SASA, shape complementarity, unsatisfied polar atoms, clashes, and total score.',
+    '["Rosetta","relax","interface_energy","buried_sasa","clash","score_table","relaxed_structure"]',
+    '["plugin_rosetta"]',
+    '["method_affinity_score","method_hydrophobic_patch"]',
+    'curated',
+    'Rosetta documentation and academic publications.',
+    'curated',
+    '{"data_ports":{"input":["predicted_structure","complex_structure"],"output":["relaxed_structure","score_table","interface_metrics"]}}',
+    'active'
+  ),
+  (
+    'kb_mask_rgn',
+    'Mask RGN internal sequence and structure model',
+    'model',
+    'internal_model',
+    'Mask RGN is reserved for internal programmable biomaterials modeling and can be connected as an experimental workflow node.',
+    'Use Mask RGN as an experimental internal model for masked residue generation, representation learning, or structure-aware scoring when a checkpoint is available. Inputs and outputs should be declared through the model plugin schema before production use. Treat metrics as exploratory until calibrated against AlphaFold2, Rosetta, and wet-lab evidence.',
+    '["Mask RGN","internal","masked_model","experimental","calibration"]',
+    '["plugin_maskrgn"]',
+    '[]',
+    'internal',
+    'BDA internal model note.',
+    'experimental',
+    '{"data_ports":{"input":["sequence_set","predicted_structure"],"output":["score_table","sequence_set"]}}',
+    'active'
+  ),
+  (
+    'kb_artifact_contract',
+    'Workflow artifact contract',
+    'methodology',
+    'data_interface',
+    'BDA workflows should exchange typed artifacts rather than model-specific file paths.',
+    'Normalize model outputs into typed artifacts: target_structure, backbone_set, sequence_set, predicted_structure, relaxed_structure, score_table, pae_matrix, and interface_metrics. Each artifact should include format, storage URI, display name, size, checksum when available, and metadata. Node edges should connect compatible source and target ports so RFdiffusion, ProteinMPNN, AlphaFold2, Rosetta, and internal models can be reordered or looped.',
+    '["artifact","data_interface","workflow","ports","manifest","conversion","closed_loop"]',
+    '[]',
+    '[]',
+    'curated',
+    'BDA platform architecture.',
+    'curated',
+    '{"canonical_artifact_types":["target_structure","backbone_set","sequence_set","predicted_structure","relaxed_structure","score_table","pae_matrix","interface_metrics"]}',
+    'active'
+  ),
+  (
+    'kb_developability',
+    'Developability filters for designed proteins',
+    'biomaterial_property',
+    'developability',
+    'Developability combines solubility, aggregation risk, expression risk, stability, sequence liabilities, and manufacturability.',
+    'Use developability filters before ordering wet-lab candidates. Common checks include exposed hydrophobic patches, net charge, isoelectric point, cysteine and glycosylation liabilities, sequence repetition, predicted disorder, aggregation risk, SEC monodispersity, expression risk, and thermal stability. These filters should not override strong experimental evidence but should guide redesign constraints.',
+    '["developability","solubility","aggregation","expression","hydrophobic_patch","SEC","stability"]',
+    '[]',
+    '["method_expression_risk","method_hydrophobic_patch"]',
+    'curated',
+    'BDA developability screening guidance.',
+    'curated',
+    '{"recommended_stage":"selection"}',
+    'active'
+  ),
+  (
+    'kb_interface_metrics',
+    'Protein interface quality metrics',
+    'biomaterial_property',
+    'interface',
+    'Interface quality is assessed using structural confidence, energy, buried area, complementarity, and clash metrics.',
+    'For binders and assemblies, inspect interface energy, buried SASA, shape complementarity, interface PAE, pLDDT near the binding site, clash count, unsatisfied polar atoms, hydrogen bonds, and hydrophobic patch exposure. Good designs usually combine confident geometry with favorable interface energy and acceptable developability. Thresholds should be project-specific and calibrated against assays.',
+    '["interface","buried_sasa","interface_energy","interface_pae","plddt","clash","binder"]',
+    '["plugin_alphafold2","plugin_rosetta"]',
+    '["method_affinity_score"]',
+    'curated',
+    'BDA interface scoring guidance.',
+    'curated',
+    '{"recommended_stage":"fold_prediction_and_scoring"}',
+    'active'
+  ),
+  (
+    'kb_bli_sec',
+    'BLI and SEC interpretation',
+    'assay',
+    'wet_lab_validation',
+    'BLI measures binding kinetics or affinity, while SEC indicates monodispersity and aggregation behavior.',
+    'BLI or SPR positive hits should be interpreted alongside expression, purification yield, SEC profile, and structure confidence. Strong Kd with SEC aggregation can indicate a design that binds but is not developable. Redesign actions include penalizing exposed hydrophobic area, increasing solubility, changing scaffold family, or preserving a validated motif while diversifying the scaffold.',
+    '["BLI","SPR","SEC","affinity","Kd","aggregation","wet_lab","redesign"]',
+    '[]',
+    '["method_affinity_score","method_hydrophobic_patch","method_diversity_cap"]',
+    'curated',
+    'BDA assay interpretation guidance.',
+    'curated',
+    '{"recommended_stage":"experiment"}',
+    'active'
+  ),
+  (
+    'kb_closed_loop_design',
+    'Closed-loop programmable biomaterials workflow',
+    'methodology',
+    'workflow',
+    'Closed-loop design feeds model outputs, scores, and experiments back into the next design round.',
+    'A typical loop is target intake, RFdiffusion backbone generation, ProteinMPNN sequence design, AlphaFold2 structure prediction, Rosetta relax and interface scoring, BDA filters, wet-lab validation, then redesign constraints. The loop can branch or repeat: for example ProteinMPNN can be rerun after AF2/Rosetta filters, and validated motifs can constrain a new RFdiffusion round.',
+    '["closed_loop","workflow","RFdiffusion","ProteinMPNN","AlphaFold2","Rosetta","redesign"]',
+    '["plugin_rfdiffusion","plugin_proteinmpnn","plugin_alphafold2","plugin_rosetta"]',
+    '["method_diversity_cap","method_affinity_score"]',
+    'curated',
+    'BDA workflow methodology.',
+    'curated',
+    '{"default_route":["target_intake","rfdiffusion","proteinmpnn","alphafold2","rosetta","filters","wet_lab","redesign"]}',
+    'active'
+  );

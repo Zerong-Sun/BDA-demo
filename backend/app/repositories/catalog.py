@@ -150,6 +150,51 @@ def list_workflow_nodes(connection: sqlite3.Connection, workflow_run_id: str) ->
     return decode_rows(rows)
 
 
+def list_workflow_edges(connection: sqlite3.Connection, workflow_run_id: str) -> list[dict]:
+    rows = connection.execute(
+        "SELECT * FROM workflow_edges WHERE workflow_run_id = ? ORDER BY created_at, rowid",
+        (workflow_run_id,),
+    ).fetchall()
+    return decode_rows(rows)
+
+
+def replace_workflow_edges(connection: sqlite3.Connection, workflow_run_id: str, edges: list[dict]) -> list[dict]:
+    import uuid
+
+    connection.execute("DELETE FROM workflow_edges WHERE workflow_run_id = ?", (workflow_run_id,))
+    node_ids = {
+        row["node_run_id"]
+        for row in connection.execute(
+            "SELECT node_run_id FROM workflow_node_runs WHERE workflow_run_id = ?",
+            (workflow_run_id,),
+        ).fetchall()
+    }
+    for edge in edges:
+        source = edge.get("source_node_run_id") or edge.get("source")
+        target = edge.get("target_node_run_id") or edge.get("target")
+        if source not in node_ids or target not in node_ids:
+            continue
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO workflow_edges (
+                edge_id, workflow_run_id, source_node_run_id, source_port,
+                target_node_run_id, target_port, edge_type, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                edge.get("edge_id") or f"edge_{uuid.uuid4().hex[:12]}",
+                workflow_run_id,
+                source,
+                edge.get("source_port") or edge.get("sourceHandle") or "output",
+                target,
+                edge.get("target_port") or edge.get("targetHandle") or "input",
+                edge.get("edge_type") or edge.get("type") or "data",
+                json.dumps(edge.get("metadata_json") or edge.get("data") or {}),
+            ),
+        )
+    return list_workflow_edges(connection, workflow_run_id)
+
+
 def list_workflow_nodes_paginated(
     connection: sqlite3.Connection,
     workflow_run_id: str,
@@ -404,6 +449,8 @@ def update_workflow_node(
     *,
     position_json: str | None = None,
     parameters_json: str | None = None,
+    output_files_json: str | None = None,
+    metrics_json: str | None = None,
     status: str | None = None,
 ) -> dict | None:
     updates: list[str] = []
@@ -414,6 +461,12 @@ def update_workflow_node(
     if parameters_json is not None:
         updates.append("parameters_json = ?")
         params.append(parameters_json)
+    if output_files_json is not None:
+        updates.append("output_files_json = ?")
+        params.append(output_files_json)
+    if metrics_json is not None:
+        updates.append("metrics_json = ?")
+        params.append(metrics_json)
     if status is not None:
         updates.append("status = ?")
         params.append(status)
@@ -494,4 +547,3 @@ def upsert_target_upload(
         )
 
     return get_by_id(connection, "targets", "target_id", target_id) or {}
-

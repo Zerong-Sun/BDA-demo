@@ -1,15 +1,25 @@
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import uuid
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any
 
+from ..config import ARTIFACTS_ROOT
 from ..compute.adapter import JobSpec
 from ..compute.factory import get_compute_adapter
+from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog, registry
 from ..repositories.base import decode_row, decode_rows, get_by_id
+from ..services.artifact_store import get_artifact_store
+from ..services.artifacts import artifact_format_for_filename, infer_artifact_metadata, sha256_file
+
+
+ARTIFACT_STORAGE_PREFIX = "artifact://"
+LEGACY_ARTIFACT_STORAGE_PREFIXES = ("local://",)
 
 
 def _now_iso() -> str:
@@ -44,6 +54,272 @@ def create_job(
         ),
     )
     return get_job(connection, job_id) or {}
+
+
+def _artifact_key(storage_uri: str) -> str:
+    if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX):
+        return storage_uri[len(ARTIFACT_STORAGE_PREFIX):]
+    for prefix in LEGACY_ARTIFACT_STORAGE_PREFIXES:
+        if storage_uri.startswith(prefix):
+            return storage_uri[len(prefix):]
+    raise ValueError("unsupported_artifact_storage")
+
+
+def _job_workspace(job_id: str) -> dict[str, Path]:
+    root = ARTIFACTS_ROOT / "jobs" / job_id
+    paths = {
+        "root": root,
+        "input": root / "input",
+        "output": root / "output",
+        "work": root / "work",
+    }
+    for path in paths.values():
+        path.mkdir(parents=True, exist_ok=True)
+    return paths
+
+
+def _normalize_input_refs(input_artifacts: Any) -> list[dict[str, Any]]:
+    refs: list[dict[str, Any]] = []
+    if isinstance(input_artifacts, str):
+        refs.append({"artifact_id": input_artifacts})
+    elif isinstance(input_artifacts, list):
+        for item in input_artifacts:
+            if isinstance(item, str):
+                refs.append({"artifact_id": item})
+            elif isinstance(item, dict):
+                refs.append(item)
+    elif isinstance(input_artifacts, dict):
+        for port, value in input_artifacts.items():
+            if isinstance(value, str):
+                refs.append({"port": port, "artifact_id": value})
+            elif isinstance(value, list):
+                for nested in value:
+                    if isinstance(nested, str):
+                        refs.append({"port": port, "artifact_id": nested})
+                    elif isinstance(nested, dict):
+                        refs.append({"port": port, **nested})
+            elif isinstance(value, dict):
+                refs.append({"port": port, **value})
+    return [ref for ref in refs if ref.get("artifact_id")]
+
+
+def _stage_input_artifacts(
+    connection: sqlite3.Connection,
+    input_dir: Path,
+    input_artifacts: Any,
+) -> list[dict[str, Any]]:
+    staged: list[dict[str, Any]] = []
+    store = get_artifact_store()
+    for ref in _normalize_input_refs(input_artifacts):
+        artifact = artifact_repo.get_artifact(connection, ref["artifact_id"])
+        if artifact is None:
+            staged.append({"artifact_id": ref["artifact_id"], "missing": True, "port": ref.get("port")})
+            continue
+        source = store.get_local_path(_artifact_key(artifact["storage_uri"]))
+        dest_name = f"{artifact['artifact_id']}_{Path(artifact['display_name']).name}"
+        dest = input_dir / dest_name
+        shutil.copy2(source, dest)
+        staged.append({
+            "port": ref.get("port") or artifact.get("artifact_type"),
+            "artifact_id": artifact["artifact_id"],
+            "path": f"/input/{dest_name}",
+            "format": artifact.get("format"),
+            "artifact_type": artifact.get("artifact_type"),
+            "metadata": artifact.get("metadata_json") or {},
+        })
+    return staged
+
+
+def _merge_input_artifact_refs(left: Any, right: Any) -> dict[str, Any]:
+    merged: dict[str, Any] = {}
+    for ref in _normalize_input_refs(left):
+        port = ref.get("port") or "input"
+        merged.setdefault(port, [])
+        merged[port].append(ref)
+    for ref in _normalize_input_refs(right):
+        port = ref.get("port") or "input"
+        merged.setdefault(port, [])
+        artifact_id = ref.get("artifact_id")
+        if artifact_id and not any(item.get("artifact_id") == artifact_id for item in merged[port]):
+            merged[port].append(ref)
+    return merged
+
+
+def _artifact_matches_source_port(artifact: dict[str, Any], source_port: str) -> bool:
+    if source_port in ("output", "outputs", "*"):
+        return True
+    metadata = artifact.get("metadata_json") or {}
+    return source_port in {
+        artifact.get("artifact_type"),
+        metadata.get("source_port"),
+    }
+
+
+def resolve_node_input_artifacts(connection: sqlite3.Connection, node: dict[str, Any]) -> dict[str, Any]:
+    """Resolve explicit node inputs plus workflow-edge inherited artifacts.
+
+    Node ``input_files_json`` stores direct artifact references. DAG edges add
+    implicit references from upstream node outputs by mapping source_port to
+    target_port. This keeps model runners decoupled: every runner only reads the
+    staged ``/input/manifest.json`` contract.
+    """
+    explicit = node.get("input_files_json") or {}
+    edge_inputs: dict[str, list[dict[str, Any]]] = {}
+    workflow_run_id = node.get("workflow_run_id")
+    node_run_id = node.get("node_run_id")
+    if workflow_run_id and node_run_id:
+        for edge in catalog.list_workflow_edges(connection, workflow_run_id):
+            if edge.get("target_node_run_id") != node_run_id:
+                continue
+            if edge.get("edge_type", "data") not in {"data", "control", "review_gate"}:
+                continue
+            source_node_id = edge.get("source_node_run_id")
+            source_port = edge.get("source_port") or "output"
+            target_port = edge.get("target_port") or "input"
+            for artifact in artifact_repo.list_node_artifacts(connection, source_node_id):
+                if not _artifact_matches_source_port(artifact, source_port):
+                    continue
+                edge_inputs.setdefault(target_port, []).append({
+                    "port": target_port,
+                    "artifact_id": artifact["artifact_id"],
+                    "source_node_run_id": source_node_id,
+                    "source_port": source_port,
+                })
+    return _merge_input_artifact_refs(explicit, edge_inputs)
+
+
+def prepare_job_workspace(
+    connection: sqlite3.Connection,
+    *,
+    job: dict[str, Any],
+    node: dict[str, Any],
+    plugin: dict | None,
+) -> dict[str, Any]:
+    paths = _job_workspace(job["job_id"])
+    parameters = node.get("parameters_json") or {}
+    input_artifacts = job.get("input_artifacts") or resolve_node_input_artifacts(connection, node)
+    staged_inputs = _stage_input_artifacts(connection, paths["input"], input_artifacts)
+    manifest = {
+        "job_id": job["job_id"],
+        "project_id": catalog.get_workflow_run_project_id(connection, node["workflow_run_id"]),
+        "workflow_run_id": node.get("workflow_run_id"),
+        "node_run_id": node.get("node_run_id"),
+        "plugin_id": (plugin or {}).get("model_plugin_id") or job.get("plugin_id"),
+        "model_name": (plugin or {}).get("model_name") or node.get("model_name"),
+        "inputs": staged_inputs,
+        "parameters": parameters,
+    }
+    manifest_path = paths["input"] / "manifest.json"
+    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
+    return {
+        "input_dir": str(paths["input"]),
+        "output_dir": str(paths["output"]),
+        "work_dir": str(paths["work"]),
+        "input_manifest": manifest,
+    }
+
+
+def _manifest_outputs(output_manifest: dict[str, Any]) -> list[dict[str, Any]]:
+    outputs = output_manifest.get("outputs")
+    if isinstance(outputs, dict):
+        normalized: list[dict[str, Any]] = []
+        for port, entries in outputs.items():
+            if isinstance(entries, dict):
+                entries = [entries]
+            if isinstance(entries, list):
+                for entry in entries:
+                    if isinstance(entry, dict):
+                        normalized.append({"port": port, **entry})
+        return normalized
+    legacy_keys = {
+        "backbone_pdbs": "backbone_set",
+        "sequences": "sequence_set",
+        "structure": "predicted_structure",
+        "relaxed_pdb": "relaxed_structure",
+    }
+    normalized = []
+    for key, port in legacy_keys.items():
+        value = output_manifest.get(key)
+        if isinstance(value, str):
+            normalized.append({"port": port, "path": value})
+        elif isinstance(value, list):
+            normalized.extend({"port": port, "path": item} for item in value if isinstance(item, str))
+    return normalized
+
+
+def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str, Any]:
+    job = get_job(connection, job_id)
+    if job is None:
+        raise ValueError("job_not_found")
+    existing_outputs = job.get("output_artifacts") or {}
+    if existing_outputs.get("manifest_found") is True:
+        return existing_outputs
+    output_dir = _job_workspace(job_id)["output"]
+    manifest_path = output_dir / "manifest.json"
+    if not manifest_path.exists():
+        return {"manifest_found": False, "artifacts": []}
+    output_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    project_id = None
+    if job.get("workflow_run_id"):
+        project_id = catalog.get_workflow_run_project_id(connection, job["workflow_run_id"])
+    registered: list[dict[str, Any]] = []
+    store = get_artifact_store()
+    for entry in _manifest_outputs(output_manifest):
+        raw_path = entry.get("path")
+        if not raw_path:
+            continue
+        source = Path(raw_path)
+        if source.is_absolute():
+            try:
+                source = output_dir / source.relative_to("/output")
+            except ValueError:
+                source = output_dir / source.name
+        else:
+            source = output_dir / source
+        if not source.exists() or not source.is_file():
+            continue
+        artifact_format = entry.get("format") or artifact_format_for_filename(source.name)
+        relative_path = f"jobs/{job_id}/outputs/{source.name}"
+        store.save_file(relative_path, source)
+        metadata = {
+            **infer_artifact_metadata(source, artifact_format),
+            **(entry.get("metadata") or {}),
+            "source_job_id": job_id,
+            "source_port": entry.get("port"),
+        }
+        artifact = artifact_repo.create_artifact(
+            connection,
+            artifact_id=f"art_{uuid.uuid4().hex[:16]}",
+            project_id=project_id,
+            workflow_run_id=job.get("workflow_run_id"),
+            node_run_id=job.get("node_run_id"),
+            artifact_type=entry.get("artifact_type") or entry.get("port") or "model_output",
+            format=artifact_format,
+            storage_uri=f"{ARTIFACT_STORAGE_PREFIX}{relative_path}",
+            display_name=entry.get("display_name") or source.name,
+            size_bytes=source.stat().st_size,
+            checksum=sha256_file(source),
+            metadata=metadata,
+            created_by="system",
+        )
+        registered.append(artifact)
+
+    result = {
+        "manifest_found": True,
+        "manifest": output_manifest,
+        "artifacts": registered,
+        "metrics": output_manifest.get("metrics") or {},
+    }
+    update_job_status(connection, job_id, status="completed", output_artifacts=result)
+    if job.get("node_run_id"):
+        catalog.update_workflow_node(
+            connection,
+            job["node_run_id"],
+            status="completed",
+            metrics_json=json.dumps(result["metrics"]),
+            output_files_json=json.dumps([artifact["artifact_id"] for artifact in registered]),
+        )
+    return result
 
 
 def get_job(connection: sqlite3.Connection, job_id: str) -> dict[str, Any] | None:
@@ -132,13 +408,20 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         workflow_run_id=node.get("workflow_run_id"),
         node_run_id=node_run_id,
         plugin_id=plugin_id,
-        input_artifacts=node.get("input_files_json") or {},
+        input_artifacts=resolve_node_input_artifacts(connection, node),
         compute_node_id=compute_node_id,
     )
 
     runtime_env = _plugin_runtime_env(plugin)
     container_image = (plugin or {}).get("container_image") or "bda/demo:latest"
     command = (plugin or {}).get("command_template") or "echo demo"
+    workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
+    update_job_status(
+        connection,
+        job["job_id"],
+        status="staging",
+        output_artifacts={"input_manifest": workspace["input_manifest"]},
+    )
 
     spec = JobSpec(
         job_id=job["job_id"],
@@ -147,9 +430,12 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         plugin_id=plugin_id,
         container_image=container_image,
         command=command,
-        input_artifacts=node.get("input_files_json") or {},
+        input_artifacts=job.get("input_artifacts") or {},
         compute_node_id=compute_node_id,
         env=runtime_env,
+        input_dir=workspace["input_dir"],
+        output_dir=workspace["output_dir"],
+        work_dir=workspace["work_dir"],
     )
     adapter = get_compute_adapter()
     try:
@@ -166,9 +452,11 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         logs=st.logs,
         external_id=handle.external_id,
     )
-    if st.status not in ("blocked", "failed"):
+    if st.status == "completed":
+        collect_job_outputs(connection, job["job_id"])
+    if st.status in ("queued", "running"):
         catalog.update_workflow_node(connection, node_run_id, status="queued")
-    _enqueue_poll(job["job_id"])
+        _enqueue_poll(job["job_id"])
 
     return get_job(connection, job["job_id"]) or job
 

@@ -14,7 +14,8 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    include: ['molstar'],
+    // Mol* has circular ESM deps; pre-bundling breaks BuiltInPluginBehaviors.registerDefault.
+    exclude: ['molstar'],
   },
   build: {
     chunkSizeWarningLimit: 2000,

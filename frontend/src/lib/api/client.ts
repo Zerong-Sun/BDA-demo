@@ -125,4 +125,8 @@ export function deliveryPackageDownloadUrl(projectId: string): string {
   return `${API_BASE}/projects/${projectId}/delivery-package/download`
 }
 
+export function getHealth() {
+  return apiRequest<{ status: string; service: string; compute: string; database: string }>('/health')
+}
+
 export { API_BASE }

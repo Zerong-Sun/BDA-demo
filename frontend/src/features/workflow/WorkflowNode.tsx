@@ -46,7 +46,7 @@ export function WorkflowNodeCard({ data, selected }: NodeProps) {
         selected && 'ring-2 ring-bda-cyan/60',
       )}
     >
-      <Handle type="target" position={Position.Left} className="!bg-bda-cyan !w-2 !h-2" />
+      <Handle id="input" type="target" position={Position.Left} className="!bg-bda-cyan !w-2 !h-2" />
       <header className="mb-2 flex min-w-0 items-center gap-2 font-medium text-bda-text">
         <Icon className="h-4 w-4 shrink-0 text-bda-cyan" />
         <span className="truncate">{nodeData.label}</span>
@@ -60,7 +60,7 @@ export function WorkflowNodeCard({ data, selected }: NodeProps) {
           </span>
         ) : null}
       </footer>
-      <Handle type="source" position={Position.Right} className="!bg-bda-cyan !w-2 !h-2" />
+      <Handle id="output" type="source" position={Position.Right} className="!bg-bda-cyan !w-2 !h-2" />
     </article>
   )
 }

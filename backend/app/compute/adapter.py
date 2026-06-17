@@ -15,6 +15,9 @@ class JobSpec:
     input_artifacts: dict[str, Any] = field(default_factory=dict)
     compute_node_id: str | None = None
     env: dict[str, str] = field(default_factory=dict)
+    input_dir: str | None = None
+    output_dir: str | None = None
+    work_dir: str | None = None
 
 
 @dataclass

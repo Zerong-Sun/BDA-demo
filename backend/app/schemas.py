@@ -34,6 +34,12 @@ class CopilotChatRequest(BaseModel):
     skill: str | None = None
 
 
+class CopilotConfigUpdateRequest(BaseModel):
+    llm_api_base: str | None = Field(default=None, min_length=1)
+    llm_api_key: str | None = Field(default=None, min_length=1)
+    llm_model: str | None = Field(default=None, min_length=1)
+
+
 class CandidateResponse(BaseModel):
     candidate_id: str
     project_id: str
@@ -58,4 +64,3 @@ class ExperimentResultResponse(BaseModel):
     unit: str | None = None
     conclusion: str | None = None
     failure_reason: str | None = None
-

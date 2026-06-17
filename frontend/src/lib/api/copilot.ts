@@ -21,6 +21,68 @@ export const CopilotChatResponseSchema = z.object({
 
 export type CopilotChatResponse = z.infer<typeof CopilotChatResponseSchema>
 
+export const CopilotConfigSchema = z.object({
+  llm_api_base: z.string(),
+  llm_model: z.string(),
+  api_key_configured: z.boolean(),
+  api_key_preview: z.string().nullable(),
+  system_scope: z.string(),
+  system_prompt: z.string(),
+})
+
+export type CopilotConfig = z.infer<typeof CopilotConfigSchema>
+
+export const CopilotKnowledgeEntrySchema = z.object({
+  knowledge_entry_id: z.string(),
+  title: z.string(),
+  category: z.string(),
+  subcategory: z.string().nullable().optional(),
+  summary: z.string(),
+  content: z.string(),
+  tags_json: z.array(z.string()).optional(),
+  related_model_plugins: z.array(z.string()).optional(),
+  related_method_plugins: z.array(z.string()).optional(),
+  source_type: z.string(),
+  citation: z.string().nullable().optional(),
+  confidence: z.string(),
+  metadata_json: z.record(z.string(), z.unknown()).optional(),
+  status: z.string(),
+})
+
+export type CopilotKnowledgeEntry = z.infer<typeof CopilotKnowledgeEntrySchema>
+
+export interface CopilotConfigUpdate {
+  llm_api_base?: string
+  llm_api_key?: string
+  llm_model?: string
+}
+
+export function getCopilotConfig() {
+  return apiRequest<CopilotConfig>('/copilot/config', {}, CopilotConfigSchema)
+}
+
+export function updateCopilotConfig(payload: CopilotConfigUpdate) {
+  return apiRequest<CopilotConfig>(
+    '/copilot/config',
+    { method: 'PUT', body: JSON.stringify(payload) },
+    CopilotConfigSchema,
+  )
+}
+
+export function searchCopilotKnowledge(query: string, category?: string) {
+  const params = new URLSearchParams({ q: query })
+  if (category) params.set('category', category)
+  return apiRequest<{ items: CopilotKnowledgeEntry[]; total: number; query: string }>(
+    `/copilot/knowledge?${params.toString()}`,
+    {},
+    z.object({
+      items: z.array(CopilotKnowledgeEntrySchema),
+      total: z.number(),
+      query: z.string(),
+    }),
+  )
+}
+
 export function sendCopilotMessage(payload: CopilotChatRequest) {
   return apiRequest<CopilotChatResponse>(
     '/copilot/chat',

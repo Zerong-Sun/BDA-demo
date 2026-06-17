@@ -6,8 +6,10 @@ import {
   molstarColorTheme,
   molstarRepresentation,
 } from './ColorPresets'
-import type { MolPlugin } from './molstar-types'
+import type { PluginContext } from 'molstar/lib/mol-plugin/context'
+import type { StructureRepresentationBuiltInProps } from 'molstar/lib/mol-plugin-state/helpers/structure-representation-params'
 import { ViewerControls } from './ViewerControls'
+import { clearStructures, structureFormatFromName } from './structureLoader'
 import { applyViewPreset } from './viewPresets'
 
 export interface MolStarViewerProps {
@@ -19,42 +21,46 @@ export interface MolStarViewerProps {
   onError?: (message: string) => void
 }
 
-async function createMolPlugin(container: HTMLDivElement): Promise<MolPlugin> {
-  const [{ createPluginUI }, { renderReact18 }, { DefaultPluginUISpec }, { PluginConfig }] =
-    await Promise.all([
-      import('molstar/lib/mol-plugin-ui'),
-      import('molstar/lib/mol-plugin-ui/react18'),
-      import('molstar/lib/mol-plugin-ui/spec'),
-      import('molstar/lib/mol-plugin/config'),
-    ])
+/** Minimal Viewer surface used by this component (loaded dynamically to avoid Vite pre-bundle issues). */
+interface MolstarViewer {
+  plugin: PluginContext
+  dispose(): void
+  loadStructureFromData(
+    data: string,
+    format: 'pdb' | 'mmcif',
+    options?: { dataLabel?: string },
+  ): Promise<void>
+  loadStructureFromUrl(url: string, format: 'pdb' | 'mmcif'): Promise<void>
+}
 
-  await import('molstar/lib/mol-plugin-ui/skin/dark.scss')
+const VIEWER_OPTIONS = {
+  layoutIsExpanded: false,
+  layoutShowControls: false,
+  layoutShowSequence: false,
+  layoutShowLog: false,
+  layoutShowLeftPanel: false,
+  collapseRightPanel: true,
+  viewportShowExpand: false,
+  viewportShowControls: false,
+  viewportShowSelectionMode: false,
+  viewportShowAnimation: false,
+  viewportShowScreenshotControls: false,
+  viewportShowSettings: false,
+  viewportShowReset: false,
+} as const
 
-  const spec = DefaultPluginUISpec()
-  spec.layout = {
-    initial: {
-      isExpanded: false,
-      showControls: false,
-      controlsDisplay: 'reactive',
-    },
-  }
-  spec.config = [
-    [PluginConfig.Viewport.ShowExpand, false],
-    [PluginConfig.Viewport.ShowControls, false],
-    [PluginConfig.Viewport.ShowSelectionMode, false],
-    [PluginConfig.Viewport.ShowAnimation, false],
-  ]
-
-  const plugin = await createPluginUI({
-    target: container,
-    render: renderReact18,
-    spec,
-  })
-  return plugin as unknown as MolPlugin
+async function createViewer(container: HTMLDivElement): Promise<MolstarViewer> {
+  const [{ Viewer }] = await Promise.all([
+    import('molstar/lib/apps/viewer/app'),
+    import('molstar/lib/mol-plugin-ui/skin/dark.scss'),
+  ])
+  const viewer = await Viewer.create(container, VIEWER_OPTIONS)
+  await viewer.plugin.initialized
+  return viewer
 }
 
 async function applyVisualPreset(
-  plugin: MolPlugin,
+  plugin: PluginContext,
   representation: RepresentationPreset,
   color: ColorPreset,
 ) {
@@ -64,10 +70,11 @@ async function applyVisualPreset(
   await plugin.managers.structure.component.clear(structures)
 
   for (const structure of structures) {
-    await plugin.builders.structure.representation.addRepresentation(structure, {
-      type: molstarRepresentation(representation),
-      colorTheme: { name: molstarColorTheme(color) },
-    })
+    const props: StructureRepresentationBuiltInProps = {
+      type: molstarRepresentation(representation) as StructureRepresentationBuiltInProps['type'],
+      color: molstarColorTheme(color) as StructureRepresentationBuiltInProps['color'],
+    }
+    await plugin.builders.structure.representation.addRepresentation(structure.cell, props)
   }
 }
 
@@ -80,7 +87,7 @@ export function MolStarViewer({
   onError,
 }: MolStarViewerProps) {
   const hostRef = useRef<HTMLDivElement>(null)
-  const pluginRef = useRef<MolPlugin | null>(null)
+  const viewerRef = useRef<MolstarViewer | null>(null)
   const [representation, setRepresentation] = useState<RepresentationPreset>('cartoon')
   const [color, setColor] = useState<ColorPreset>('chain-id')
   const [loading, setLoading] = useState(true)
@@ -105,12 +112,12 @@ export function MolStarViewer({
       try {
         setLoading(true)
         setError(null)
-        const plugin = await createMolPlugin(hostRef.current)
+        const viewer = await createViewer(hostRef.current)
         if (disposed) {
-          plugin.destroy()
+          viewer.dispose()
           return
         }
-        pluginRef.current = plugin
+        viewerRef.current = viewer
         onReadyRef.current?.()
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to initialize Mol* viewer'
@@ -125,31 +132,38 @@ export function MolStarViewer({
 
     return () => {
       disposed = true
-      pluginRef.current?.destroy()
-      pluginRef.current = null
+      viewerRef.current?.dispose()
+      viewerRef.current = null
     }
   }, [])
 
   useEffect(() => {
-    const plugin = pluginRef.current
-    if (!plugin || loading) return
+    const viewer = viewerRef.current
+    if (!viewer || loading) return
 
-    async function loadStructure(activePlugin: MolPlugin) {
+    async function loadStructure(activeViewer: MolstarViewer) {
       if (!file && !sourceUrl) {
         setStructureLoaded(false)
         return
       }
       try {
         setError(null)
-        await activePlugin.clear()
+        await clearStructures(activeViewer.plugin)
         if (file) {
           const text = await file.text()
-          await activePlugin.loadStructureFromData(text, file.name.endsWith('.cif') ? 'mmcif' : 'pdb')
+          await activeViewer.loadStructureFromData(
+            text,
+            structureFormatFromName(file.name),
+            { dataLabel: file.name },
+          )
         } else if (sourceUrl) {
-          const format = sourceUrl.endsWith('.cif') ? 'mmcif' : 'pdb'
-          await activePlugin.loadStructureFromUrl(sourceUrl, format)
+          await activeViewer.loadStructureFromUrl(
+            sourceUrl,
+            structureFormatFromName(sourceUrl),
+          )
         }
-        await applyVisualPreset(activePlugin, representation, color)
+        await applyVisualPreset(activeViewer.plugin, representation, color)
+        activeViewer.plugin.managers.camera.focusObject({ durationMs: 250 })
         setStructureLoaded(true)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load structure'
@@ -159,22 +173,35 @@ export function MolStarViewer({
       }
     }
 
-    loadStructure(plugin)
-  }, [sourceUrl, file, loading, representation, color])
+    void loadStructure(viewer)
+  }, [sourceUrl, file, loading])
 
   useEffect(() => {
-    const plugin = pluginRef.current
-    if (!plugin || loading || !structureLoaded) return
-    applyVisualPreset(plugin, representation, color).catch((err) => {
+    const host = hostRef.current
+    const viewer = viewerRef.current
+    if (!host || !viewer || loading) return
+
+    const resize = () => viewer.plugin.handleResize()
+    const observer = new ResizeObserver(resize)
+    observer.observe(host)
+    resize()
+
+    return () => observer.disconnect()
+  }, [loading])
+
+  useEffect(() => {
+    const viewer = viewerRef.current
+    if (!viewer || loading || !structureLoaded) return
+    applyVisualPreset(viewer.plugin, representation, color).catch((err) => {
       const message = err instanceof Error ? err.message : 'Failed to update visualization'
       setError(message)
     })
   }, [representation, color, structureLoaded, loading])
 
   const handleView = (view: ViewPreset) => {
-    const plugin = pluginRef.current
-    if (!plugin) return
-    applyViewPreset(plugin, view).catch((err) => {
+    const viewer = viewerRef.current
+    if (!viewer) return
+    applyViewPreset(viewer.plugin, view).catch((err) => {
       const message = err instanceof Error ? err.message : 'Failed to update camera view'
       setError(message)
     })

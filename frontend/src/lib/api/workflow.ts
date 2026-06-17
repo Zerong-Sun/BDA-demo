@@ -2,7 +2,9 @@ import { apiRequest } from './client'
 import { fetchPaginatedList } from './pagination'
 import {
   WorkflowNodeSchema,
+  WorkflowGraphSchema,
   WorkflowRunSchema,
+  type WorkflowGraph,
   type WorkflowLayout,
   type WorkflowNode,
   type WorkflowRun,
@@ -10,6 +12,10 @@ import {
 
 export function listWorkflowNodes(workflowRunId: string): Promise<WorkflowNode[]> {
   return fetchPaginatedList(`/workflow-runs/${workflowRunId}/nodes`, WorkflowNodeSchema)
+}
+
+export function getWorkflowGraph(workflowRunId: string): Promise<WorkflowGraph> {
+  return apiRequest<WorkflowGraph>(`/workflow-runs/${workflowRunId}/graph`, {}, WorkflowGraphSchema)
 }
 
 export interface SubmitWorkflowResponse {
@@ -50,10 +56,17 @@ export function addWorkflowNode(
 }
 
 export function saveWorkflowLayout(workflowRunId: string, layout: WorkflowLayout) {
-  return apiRequest<WorkflowRun>(
-    `/workflow-runs/${workflowRunId}/layout`,
+  return apiRequest<WorkflowGraph>(
+    `/workflow-runs/${workflowRunId}/graph`,
     { method: 'PATCH', body: JSON.stringify(layout) },
-    WorkflowRunSchema,
+    WorkflowGraphSchema,
+  ).then((graph) => WorkflowRunSchema.parse(graph.workflow_run))
+}
+
+export function validateWorkflowRun(workflowRunId: string) {
+  return apiRequest<{ valid: boolean; errors: Array<Record<string, unknown>>; warnings: Array<Record<string, unknown>> }>(
+    `/workflow-runs/${workflowRunId}/validate`,
+    { method: 'POST' },
   )
 }
 

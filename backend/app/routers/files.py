@@ -1,3 +1,4 @@
+import json
 import re
 import sqlite3
 import tempfile
@@ -8,16 +9,23 @@ from pathlib import Path
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import FileResponse
+from pydantic import BaseModel, Field
 
 from ..auth.deps import get_current_user, require_candidate_access, require_project_access
 from ..auth.service import verify_project_access
 from ..db import get_connection
+from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog
 from ..services.artifacts import (
+    artifact_format_for_filename,
     candidate_structure_path,
     ensure_artifact_dirs,
+    infer_artifact_metadata,
+    media_type_for_format,
     parse_pdb_metadata,
+    preview_artifact,
     resolve_artifact_path,
+    sha256_file,
 )
 from ..services.artifact_store import get_artifact_store
 from ..settings import get_settings
@@ -26,6 +34,13 @@ from ..utils.response import envelope
 router = APIRouter()
 
 SAFE_FILENAME_RE = re.compile(r"^[\w.\-]+$")
+ARTIFACT_STORAGE_PREFIX = "artifact://"
+LEGACY_ARTIFACT_STORAGE_PREFIXES = ("local://",)
+
+
+class BatchArtifactDownloadRequest(BaseModel):
+    artifact_ids: list[str] = Field(default_factory=list, min_length=1, max_length=200)
+    filename: str = "artifacts.zip"
 
 
 def _safe_upload_filename(filename: str) -> str:
@@ -33,6 +48,105 @@ def _safe_upload_filename(filename: str) -> str:
     if not base or not SAFE_FILENAME_RE.match(base):
         raise HTTPException(status_code=400, detail="invalid_filename")
     return base
+
+
+def _artifact_key(storage_uri: str) -> str:
+    if not storage_uri.startswith(ARTIFACT_STORAGE_PREFIX):
+        for prefix in LEGACY_ARTIFACT_STORAGE_PREFIXES:
+            if storage_uri.startswith(prefix):
+                return storage_uri[len(prefix):]
+        raise HTTPException(status_code=400, detail="unsupported_artifact_storage")
+    return storage_uri[len(ARTIFACT_STORAGE_PREFIX):]
+
+
+def _artifact_payload(artifact: dict) -> dict:
+    artifact_id = artifact["artifact_id"]
+    return {
+        **artifact,
+        "download_url": f"/api/v1/artifacts/{artifact_id}/download",
+        "preview_url": f"/api/v1/artifacts/{artifact_id}/preview",
+    }
+
+
+def _metadata_from_form(metadata_json: str | None) -> dict:
+    if not metadata_json:
+        return {}
+    try:
+        payload = json.loads(metadata_json)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="invalid_metadata_json") from exc
+    if not isinstance(payload, dict):
+        raise HTTPException(status_code=400, detail="metadata_json_must_be_object")
+    return payload
+
+
+def _require_artifact_access(connection: sqlite3.Connection, user: dict, artifact: dict) -> None:
+    project_id = artifact.get("project_id")
+    if project_id and not verify_project_access(connection, user, project_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+
+def _resolve_project_for_artifact(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str | None,
+    workflow_run_id: str | None,
+    node_run_id: str | None,
+) -> str | None:
+    resolved = project_id
+    if node_run_id:
+        node = catalog.get_workflow_node(connection, node_run_id)
+        if node is None:
+            raise HTTPException(status_code=404, detail="node_not_found")
+        workflow_run_id = workflow_run_id or node.get("workflow_run_id")
+    if workflow_run_id:
+        workflow_project_id = catalog.get_workflow_run_project_id(connection, workflow_run_id)
+        if workflow_project_id is None:
+            raise HTTPException(status_code=404, detail="workflow_run_not_found")
+        if resolved and resolved != workflow_project_id:
+            raise HTTPException(status_code=400, detail="project_workflow_mismatch")
+        resolved = workflow_project_id
+    return resolved
+
+
+def _save_artifact_upload(
+    connection: sqlite3.Connection,
+    *,
+    source_path: Path,
+    filename: str,
+    stored_name: str,
+    relative_path: str,
+    project_id: str | None,
+    workflow_run_id: str | None,
+    node_run_id: str | None,
+    artifact_type: str,
+    metadata: dict,
+    created_by: str | None,
+) -> dict:
+    artifact_format = artifact_format_for_filename(filename)
+    inferred = infer_artifact_metadata(source_path, artifact_format)
+    merged_metadata = {**inferred, **metadata}
+    store = get_artifact_store()
+    store.save_file(relative_path, source_path)
+    artifact = artifact_repo.create_artifact(
+        connection,
+        artifact_id=f"art_{uuid.uuid4().hex[:16]}",
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        node_run_id=node_run_id,
+        artifact_type=artifact_type,
+        format=artifact_format,
+        storage_uri=f"{ARTIFACT_STORAGE_PREFIX}{relative_path}",
+        display_name=filename,
+        size_bytes=source_path.stat().st_size,
+        checksum=sha256_file(source_path),
+        metadata=merged_metadata,
+        created_by=created_by,
+    )
+    return _artifact_payload({
+        **artifact,
+        "file_id": stored_name.split(".")[0],
+    })
 
 
 def _process_pdb_upload(
@@ -44,11 +158,28 @@ def _process_pdb_upload(
     relative_path: str,
     project_id: str | None,
     tmp_path: Path,
+    created_by: str | None,
 ) -> dict:
     content_preview = tmp_path.read_text(encoding="utf-8", errors="replace")
     metadata = parse_pdb_metadata(content_preview)
     store = get_artifact_store()
     store.save_file(relative_path, tmp_path)
+    artifact_format = artifact_format_for_filename(filename)
+    artifact = artifact_repo.create_artifact(
+        connection,
+        artifact_id=f"art_{uuid.uuid4().hex[:16]}",
+        project_id=project_id,
+        workflow_run_id=None,
+        node_run_id=None,
+        artifact_type="target_structure",
+        format=artifact_format,
+        storage_uri=f"{ARTIFACT_STORAGE_PREFIX}{relative_path}",
+        display_name=filename,
+        size_bytes=tmp_path.stat().st_size,
+        checksum=sha256_file(tmp_path),
+        metadata=metadata,
+        created_by=created_by,
+    )
 
     target = None
     if project_id:
@@ -69,8 +200,173 @@ def _process_pdb_upload(
         "chains": metadata["chains"],
         "residue_count": metadata.get("residue_count"),
         "preview_url": f"/api/v1/artifacts/uploads/{stored_name}",
+        "artifact": _artifact_payload(artifact),
         "target": target,
     }
+
+
+@router.post("/artifacts/upload")
+async def upload_artifact(
+    file: UploadFile = File(...),
+    project_id: str | None = Form(default=None),
+    workflow_run_id: str | None = Form(default=None),
+    node_run_id: str | None = Form(default=None),
+    artifact_type: str = Form(default="uploaded_file"),
+    metadata_json: str | None = Form(default=None),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    ensure_artifact_dirs()
+    resolved_project_id = _resolve_project_for_artifact(
+        connection,
+        project_id=project_id,
+        workflow_run_id=workflow_run_id,
+        node_run_id=node_run_id,
+    )
+    if resolved_project_id and not verify_project_access(connection, user, resolved_project_id):
+        raise HTTPException(status_code=403, detail="forbidden")
+
+    filename = _safe_upload_filename(file.filename or "upload.dat")
+    artifact_format_for_filename(filename)
+    metadata = _metadata_from_form(metadata_json)
+    suffix = Path(filename).suffix
+    stored_name = f"{uuid.uuid4()}{suffix}"
+    relative_path = f"uploads/{stored_name}"
+    max_bytes = get_settings().bda_max_upload_bytes
+
+    with tempfile.NamedTemporaryFile(mode="wb", delete=False, suffix=suffix) as tmp:
+        tmp_path = Path(tmp.name)
+        written = 0
+        while chunk := await file.read(1024 * 1024):
+            written += len(chunk)
+            if written > max_bytes:
+                tmp.flush()
+                tmp_path.unlink(missing_ok=True)
+                raise HTTPException(status_code=413, detail=f"file_too_large_max_{max_bytes}_bytes")
+            tmp.write(chunk)
+        tmp.flush()
+
+    try:
+        payload = await run_in_threadpool(
+            _save_artifact_upload,
+            connection,
+            source_path=tmp_path,
+            filename=filename,
+            stored_name=stored_name,
+            relative_path=relative_path,
+            project_id=resolved_project_id,
+            workflow_run_id=workflow_run_id,
+            node_run_id=node_run_id,
+            artifact_type=artifact_type,
+            metadata=metadata,
+            created_by=user.get("user_id") or user.get("username"),
+        )
+    finally:
+        tmp_path.unlink(missing_ok=True)
+
+    return envelope(payload)
+
+
+@router.get("/projects/{project_id}/artifacts")
+def project_artifacts(
+    project_id: str,
+    artifact_type: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    items, total = artifact_repo.list_project_artifacts(
+        connection,
+        project_id,
+        artifact_type=artifact_type,
+        limit=max(1, min(limit, 200)),
+        offset=max(0, offset),
+    )
+    return envelope({
+        "items": [_artifact_payload(item) for item in items],
+        "total": total,
+        "limit": max(1, min(limit, 200)),
+        "offset": max(0, offset),
+    })
+
+
+@router.get("/artifacts/{artifact_id}")
+def artifact_detail(
+    artifact_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    artifact = artifact_repo.get_artifact(connection, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    _require_artifact_access(connection, user, artifact)
+    return envelope(_artifact_payload(artifact))
+
+
+@router.post("/artifacts/batch-download")
+def batch_download_artifacts(
+    payload: BatchArtifactDownloadRequest,
+    background_tasks: BackgroundTasks,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    safe_filename = _safe_upload_filename(payload.filename)
+    if not safe_filename.lower().endswith(".zip"):
+        safe_filename = f"{safe_filename}.zip"
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            for artifact_id in payload.artifact_ids:
+                artifact = artifact_repo.get_artifact(connection, artifact_id)
+                if artifact is None:
+                    raise HTTPException(status_code=404, detail=f"artifact_not_found:{artifact_id}")
+                _require_artifact_access(connection, user, artifact)
+                path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+                archive.write(path, arcname=artifact["display_name"])
+        background_tasks.add_task(tmp_path.unlink, missing_ok=True)
+        return FileResponse(tmp_path, media_type="application/zip", filename=safe_filename)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
+@router.get("/artifacts/{artifact_id}/preview")
+def artifact_preview(
+    artifact_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    artifact = artifact_repo.get_artifact(connection, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    _require_artifact_access(connection, user, artifact)
+    path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+    return envelope({
+        "artifact": _artifact_payload(artifact),
+        "preview": preview_artifact(path, artifact["format"]),
+    })
+
+
+@router.get("/artifacts/{artifact_id}/download")
+def artifact_download(
+    artifact_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    artifact = artifact_repo.get_artifact(connection, artifact_id)
+    if artifact is None:
+        raise HTTPException(status_code=404, detail="artifact_not_found")
+    _require_artifact_access(connection, user, artifact)
+    path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+    return FileResponse(
+        path,
+        media_type=media_type_for_format(artifact["format"]),
+        filename=artifact["display_name"],
+    )
 
 
 @router.post("/targets/upload-pdb")
@@ -120,6 +416,7 @@ async def upload_pdb(
             relative_path=relative_path,
             project_id=project_id,
             tmp_path=tmp_path,
+            created_by=user.get("user_id") or user.get("username"),
         )
     finally:
         tmp_path.unlink(missing_ok=True)

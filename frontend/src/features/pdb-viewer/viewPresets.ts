@@ -1,5 +1,5 @@
+import type { PluginContext } from 'molstar/lib/mol-plugin/context'
 import type { ViewPreset } from './ColorPresets'
-import type { MolPlugin } from './molstar-types'
 
 const VIEW_DIRECTIONS: Record<
   Exclude<ViewPreset, 'focus'>,
@@ -12,7 +12,7 @@ const VIEW_DIRECTIONS: Record<
   side: { dir: [1, 0, 0], up: [0, 1, 0] },
 }
 
-export async function applyViewPreset(plugin: MolPlugin, view: ViewPreset): Promise<void> {
+export async function applyViewPreset(plugin: PluginContext, view: ViewPreset): Promise<void> {
   if (view === 'focus') {
     plugin.managers.camera.focusObject({ durationMs: 250 })
     return

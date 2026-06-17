@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import sqlite3
 
-from ..repositories import catalog
+from ..repositories import catalog, knowledge
 
 COPILOT_TOOLS = [
     {
@@ -50,6 +50,25 @@ COPILOT_TOOLS = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "search_biomaterials_knowledge",
+            "description": "Search curated programmable biomaterials knowledge about methods, models, algorithms, proteins, assays, and material properties",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "category": {
+                        "type": "string",
+                        "description": "Optional category such as model, methodology, biomaterial_property, assay",
+                    },
+                    "limit": {"type": "integer", "default": 5},
+                },
+                "required": ["query"],
+            },
+        },
+    },
 ]
 
 
@@ -81,5 +100,19 @@ def execute_tool(
     if name == "adjust_workflow" and project_id:
         package = catalog.get_project_delivery_package(connection, project_id)
         return {"redesign_constraints": (package or {}).get("redesign_constraints", {})}
+
+    if name == "search_biomaterials_knowledge":
+        query = str(args.get("query") or "")
+        category = args.get("category")
+        limit = int(args.get("limit") or 5)
+        return {
+            "query": query,
+            "items": knowledge.search_entries(
+                connection,
+                query,
+                category=category if isinstance(category, str) and category else None,
+                limit=max(1, min(limit, 10)),
+            ),
+        }
 
     return {"error": "unknown_tool_or_missing_project"}

@@ -1,20 +1,34 @@
 import json
 import sqlite3
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from sse_starlette.sse import EventSourceResponse
 
-from ..auth.deps import get_current_user
+from ..auth.deps import get_current_user, require_role
 from ..auth.service import verify_project_access
+from ..copilot.biomaterials_skill import (
+    BIOMATERIALS_SYSTEM_PROMPT,
+    DOMAIN_REFUSAL,
+    PROGRAMMABLE_BIOMATERIALS_SKILL,
+    is_programmable_biomaterials_question,
+)
 from ..db import get_connection
-from ..repositories import catalog
-from ..schemas import CandidateExplanationRequest, CopilotChatRequest, ResultInterpretationRequest, RoutePlanRequest
+from ..repositories import catalog, knowledge
+from ..schemas import (
+    CandidateExplanationRequest,
+    CopilotChatRequest,
+    CopilotConfigUpdateRequest,
+    ResultInterpretationRequest,
+    RoutePlanRequest,
+)
+from ..settings import get_settings
 from ..utils.response import envelope
 
 router = APIRouter(prefix="/copilot")
 
 SKILL_KEYWORDS = {
+    "programmable-biomaterials-expert": PROGRAMMABLE_BIOMATERIALS_SKILL["trigger"],
     "workflow-adjust": ["workflow", "route", "threshold", "工作流"],
     "result-interpret": ["bli", "sec", "experiment", "实验", "lab"],
     "query-candidates": ["candidate", "rank", "anchor", "候选", "c4361"],
@@ -73,11 +87,26 @@ def result_interpret_message(connection: sqlite3.Connection, project_id: str | N
     )
 
 
+def knowledge_message(connection: sqlite3.Connection, query: str) -> str:
+    items = knowledge.search_entries(connection, query, limit=3)
+    if not items:
+        return (
+            "I do not have a matching curated knowledge entry yet. Add a knowledge entry for this method, "
+            "model, algorithm, protein, assay, or biomaterial property before relying on Copilot."
+        )
+    lines = []
+    for item in items:
+        lines.append(f"- {item['title']}: {item['summary']}")
+    return "Relevant programmable biomaterials knowledge:\n" + "\n".join(lines)
+
+
 def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
     last_message = payload.messages[-1].content if payload.messages else ""
     skill = payload.skill or match_skill(last_message)
 
-    if skill == "workflow-adjust":
+    if skill == "programmable-biomaterials-expert":
+        message = knowledge_message(connection, last_message)
+    elif skill == "workflow-adjust":
         message = workflow_adjust_message(connection, payload.project_id)
     elif skill == "result-interpret":
         message = result_interpret_message(connection, payload.project_id)
@@ -107,9 +136,23 @@ def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest
     }
 
 
-def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
-    from ..settings import get_settings
+def _domain_refusal(project_id: str | None, last_message: str) -> dict:
+    return {
+        "mode": "domain_guard",
+        "message": DOMAIN_REFUSAL,
+        "skill_used": "programmable-biomaterials-expert",
+        "structured": {
+            "echo": last_message,
+            "project_id": project_id,
+            "allowed_scope": PROGRAMMABLE_BIOMATERIALS_SKILL["description"],
+        },
+    }
 
+
+def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
+    last_message = payload.messages[-1].content if payload.messages else ""
+    if last_message and not is_programmable_biomaterials_question(last_message):
+        return _domain_refusal(payload.project_id, last_message)
     settings = get_settings()
     if settings.llm_api_key:
         from ..copilot.service import chat_with_llm
@@ -121,6 +164,66 @@ def _resolve_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -
 def _ensure_project_access(connection: sqlite3.Connection, user: dict, project_id: str | None) -> None:
     if project_id and not verify_project_access(connection, user, project_id):
         raise HTTPException(status_code=403, detail="forbidden")
+
+
+def _copilot_config_payload() -> dict:
+    settings = get_settings()
+    return {
+        "llm_api_base": settings.llm_api_base,
+        "llm_model": settings.llm_model,
+        "api_key_configured": bool(settings.llm_api_key),
+        "api_key_preview": f"...{settings.llm_api_key[-4:]}" if settings.llm_api_key else None,
+        "system_scope": "programmable_biomaterials_only",
+        "system_prompt": BIOMATERIALS_SYSTEM_PROMPT,
+    }
+
+
+@router.get("/config")
+def get_copilot_config(_admin: dict = Depends(require_role("admin"))):
+    return envelope(_copilot_config_payload())
+
+
+@router.put("/config")
+def update_copilot_config(
+    payload: CopilotConfigUpdateRequest,
+    _admin: dict = Depends(require_role("admin")),
+):
+    settings = get_settings()
+    if payload.llm_api_base is not None:
+        settings.llm_api_base = payload.llm_api_base.strip()
+    if payload.llm_model is not None:
+        settings.llm_model = payload.llm_model.strip()
+    if payload.llm_api_key is not None:
+        settings.llm_api_key = payload.llm_api_key.strip()
+    return envelope(_copilot_config_payload())
+
+
+@router.get("/knowledge")
+def list_knowledge_entries(
+    q: str | None = Query(default=None, max_length=200),
+    category: str | None = Query(default=None, max_length=80),
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    if q:
+        items = knowledge.search_entries(connection, q, category=category, limit=limit)
+        return envelope({"items": items, "total": len(items), "limit": limit, "offset": 0, "query": q})
+    items, total = knowledge.list_entries(connection, category=category, limit=limit, offset=offset)
+    return envelope({"items": items, "total": total, "limit": limit, "offset": offset, "query": q})
+
+
+@router.get("/knowledge/{knowledge_entry_id}")
+def get_knowledge_entry(
+    knowledge_entry_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    item = knowledge.get_entry(connection, knowledge_entry_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="knowledge_entry_not_found")
+    return envelope(item)
 
 
 @router.post("/route-plan")
@@ -239,6 +342,7 @@ def result_interpretation(
 @router.get("/skills")
 def list_skills(_user: dict = Depends(get_current_user)):
     return envelope([
+        PROGRAMMABLE_BIOMATERIALS_SKILL,
         {"name": "workflow-adjust", "description": "Adjust workflow parameters and constraints"},
         {"name": "result-interpret", "description": "Interpret BLI/SEC experiment results"},
         {"name": "query-candidates", "description": "Query and rank candidates"},

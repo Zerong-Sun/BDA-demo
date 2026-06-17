@@ -52,6 +52,30 @@ export type TranslationDict = {
     toggleCopilot: string
     readOnly: string
   }
+  pdbUpload: {
+    dropzone: string
+    hint: string
+    uploading: string
+    replace: string
+    replaceHint: string
+    invalidFile: string
+    uploadSuccess: string
+    uploadFallback: string
+  }
+  nodeBuilder: {
+    title: string
+    subtitle: string
+    modelCards: string
+    methodControls: string
+    previewCard: string
+    addButton: string
+    cancel: string
+    nodeNameLabel: string
+    nodeNamePlaceholder: string
+    noMethodsSelected: string
+    adding: string
+    methodOptions: Record<string, string>
+  }
   candidates: {
     eyebrow: string
     title: string

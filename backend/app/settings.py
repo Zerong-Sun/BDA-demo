@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     llm_api_base: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
-    bda_compute_mode: str = "demo"  # demo | docker
+    bda_compute_mode: str = "demo"  # demo | local | docker
     bda_docker_host: str = "unix:///var/run/docker.sock"
 
     # Maximum accepted upload size in bytes (default 25 MiB). Guards against memory/disk DoS.

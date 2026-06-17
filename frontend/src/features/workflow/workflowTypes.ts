@@ -18,6 +18,7 @@ export interface WorkflowNodeData extends Record<string, unknown> {
   footer: string
   resource?: 'cpu' | 'gpu' | 'local' | 'manual'
   methods?: string[]
+  parameters?: Record<string, unknown>
 }
 
 export type BdaWorkflowNode = Node<WorkflowNodeData>
@@ -33,6 +34,7 @@ export interface NodeTemplate {
   modelName?: string
   modelVersion?: string
   pluginId?: string
+  parameterSchema?: unknown
 }
 
 export const nodeTemplates: Record<string, NodeTemplate> = {

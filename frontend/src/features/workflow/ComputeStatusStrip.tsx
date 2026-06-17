@@ -1,11 +1,16 @@
 import { useQuery } from '@tanstack/react-query'
 import { ServerOff } from 'lucide-react'
 import { listComputeNodes } from '../../lib/api/registry'
+import { getHealth } from '../../lib/api/client'
 
 export function ComputeStatusStrip() {
   const { data: nodes = [] } = useQuery({
     queryKey: ['compute-nodes'],
     queryFn: listComputeNodes,
+  })
+  const { data: health } = useQuery({
+    queryKey: ['health'],
+    queryFn: getHealth,
   })
 
   const gpuNodes = nodes.filter((node) => node.node_type === 'GPU')
@@ -26,7 +31,9 @@ export function ComputeStatusStrip() {
         CPU worker: {cpuAvailable ? 'available' : 'unavailable'}
       </span>
       {!gpuAvailable && !cpuAvailable ? (
-        <span className="text-xs text-bda-muted">MVP gateway only — submit-to-compute returns blocked.</span>
+        <span className="text-xs text-bda-muted">
+          Compute mode: {health?.compute ?? 'demo'} · use local mode for built-in stub runners or docker mode for containers.
+        </span>
       ) : null}
     </div>
   )

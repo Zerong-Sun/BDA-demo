@@ -47,4 +47,4 @@ Container images in `docker/models/`:
 
 Build: `docker build -t bda/proteinmpnn:1.0.0 docker/models/proteinmpnn`
 
-Set `BDA_COMPUTE_MODE=docker` to enable real job submission.
+Set `BDA_COMPUTE_MODE=local` to run built-in stub runners without Docker, or `BDA_COMPUTE_MODE=docker` to enable real container submission.
