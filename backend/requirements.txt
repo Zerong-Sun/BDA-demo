@@ -17,7 +17,7 @@ minio==7.2.12
 openai==1.58.1
 sse-starlette==2.2.1
 prometheus-client==0.25.0
-pytest==8.3.4
+pytest==9.1.1
 pytest-cov==6.0.0
 httpx==0.28.1
 ruff==0.8.4
