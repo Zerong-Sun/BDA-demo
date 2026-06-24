@@ -47,5 +47,9 @@ def run_due_subscriptions(connection: sqlite3.Connection) -> dict[str, Any]:
             item["subscription_id"],
         )
         if claimed is not None:
+            # Release the SQLite write lock before network and LLM calls. The
+            # conditional claim remains durable, preventing another Beat worker
+            # from running the same subscription.
+            connection.commit()
             results.append(run_subscription(connection, claimed))
     return {"subscriptions_run": len(results), "results": results}

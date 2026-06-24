@@ -79,6 +79,8 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
     [],
   )
 
+  // TanStack Table intentionally exposes mutable function references.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,

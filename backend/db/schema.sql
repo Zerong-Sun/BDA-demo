@@ -402,6 +402,8 @@ CREATE TABLE IF NOT EXISTS claim_relations (
   rationale TEXT,
   confidence REAL,
   review_status TEXT NOT NULL DEFAULT 'pending_review',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (source_claim_id) REFERENCES scientific_claims(claim_id),
   FOREIGN KEY (target_claim_id) REFERENCES scientific_claims(claim_id),

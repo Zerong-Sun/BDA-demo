@@ -190,14 +190,15 @@ def review_relation(
     relation_id: str,
     *,
     review_status: str,
+    reviewed_by: str,
 ) -> dict | None:
     connection.execute(
         """
         UPDATE claim_relations
-        SET review_status = ?
+        SET review_status = ?, reviewed_by = ?, reviewed_at = CURRENT_TIMESTAMP
         WHERE relation_id = ?
         """,
-        (review_status, relation_id),
+        (review_status, reviewed_by, relation_id),
     )
     row = connection.execute(
         "SELECT * FROM claim_relations WHERE relation_id = ?",

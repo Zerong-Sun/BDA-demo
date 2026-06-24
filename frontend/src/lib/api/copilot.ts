@@ -202,6 +202,16 @@ export function reviewLiteratureRelation(relationId: string, reviewStatus: 'acce
   )
 }
 
+export function detectLiteratureRelations(acceptedOnly = false) {
+  return apiRequest<Record<string, unknown>>(
+    '/copilot/literature/relations/detect',
+    {
+      method: 'POST',
+      body: JSON.stringify({ limit: 30, accepted_only: acceptedOnly }),
+    },
+  )
+}
+
 export interface LiteratureSubscription {
   subscription_id: string
   name: string
@@ -226,6 +236,16 @@ export function createLiteratureSubscription(payload: Omit<LiteratureSubscriptio
   return apiRequest<LiteratureSubscription>(
     '/copilot/literature/subscriptions',
     { method: 'POST', body: JSON.stringify(payload) },
+  )
+}
+
+export function updateLiteratureSubscription(
+  subscriptionId: string,
+  payload: Omit<LiteratureSubscription, 'subscription_id' | 'last_status' | 'last_run_at' | 'next_run_at'>,
+) {
+  return apiRequest<LiteratureSubscription>(
+    `/copilot/literature/subscriptions/${subscriptionId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
   )
 }
 

@@ -66,8 +66,11 @@ export function WorkflowPage() {
     queryFn: () => listProjectArtifacts(projectId),
   })
 
-  const workflowNodes = workflowGraph?.nodes ?? []
-  const workflowArtifacts = workflowGraph?.artifacts ?? []
+  const workflowNodes = useMemo(() => workflowGraph?.nodes ?? [], [workflowGraph?.nodes])
+  const workflowArtifacts = useMemo(
+    () => workflowGraph?.artifacts ?? [],
+    [workflowGraph?.artifacts],
+  )
   const visibleArtifacts = useMemo(() => {
     const byId = new Map<string, Artifact>()
     for (const artifact of [...workflowArtifacts, ...projectArtifacts, ...artifacts]) {

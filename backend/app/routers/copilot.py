@@ -471,12 +471,13 @@ def review_literature_relation(
     relation_id: str,
     payload: ClaimReviewRequest,
     connection: sqlite3.Connection = Depends(get_connection),
-    _user: dict = Depends(require_role("admin", "researcher")),
+    user: dict = Depends(require_role("admin", "researcher")),
 ):
     item = literature.review_relation(
         connection,
         relation_id,
         review_status=payload.review_status,
+        reviewed_by=user["user_id"],
     )
     if item is None:
         raise HTTPException(status_code=404, detail="claim_relation_not_found")

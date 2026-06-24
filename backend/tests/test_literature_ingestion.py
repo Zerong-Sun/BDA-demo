@@ -4,8 +4,12 @@ from pathlib import Path
 import pytest
 
 from backend.app.repositories import literature
+from backend.app.repositories import literature_subscriptions
 from backend.app.services import literature_ingestion
-from backend.app.services.literature_subscription_service import run_due_subscriptions
+from backend.app.services.literature_subscription_service import (
+    run_due_subscriptions,
+    run_subscription,
+)
 
 
 def _connection() -> sqlite3.Connection:
@@ -297,3 +301,63 @@ def test_due_literature_subscription_runs_and_reschedules(monkeypatch):
     assert item["last_status"] == "completed"
     assert item["last_run_at"] is not None
     assert item["next_run_at"] > item["last_run_at"]
+
+
+def test_subscription_failure_rolls_back_partial_ingestion(monkeypatch):
+    connection = _connection()
+    connection.execute(
+        """
+        INSERT INTO literature_subscriptions (
+            subscription_id, name, query, interval_hours, result_limit,
+            fetch_full_text, extract_claims, next_run_at
+        ) VALUES ('sub_fail', 'Failing import', 'broken', 12, 1, 0, 0, CURRENT_TIMESTAMP)
+        """
+    )
+
+    def partial_failure(connection, query, **kwargs):
+        connection.execute(
+            """
+            INSERT INTO research_sources (source_id, source_type, title, uri)
+            VALUES ('partial_source', 'test', 'Partial', 'test://partial')
+            """
+        )
+        raise RuntimeError("provider failed")
+
+    monkeypatch.setattr(
+        "backend.app.services.literature_subscription_service.ingest_europe_pmc_query",
+        partial_failure,
+    )
+    item = dict(connection.execute(
+        "SELECT * FROM literature_subscriptions WHERE subscription_id='sub_fail'"
+    ).fetchone())
+    result = run_subscription(connection, item)
+    partial = connection.execute(
+        "SELECT 1 FROM research_sources WHERE source_id='partial_source'"
+    ).fetchone()
+    status = connection.execute(
+        "SELECT last_status FROM literature_subscriptions WHERE subscription_id='sub_fail'"
+    ).fetchone()["last_status"]
+    connection.close()
+
+    assert result["status"] == "failed"
+    assert partial is None
+    assert status == "failed"
+
+
+def test_due_subscription_can_only_be_claimed_once():
+    connection = _connection()
+    connection.execute(
+        """
+        INSERT INTO literature_subscriptions (
+            subscription_id, name, query, interval_hours, result_limit,
+            fetch_full_text, extract_claims, next_run_at
+        ) VALUES ('sub_claim', 'Claim once', 'protein', 12, 1, 0, 0, '2000-01-01')
+        """
+    )
+    first = literature_subscriptions.claim_due_subscription(connection, "sub_claim")
+    second = literature_subscriptions.claim_due_subscription(connection, "sub_claim")
+    connection.close()
+
+    assert first is not None
+    assert first["last_status"] == "running"
+    assert second is None

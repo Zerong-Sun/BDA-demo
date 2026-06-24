@@ -42,8 +42,8 @@ class Section:
 def parse_full_text_xml(xml_text: str) -> list[Section]:
     if len(xml_text.encode("utf-8")) > MAX_FULL_TEXT_BYTES:
         raise ValueError("full_text_too_large")
-    lowered_prefix = xml_text[:2000].lower()
-    if "<!doctype" in lowered_prefix or "<!entity" in lowered_prefix:
+    lowered = xml_text.lower()
+    if "<!doctype" in lowered or "<!entity" in lowered:
         raise ValueError("unsafe_xml_declaration")
     root = ET.fromstring(xml_text)
     sections: list[Section] = []

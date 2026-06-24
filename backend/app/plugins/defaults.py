@@ -557,4 +557,16 @@ def register_default_model_plugins(connection: sqlite3.Connection) -> None:
         ON CONFLICT(model_plugin_id) DO UPDATE SET {updates}
     """
     for plugin in DEFAULT_MODEL_PLUGINS:
-        connection.execute(sql, tuple(_db_value(plugin.get(column)) for column in MODEL_PLUGIN_COLUMNS))
+        values = dict(plugin)
+        compute_node_id = values.get("default_compute_node_id")
+        if compute_node_id:
+            exists = connection.execute(
+                "SELECT 1 FROM compute_nodes WHERE compute_node_id = ?",
+                (compute_node_id,),
+            ).fetchone()
+            if exists is None:
+                values["default_compute_node_id"] = None
+        connection.execute(
+            sql,
+            tuple(_db_value(values.get(column)) for column in MODEL_PLUGIN_COLUMNS),
+        )

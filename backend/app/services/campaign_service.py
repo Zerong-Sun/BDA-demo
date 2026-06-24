@@ -183,7 +183,11 @@ def create_campaign(
             (workflow["workflow_run_id"],),
         ).fetchone()
         if claimed:
-            workflow = None
+            workflow = clone_workflow_with_patch(
+                connection,
+                workflow["workflow_run_id"],
+                {"models": {}},
+            )
     if workflow is None:
         workflow = catalog.create_draft_workflow_run(connection, project_id)
     if catalog.get_workflow_run_project_id(connection, workflow["workflow_run_id"]) != project_id:

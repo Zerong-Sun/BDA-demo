@@ -4,6 +4,7 @@ import { Check, LoaderCircle, Play, Search, X } from 'lucide-react'
 
 import {
   createLiteratureSubscription,
+  detectLiteratureRelations,
   ingestLiterature,
   listLiteratureClaims,
   listLiteratureRelations,
@@ -12,6 +13,7 @@ import {
   reviewLiteratureRelation,
   runLiteratureSubscription,
   searchLiteratureLibrary,
+  updateLiteratureSubscription,
 } from '../lib/api/copilot'
 import {
   createCampaign,
@@ -19,6 +21,7 @@ import {
   getCampaign,
   listProjectCampaigns,
   reviewCampaignDecision,
+  updateCampaignDecision,
   type Campaign,
 } from '../lib/api/campaigns'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
@@ -27,8 +30,88 @@ function text(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
+function currentRole() {
+  try {
+    const raw = sessionStorage.getItem('bda_user')
+    return raw ? text((JSON.parse(raw) as { role?: unknown }).role) : ''
+  } catch {
+    return ''
+  }
+}
+
+function DecisionReview({
+  decisionId,
+  roundNumber,
+  patch,
+  onSave,
+  onReview,
+  saving,
+}: {
+  decisionId: string
+  roundNumber: number
+  patch: unknown
+  onSave: (id: string, patch: Record<string, unknown>) => Promise<unknown>
+  onReview: (id: string, approve: boolean) => void
+  saving: boolean
+}) {
+  const initial = JSON.stringify(patch ?? { models: {} }, null, 2)
+  const [draft, setDraft] = useState(initial)
+  const [dirty, setDirty] = useState(false)
+  const [error, setError] = useState('')
+
+  const save = async () => {
+    try {
+      const parsed = JSON.parse(draft) as Record<string, unknown>
+      await onSave(decisionId, parsed)
+      setDirty(false)
+      setError('')
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Invalid parameter patch')
+    }
+  }
+
+  return (
+    <div className="mt-3 space-y-2">
+      <textarea
+        aria-label={`Round ${roundNumber} parameter patch`}
+        className="min-h-28 w-full rounded border border-bda-border bg-bda-bg p-2 font-mono text-xs"
+        value={draft}
+        onChange={(event) => {
+          setDraft(event.target.value)
+          setDirty(true)
+          setError('')
+        }}
+      />
+      {error ? <p className="text-xs text-bda-red">{error}</p> : null}
+      <div className="flex flex-wrap gap-2">
+        <button
+          className="rounded border border-bda-border px-3 py-1.5 text-sm disabled:opacity-50"
+          disabled={!dirty || saving}
+          onClick={() => void save()}
+        >
+          保存 Patch
+        </button>
+        <button
+          className="rounded bg-bda-green px-3 py-1.5 text-sm text-bda-bg disabled:opacity-50"
+          disabled={dirty || saving}
+          onClick={() => onReview(decisionId, true)}
+        >
+          批准并创建下一轮
+        </button>
+        <button
+          className="rounded border border-bda-red px-3 py-1.5 text-sm text-bda-red"
+          onClick={() => onReview(decisionId, false)}
+        >
+          拒绝
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function LiteraturePanel() {
   const client = useQueryClient()
+  const isAdmin = currentRole() === 'admin'
   const [query, setQuery] = useState('protein binder design')
   const claims = useQuery({ queryKey: ['literature-claims'], queryFn: () => listLiteratureClaims() })
   const relations = useQuery({ queryKey: ['literature-relations'], queryFn: () => listLiteratureRelations() })
@@ -36,6 +119,7 @@ function LiteraturePanel() {
     queryKey: ['literature-subscriptions'],
     queryFn: listLiteratureSubscriptions,
     retry: false,
+    enabled: isAdmin,
   })
   const search = useQuery({
     queryKey: ['literature-search', query],
@@ -59,6 +143,10 @@ function LiteraturePanel() {
       reviewLiteratureRelation(id, status),
     onSuccess: () => client.invalidateQueries({ queryKey: ['literature-relations'] }),
   })
+  const detectRelations = useMutation({
+    mutationFn: () => detectLiteratureRelations(false),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['literature-relations'] }),
+  })
   const createSubscription = useMutation({
     mutationFn: () => createLiteratureSubscription({
       name: query,
@@ -75,6 +163,19 @@ function LiteraturePanel() {
     mutationFn: runLiteratureSubscription,
     onSuccess: () => client.invalidateQueries({ queryKey: ['literature-subscriptions'] }),
   })
+  const toggleSubscription = useMutation({
+    mutationFn: (item: NonNullable<typeof subscriptions.data>['items'][number]) =>
+      updateLiteratureSubscription(item.subscription_id, {
+        name: item.name,
+        query: item.query,
+        enabled: !item.enabled,
+        interval_hours: item.interval_hours,
+        result_limit: item.result_limit,
+        fetch_full_text: item.fetch_full_text,
+        extract_claims: item.extract_claims,
+      }),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['literature-subscriptions'] }),
+  })
 
   return (
     <div className="space-y-6">
@@ -83,11 +184,15 @@ function LiteraturePanel() {
         <div className="mt-3 flex flex-wrap gap-2">
           <input className="min-w-72 flex-1 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => search.refetch()}><Search className="mr-1 inline h-4 w-4" />检索本地库</button>
-          <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={ingest.isPending} onClick={() => ingest.mutate()}>
+          <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={!isAdmin || ingest.isPending} onClick={() => ingest.mutate()}>
             {ingest.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}立即摄取
           </button>
-          <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => createSubscription.mutate()}>每日自动阅读</button>
+          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={!isAdmin} onClick={() => createSubscription.mutate()}>每日自动阅读</button>
         </div>
+        {!isAdmin ? <p className="mt-2 text-xs text-bda-muted">摄取、自动订阅和关系检测需要管理员权限；研究员仍可检索并审核证据。</p> : null}
+        {ingest.isError || createSubscription.isError ? (
+          <p className="mt-2 text-xs text-bda-red">文献任务失败，请检查权限、网络和模型配置。</p>
+        ) : null}
         {search.data?.items.map((item, index) => (
           <div key={`${text(item.document_id)}-${index}`} className="mt-3 rounded border border-bda-border p-3 text-sm">
             <strong>{text(item.title)}</strong>
@@ -98,7 +203,10 @@ function LiteraturePanel() {
         {subscriptions.data?.items.map((item) => (
           <div key={item.subscription_id} className="mt-3 flex items-center justify-between rounded border border-bda-border p-3 text-sm">
             <div><strong>{item.name}</strong><p className="text-xs text-bda-muted">每 {item.interval_hours} 小时 · 下次 {item.next_run_at}</p></div>
-            <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />运行</button>
+            <div className="flex gap-2">
+              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? '暂停' : '启用'}</button>
+              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />运行</button>
+            </div>
           </div>
         ))}
       </section>
@@ -119,7 +227,12 @@ function LiteraturePanel() {
           ))}
         </div>
         <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <h2 className="font-semibold">待审核主张关系</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="font-semibold">待审核主张关系</h2>
+            <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={!isAdmin || detectRelations.isPending} onClick={() => detectRelations.mutate()}>
+              检测关系
+            </button>
+          </div>
           {relations.data?.items.map((item) => (
             <article key={text(item.relation_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
               <span className="text-xs uppercase text-bda-cyan">{text(item.relation_type)}</span>
@@ -172,8 +285,14 @@ function CampaignPanel() {
     mutationFn: ({ id, approve }: { id: string; approve: boolean }) => reviewCampaignDecision(id, approve),
     onSuccess: () => client.invalidateQueries({ queryKey: ['campaign', selected] }),
   })
+  const updateDecision = useMutation({
+    mutationFn: ({ id, patch }: { id: string; patch: Record<string, unknown> }) =>
+      updateCampaignDecision(id, patch, 'Reviewed in Research workspace.'),
+    onSuccess: () => client.invalidateQueries({ queryKey: ['campaign', selected] }),
+  })
 
   const campaign = detail.data as Campaign | undefined
+  const actionError = create.error || evaluate.error || review.error || updateDecision.error
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
       <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
@@ -185,6 +304,7 @@ function CampaignPanel() {
         ))}
       </aside>
       <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
+        {actionError ? <p className="mb-3 rounded border border-bda-red/40 p-2 text-sm text-bda-red">{actionError.message}</p> : null}
         {!campaign ? <p className="text-bda-muted">选择或创建一个 Campaign。</p> : (
           <>
             <h2 className="text-lg font-semibold">{campaign.name}</h2>
@@ -192,6 +312,7 @@ function CampaignPanel() {
             {campaign.rounds?.map((round) => {
               const decision = round.decisions?.[0]
               const decisionId = decision ? text(decision.decision_id) : ''
+              const patch = decision?.parameter_patch_json
               return (
                 <article key={round.campaign_round_id} className="mt-4 rounded border border-bda-border p-4">
                   <div className="flex justify-between"><strong>Round {round.round_number}</strong><span className="text-xs text-bda-cyan">{round.status} · {round.approval_status}</span></div>
@@ -200,10 +321,14 @@ function CampaignPanel() {
                     <button className="mt-3 rounded border border-bda-border px-3 py-1.5 text-sm" onClick={() => evaluate.mutate({ id: campaign.campaign_id, round: round.round_number })}>评价本轮</button>
                   ) : null}
                   {decisionId && text(decision?.status) === 'proposed' ? (
-                    <div className="mt-3 flex gap-2">
-                      <button className="rounded bg-bda-green px-3 py-1.5 text-sm text-bda-bg" onClick={() => review.mutate({ id: decisionId, approve: true })}>批准并创建下一轮</button>
-                      <button className="rounded border border-bda-red px-3 py-1.5 text-sm text-bda-red" onClick={() => review.mutate({ id: decisionId, approve: false })}>拒绝</button>
-                    </div>
+                    <DecisionReview
+                      decisionId={decisionId}
+                      roundNumber={round.round_number}
+                      patch={patch}
+                      saving={updateDecision.isPending}
+                      onSave={(id, nextPatch) => updateDecision.mutateAsync({ id, patch: nextPatch })}
+                      onReview={(id, approve) => review.mutate({ id, approve })}
+                    />
                   ) : null}
                 </article>
               )

@@ -114,6 +114,13 @@ def test_campaign_evaluate_approve_and_clone_workflow(
     assert approval["next_round_number"] == 2
     assert approval["compute_submitted"] is False
 
+    second_approval = client.post(
+        f"{API}/campaign-decisions/{evaluation['decision_id']}/review",
+        headers=auth_headers,
+        json={"approve": True},
+    )
+    assert second_approval.status_code == 400
+
     graph = client.get(
         f"{API}/workflow-runs/{approval['workflow_run_id']}/graph",
         headers=auth_headers,

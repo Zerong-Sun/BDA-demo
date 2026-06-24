@@ -18,6 +18,8 @@ MIGRATIONS = [
     "ALTER TABLE projects ADD COLUMN organization_id TEXT",
     "ALTER TABLE document_chunks ADD COLUMN summary_text TEXT",
     "ALTER TABLE document_chunks ADD COLUMN summary_method TEXT",
+    "ALTER TABLE claim_relations ADD COLUMN reviewed_by TEXT",
+    "ALTER TABLE claim_relations ADD COLUMN reviewed_at TEXT",
 ]
 
 
@@ -104,13 +106,19 @@ def init_db(seed: bool = True) -> Path:
     return DB_PATH
 
 
-if __name__ == "__main__":
+def main(argv: list[str] | None = None) -> Path:
+    argv = argv if argv is not None else sys.argv[1:]
     # Existing databases must still receive additive schema and ALTER migrations.
     # --if-missing only controls demo seeding; it must never skip migrations.
     existed = DB_PATH.exists()
-    should_seed = "--no-seed" not in sys.argv and not (
-        "--if-missing" in sys.argv and existed
+    should_seed = "--no-seed" not in argv and not (
+        "--if-missing" in argv and existed
     )
     path = init_db(seed=should_seed)
     action = "Migrated" if existed and not should_seed else "Initialized"
     print(f"{action} BDA database: {path}")
+    return path
+
+
+if __name__ == "__main__":
+    main()
