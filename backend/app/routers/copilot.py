@@ -1,8 +1,9 @@
 import json
 import sqlite3
-
+import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
 from sse_starlette.sse import EventSourceResponse
 
 from ..auth.deps import get_current_user, require_role
@@ -14,16 +15,22 @@ from ..copilot.biomaterials_skill import (
     is_programmable_biomaterials_question,
 )
 from ..db import get_connection
-from ..repositories import catalog, knowledge
+from ..repositories import catalog, knowledge, literature, literature_subscriptions
 from ..schemas import (
     CandidateExplanationRequest,
+    ClaimRelationDetectRequest,
+    ClaimReviewRequest,
+    ClusterDraftRequest,
     CopilotChatRequest,
     CopilotConfigUpdateRequest,
+    LiteratureIngestRequest,
+    LiteratureSubscriptionRequest,
     ResultInterpretationRequest,
     RoutePlanRequest,
 )
 from ..settings import get_settings
 from ..utils.response import envelope
+from ..copilot import cluster
 
 router = APIRouter(prefix="/copilot")
 
@@ -100,6 +107,31 @@ def knowledge_message(connection: sqlite3.Connection, query: str) -> str:
     return "Relevant programmable biomaterials knowledge:\n" + "\n".join(lines)
 
 
+def literature_message(connection: sqlite3.Connection, query: str) -> str:
+    items = literature.search_library(connection, query, limit=5)
+    if not items:
+        return (
+            "The local literature library has no matching indexed evidence yet. "
+            "An administrator can ingest a Europe PMC query first."
+        )
+    lines = []
+    seen: set[tuple[str, str | None]] = set()
+    for item in items:
+        identity = (item["document_id"], item.get("claim_id"))
+        if identity in seen:
+            continue
+        seen.add(identity)
+        citation = item.get("doi") or (
+            f"PMID:{item['pmid']}" if item.get("pmid") else item.get("external_id")
+        )
+        statement = item.get("statement") or item.get("abstract_text") or "Metadata record"
+        lines.append(
+            f"- {item['title']} ({item.get('publication_year') or 'n.d.'}; {citation}): "
+            f"{statement[:320]}"
+        )
+    return "Indexed literature evidence:\n" + "\n".join(lines)
+
+
 def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest) -> dict:
     last_message = payload.messages[-1].content if payload.messages else ""
     skill = payload.skill or match_skill(last_message)
@@ -113,10 +145,7 @@ def _rule_based_chat(connection: sqlite3.Connection, payload: CopilotChatRequest
     elif skill == "query-candidates":
         message = top_candidates_message(connection, payload.project_id)
     elif skill == "paper-reader":
-        message = (
-            "Paper database integration is reserved for Phase 2. Indexed methods can be summarized "
-            "once an LLM provider is connected."
-        )
+        message = literature_message(connection, last_message)
     elif skill == "structure-explain":
         message = (
             "Explain interface contacts, hydrophobic patches, and developability risks using uploaded "
@@ -198,6 +227,36 @@ def update_copilot_config(
     return envelope(_copilot_config_payload())
 
 
+@router.post("/config/test")
+def test_copilot_config(
+    _admin: dict = Depends(require_role("admin")),
+):
+    settings = get_settings()
+    if not settings.llm_api_key:
+        return envelope({
+            "connected": False,
+            "model": settings.llm_model,
+            "reason": "no_api_key",
+        })
+    try:
+        from ..copilot.provider import get_llm_provider
+
+        response = get_llm_provider().chat([
+            {"role": "user", "content": "Reply with exactly BDA_OK."}
+        ])
+        return envelope({
+            "connected": True,
+            "model": settings.llm_model,
+            "sample": response.content[:120],
+        })
+    except Exception as exc:
+        return envelope({
+            "connected": False,
+            "model": settings.llm_model,
+            "reason": str(exc)[:500],
+        })
+
+
 @router.get("/knowledge")
 def list_knowledge_entries(
     q: str | None = Query(default=None, max_length=200),
@@ -224,6 +283,309 @@ def get_knowledge_entry(
     if item is None:
         raise HTTPException(status_code=404, detail="knowledge_entry_not_found")
     return envelope(item)
+
+
+@router.post("/literature/ingest")
+def ingest_literature(
+    payload: LiteratureIngestRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    from ..services.literature_ingestion import ingest_europe_pmc_query
+
+    try:
+        result = ingest_europe_pmc_query(
+            connection,
+            payload.query,
+            limit=payload.limit,
+            fetch_full_text=payload.fetch_full_text,
+            extract_claims=payload.extract_claims,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"literature_ingestion_failed:{str(exc)[:300]}",
+        ) from exc
+    return envelope(result)
+
+
+@router.get("/literature/subscriptions")
+def list_literature_subscriptions(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    items = literature_subscriptions.list_subscriptions(connection)
+    return envelope({"items": items, "total": len(items)})
+
+
+@router.post("/literature/subscriptions")
+def create_literature_subscription(
+    payload: LiteratureSubscriptionRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    admin: dict = Depends(require_role("admin")),
+):
+    subscription_id = f"subscription_{uuid.uuid4().hex[:12]}"
+    connection.execute(
+        """
+        INSERT INTO literature_subscriptions (
+            subscription_id, name, query, enabled, interval_hours,
+            result_limit, fetch_full_text, extract_claims, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            subscription_id,
+            payload.name,
+            payload.query,
+            int(payload.enabled),
+            payload.interval_hours,
+            payload.result_limit,
+            int(payload.fetch_full_text),
+            int(payload.extract_claims),
+            admin["user_id"],
+        ),
+    )
+    return envelope(literature_subscriptions.get_subscription(connection, subscription_id))
+
+
+@router.patch("/literature/subscriptions/{subscription_id}")
+def update_literature_subscription(
+    subscription_id: str,
+    payload: LiteratureSubscriptionRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    if literature_subscriptions.get_subscription(connection, subscription_id) is None:
+        raise HTTPException(status_code=404, detail="literature_subscription_not_found")
+    connection.execute(
+        """
+        UPDATE literature_subscriptions
+        SET name=?, query=?, enabled=?, interval_hours=?, result_limit=?,
+            fetch_full_text=?, extract_claims=?, updated_at=CURRENT_TIMESTAMP
+        WHERE subscription_id=?
+        """,
+        (
+            payload.name,
+            payload.query,
+            int(payload.enabled),
+            payload.interval_hours,
+            payload.result_limit,
+            int(payload.fetch_full_text),
+            int(payload.extract_claims),
+            subscription_id,
+        ),
+    )
+    return envelope(literature_subscriptions.get_subscription(connection, subscription_id))
+
+
+@router.post("/literature/subscriptions/{subscription_id}/run")
+def run_literature_subscription(
+    subscription_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    item = literature_subscriptions.get_subscription(connection, subscription_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="literature_subscription_not_found")
+    from ..services.literature_subscription_service import run_subscription
+
+    return envelope(run_subscription(connection, item))
+
+
+@router.get("/literature")
+def search_literature_library(
+    q: str = Query(min_length=1, max_length=500),
+    limit: int = Query(default=10, ge=1, le=50),
+    accepted_only: bool = Query(default=False),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items = literature.search_library(
+        connection,
+        q,
+        limit=limit,
+        accepted_only=accepted_only,
+    )
+    return envelope({"items": items, "total": len(items), "query": q})
+
+
+@router.get("/literature/claims")
+def list_literature_claims(
+    review_status: str | None = Query(
+        default=None,
+        pattern="^(accepted|rejected|pending_review)$",
+    ),
+    limit: int = Query(default=50, ge=1, le=200),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items = literature.list_claims(
+        connection,
+        review_status=review_status,
+        limit=limit,
+    )
+    return envelope({"items": items, "total": len(items), "review_status": review_status})
+
+
+@router.post("/literature/relations/detect")
+def detect_literature_relations(
+    payload: ClaimRelationDetectRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    from ..services.literature_ingestion import detect_claim_relations_with_llm
+
+    try:
+        result = detect_claim_relations_with_llm(
+            connection,
+            limit=payload.limit,
+            accepted_only=payload.accepted_only,
+        )
+    except Exception as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=f"claim_relation_detection_failed:{str(exc)[:300]}",
+        ) from exc
+    return envelope(result)
+
+
+@router.get("/literature/relations")
+def list_literature_relations(
+    review_status: str | None = Query(
+        default=None,
+        pattern="^(accepted|rejected|pending_review)$",
+    ),
+    limit: int = Query(default=100, ge=1, le=500),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items = literature.list_relations(
+        connection,
+        review_status=review_status,
+        limit=limit,
+    )
+    return envelope({"items": items, "total": len(items), "review_status": review_status})
+
+
+@router.patch("/literature/relations/{relation_id}")
+def review_literature_relation(
+    relation_id: str,
+    payload: ClaimReviewRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_role("admin", "researcher")),
+):
+    item = literature.review_relation(
+        connection,
+        relation_id,
+        review_status=payload.review_status,
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="claim_relation_not_found")
+    return envelope(item)
+
+
+@router.patch("/literature/claims/{claim_id}")
+def review_literature_claim(
+    claim_id: str,
+    payload: ClaimReviewRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(require_role("admin", "researcher")),
+):
+    item = literature.review_claim(
+        connection,
+        claim_id,
+        review_status=payload.review_status,
+        reviewed_by=user["user_id"],
+    )
+    if item is None:
+        raise HTTPException(status_code=404, detail="claim_not_found")
+    return envelope(item)
+
+
+@router.get("/literature/{document_id}")
+def get_literature_document(
+    document_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    item = literature.get_document(connection, document_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="literature_document_not_found")
+    return envelope(item)
+
+
+@router.get("/cluster/drafts")
+def list_cluster_drafts(
+    project_id: str | None = Query(default=None),
+    _user: dict = Depends(get_current_user),
+):
+    return envelope({"items": cluster.list_drafts(project_id=project_id)})
+
+
+@router.post("/cluster/drafts")
+def create_cluster_draft(
+    payload: ClusterDraftRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
+    try:
+        item = cluster.create_draft(
+            project_id=payload.project_id,
+            created_by=user["user_id"],
+            job_name=payload.job_name,
+            command=payload.command,
+            queue=payload.queue,
+            gpu_count=payload.gpu_count,
+            cpu_count=payload.cpu_count,
+            setup_lines=payload.setup_lines,
+            expected_outputs=payload.expected_outputs,
+            rationale=payload.rationale,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return envelope(item)
+
+
+@router.get("/cluster/drafts/{draft_id}")
+def get_cluster_draft(
+    draft_id: str,
+    _user: dict = Depends(get_current_user),
+):
+    try:
+        return envelope(cluster.refresh_draft(draft_id))
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/cluster/drafts/{draft_id}/confirm")
+def confirm_cluster_draft(
+    draft_id: str,
+    user: dict = Depends(get_current_user),
+):
+    if user.get("role") == "viewer":
+        raise HTTPException(status_code=403, detail="forbidden")
+    try:
+        return envelope(cluster.submit_draft(draft_id, confirmed_by=user["user_id"]))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/cluster/drafts/{draft_id}/download")
+def download_cluster_output(
+    draft_id: str,
+    path: str = Query(min_length=1, max_length=500),
+    _user: dict = Depends(get_current_user),
+):
+    try:
+        filename, content = cluster.download_output(draft_id, path)
+    except ValueError as exc:
+        status = 404 if str(exc) == "output_not_found" else 400
+        raise HTTPException(status_code=status, detail=str(exc)) from exc
+    return Response(
+        content=content,
+        media_type="application/octet-stream",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/route-plan")

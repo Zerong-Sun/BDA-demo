@@ -10,6 +10,7 @@ import { statusTone } from '../components/ui/statusTone'
 import { ApiState } from '../components/ui/ApiState'
 import { OverviewCards } from '../features/experiments/OverviewCards'
 import { AgentWorkspace } from '../features/experiments/AgentWorkspace'
+import { ProjectChooser } from '../features/projects/ProjectChooser'
 
 export function ExperimentsPage() {
   const { t } = useI18n()
@@ -26,9 +27,10 @@ export function ExperimentsPage() {
   } = useQuery({
     queryKey: ['project-overview', projectId],
     queryFn: () => getProjectOverview(projectId),
+    enabled: Boolean(projectId),
   })
 
-  const query = `?project=${encodeURIComponent(projectId)}`
+  const query = projectId ? `?project=${encodeURIComponent(projectId)}` : ''
 
   return (
     <section>
@@ -41,6 +43,13 @@ export function ExperimentsPage() {
           </Link>
         }
       />
+      <div className="mb-6">
+        <ProjectChooser
+          title="实验项目"
+          description="在这里选择或创建项目。工作流、候选物、实验结果和最终交付都会自动归档到当前项目。"
+          compact
+        />
+      </div>
       <section className="mb-6 rounded-lg border border-bda-border bg-bda-panel p-4">
         <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
         <h2 className="mt-1 text-xl font-semibold">{t.experiments.copilotTitle}</h2>
@@ -65,7 +74,7 @@ export function ExperimentsPage() {
         </div>
       </section>
 
-      <ApiState
+      {projectId ? <ApiState
         isLoading={overviewLoading}
         isError={overviewError}
         error={overviewQueryError}
@@ -74,9 +83,9 @@ export function ExperimentsPage() {
         onRetry={() => void refetch()}
       >
         {overview ? <OverviewCards overview={overview} /> : null}
-      </ApiState>
+      </ApiState> : null}
 
-      <AgentWorkspace projectId={projectId} />
+      {projectId ? <AgentWorkspace projectId={projectId} /> : null}
 
       <ApiState
         isLoading={projectsLoading}

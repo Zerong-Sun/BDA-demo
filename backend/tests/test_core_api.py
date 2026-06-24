@@ -8,6 +8,28 @@ def test_get_project_not_found(client: TestClient, auth_headers: dict[str, str])
     assert response.status_code == 404
 
 
+def test_create_project_and_workflow_run(client: TestClient, auth_headers: dict[str, str]):
+    created = client.post(
+        f"{API}/projects",
+        headers=auth_headers,
+        json={
+            "project_name": "Frontend project context test",
+            "project_type": "protein_design",
+            "summary": "Created to verify project-scoped workflow behavior.",
+        },
+    )
+    assert created.status_code == 200
+    project = created.json()["data"]
+    assert project["project_name"] == "Frontend project context test"
+    assert project["status"] == "draft"
+
+    run = client.post(
+        f"{API}/projects/{project['project_id']}/workflow-runs",
+        headers=auth_headers,
+    )
+    assert run.status_code == 200
+
+
 def test_get_candidate_by_id(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/candidates/PD1Binder_c4361", headers=auth_headers)
     assert response.status_code == 200

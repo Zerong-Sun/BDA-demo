@@ -1,6 +1,6 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import clsx from 'clsx'
-import { ChevronDown } from 'lucide-react'
+import { ChevronDown, Settings } from 'lucide-react'
 import { useI18n } from '../../lib/i18n'
 import { useProjectContext } from '../../lib/hooks/useProjectContext'
 import { useAppStore } from '../../lib/store/appStore'
@@ -12,6 +12,7 @@ const routes = [
   { to: '/workflow', key: 'workflow' as const },
   { to: '/candidates', key: 'candidates' as const },
   { to: '/results', key: 'results' as const },
+  { to: '/research', label: 'Research' },
 ]
 
 function currentUserLabel(): string | null {
@@ -27,11 +28,11 @@ function currentUserLabel(): string | null {
 
 export function Topbar() {
   const navigate = useNavigate()
-  const { language, setLanguage, appMode, setAppMode, copilotOpen, setCopilotOpen } = useAppStore()
+  const { language, setLanguage, appMode, copilotOpen, setCopilotOpen, setSettingsOpen } = useAppStore()
   const { t } = useI18n()
   const { projects, activeProject, projectId, setProjectId } = useProjectContext()
   const userLabel = currentUserLabel()
-  const projectQuery = `?project=${encodeURIComponent(projectId)}`
+  const projectQuery = projectId ? `?project=${encodeURIComponent(projectId)}` : ''
 
   const logout = () => {
     sessionStorage.removeItem('bda_token')
@@ -59,11 +60,11 @@ export function Topbar() {
               )
             }
           >
-            {t.nav[route.key]}
+            {'label' in route ? route.label : t.nav[route.key]}
           </NavLink>
         ))}
       </nav>
-      <label className="relative hidden items-center gap-2 text-xs text-bda-muted md:flex">
+      <label className="relative hidden items-center gap-2 text-xs text-bda-muted lg:flex">
         <span>{t.common.project}</span>
         <select
           className="appearance-none rounded-md border border-bda-border bg-bda-panel py-1 pl-2 pr-7 text-sm text-bda-text"
@@ -71,6 +72,7 @@ export function Topbar() {
           onChange={(e) => setProjectId(e.target.value)}
           aria-label={t.common.selectProject}
         >
+          <option value="">未选择项目</option>
           {projects.map((project) => (
             <option key={project.project_id} value={project.project_id}>
               {project.project_name}
@@ -80,29 +82,26 @@ export function Topbar() {
         <ChevronDown className="pointer-events-none absolute right-1 h-4 w-4" />
       </label>
       <div className="flex items-center gap-3 text-xs text-bda-muted">
+        <span
+          className={clsx(
+            'hidden rounded border px-2 py-1 sm:inline',
+            appMode === 'application'
+              ? 'border-bda-cyan/40 text-bda-cyan'
+              : 'border-bda-amber/40 text-bda-amber',
+          )}
+        >
+          {appMode === 'application' ? '应用模式' : '演示模式'}
+        </span>
         <CopilotToggleButton active={copilotOpen} onClick={() => setCopilotOpen(!copilotOpen)} />
-        <div className="inline-flex rounded-md border border-bda-border bg-bda-panel p-0.5">
-          <button
-            type="button"
-            className={clsx(
-              'rounded px-2 py-1 transition-colors',
-              appMode === 'application' ? 'bg-bda-cyan text-bda-bg' : 'text-bda-muted hover:bg-bda-panel-hover',
-            )}
-            onClick={() => setAppMode('application')}
-          >
-            应用模式
-          </button>
-          <button
-            type="button"
-            className={clsx(
-              'rounded px-2 py-1 transition-colors',
-              appMode === 'demo' ? 'bg-bda-amber text-bda-bg' : 'text-bda-muted hover:bg-bda-panel-hover',
-            )}
-            onClick={() => setAppMode('demo')}
-          >
-            演示模式
-          </button>
-        </div>
+        <button
+          type="button"
+          aria-label="应用设置"
+          title="应用设置"
+          className="rounded-md border border-bda-border p-1.5 hover:bg-bda-panel"
+          onClick={() => setSettingsOpen(true)}
+        >
+          <Settings className="h-4 w-4" />
+        </button>
         {userLabel ? (
           <>
             <span className="hidden text-bda-text sm:inline">{userLabel}</span>

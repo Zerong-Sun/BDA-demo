@@ -5,11 +5,14 @@ import { Topbar } from './components/ui/Topbar'
 import { Toast } from './components/ui/Toast'
 import { CopilotDrawer } from './components/ui/CopilotDrawer'
 import { ErrorBoundary } from './components/ui/ErrorBoundary'
+import { AppSettingsDrawer } from './components/ui/AppSettingsDrawer'
+import { ProjectRequired } from './features/projects/ProjectRequired'
 import { ExperimentsPage } from './app/Experiments'
 import { WorkflowPage } from './app/Workflow'
 import { CandidatesPage } from './app/Candidates'
 import { ResultsPage } from './app/Results'
 import { LoginPage } from './app/Login'
+import { ResearchPage } from './app/Research'
 import { ApiError, setUnauthorizedHandler } from './lib/api/client'
 import { useProjectContext } from './lib/hooks/useProjectContext'
 import { useAppStore } from './lib/store/appStore'
@@ -80,6 +83,7 @@ function AppShell() {
         <CopilotDrawer open={copilotOpen} onClose={() => setCopilotOpen(false)} pageContext={pageContext} />
       </div>
       <Toast />
+      <AppSettingsDrawer />
     </>
   )
 }
@@ -96,9 +100,10 @@ export default function App() {
               <Route element={<AppShell />}>
                 <Route index element={<Navigate to="/experiments" replace />} />
                 <Route path="/experiments" element={<ExperimentsPage />} />
-                <Route path="/workflow" element={<WorkflowPage />} />
-                <Route path="/candidates" element={<CandidatesPage />} />
-                <Route path="/results" element={<ResultsPage />} />
+                <Route path="/workflow" element={<ProjectRequired><WorkflowPage /></ProjectRequired>} />
+                <Route path="/candidates" element={<ProjectRequired><CandidatesPage /></ProjectRequired>} />
+                <Route path="/results" element={<ProjectRequired><ResultsPage /></ProjectRequired>} />
+                <Route path="/research" element={<ResearchPage />} />
               </Route>
             </Route>
           </Routes>

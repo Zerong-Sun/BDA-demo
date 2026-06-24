@@ -35,6 +35,21 @@ JSON_COLUMNS = {
     "payload_json",
     "input_artifacts",
     "output_artifacts",
+    "resource_config_json",
+    "environment_json",
+    "input_hints_json",
+    "output_hints_json",
+    "parse_warnings_json",
+    "default_value_json",
+    "constraints_json",
+    "normalized_value_json",
+    "context_json",
+    "budget_json",
+    "stop_conditions_json",
+    "strategy_json",
+    "parameter_patch_json",
+    "criteria_results_json",
+    "last_result_json",
 }
 
 ALLOWED_TABLES = frozenset({
@@ -62,6 +77,20 @@ ALLOWED_TABLES = frozenset({
     "organizations",
     "organization_members",
     "project_members",
+    "research_sources",
+    "script_assets",
+    "model_parameter_catalog",
+    "script_parameter_observations",
+    "literature_documents",
+    "document_chunks",
+    "scientific_claims",
+    "claim_evidence",
+    "claim_relations",
+    "research_campaigns",
+    "campaign_rounds",
+    "campaign_evaluations",
+    "campaign_decisions",
+    "literature_subscriptions",
 })
 
 ALLOWED_ORDER_COLUMNS = frozenset({
@@ -84,6 +113,8 @@ ALLOWED_ORDER_COLUMNS = frozenset({
     "category",
     "username",
     "name",
+    "relative_path",
+    "parameter_key",
 })
 
 
@@ -127,7 +158,7 @@ def decode_row(row: sqlite3.Row | None) -> dict[str, Any] | None:
             except json.JSONDecodeError:
                 pass
     for key, value in list(item.items()):
-        if key == "enabled" or key.endswith("_supported"):
+        if key in {"enabled", "fetch_full_text", "extract_claims"} or key.endswith("_supported"):
             item[key] = bool(value)
     return item
 

@@ -57,6 +57,28 @@ export interface CopilotConfigUpdate {
   llm_model?: string
 }
 
+export const ClusterDraftSchema = z.object({
+  draft_id: z.string(),
+  project_id: z.string().nullable().optional(),
+  status: z.string(),
+  job_name: z.string(),
+  queue: z.string(),
+  gpu_count: z.number(),
+  cpu_count: z.number(),
+  rationale: z.string().nullable().optional(),
+  script: z.string(),
+  script_sha256: z.string(),
+  external_id: z.string().nullable().optional(),
+  logs: z.string().optional(),
+  output_files: z.array(z.object({
+    path: z.string(),
+    size_bytes: z.number(),
+  })).optional(),
+  created_at: z.string(),
+})
+
+export type ClusterDraft = z.infer<typeof ClusterDraftSchema>
+
 export function getCopilotConfig() {
   return apiRequest<CopilotConfig>('/copilot/config', {}, CopilotConfigSchema)
 }
@@ -67,6 +89,59 @@ export function updateCopilotConfig(payload: CopilotConfigUpdate) {
     { method: 'PUT', body: JSON.stringify(payload) },
     CopilotConfigSchema,
   )
+}
+
+export function testCopilotConfig() {
+  return apiRequest<{
+    connected: boolean
+    model: string
+    sample?: string
+    reason?: string
+  }>('/copilot/config/test', { method: 'POST' })
+}
+
+export function listClusterDrafts(projectId?: string) {
+  const query = projectId ? `?project_id=${encodeURIComponent(projectId)}` : ''
+  return apiRequest<{ items: ClusterDraft[] }>(
+    `/copilot/cluster/drafts${query}`,
+    {},
+    z.object({ items: z.array(ClusterDraftSchema) }),
+  )
+}
+
+export function getClusterDraft(draftId: string) {
+  return apiRequest<ClusterDraft>(
+    `/copilot/cluster/drafts/${draftId}`,
+    {},
+    ClusterDraftSchema,
+  )
+}
+
+export function confirmClusterDraft(draftId: string) {
+  return apiRequest<ClusterDraft>(
+    `/copilot/cluster/drafts/${draftId}/confirm`,
+    { method: 'POST' },
+    ClusterDraftSchema,
+  )
+}
+
+export function clusterOutputUrl(draftId: string, path: string) {
+  return `${API_BASE}/copilot/cluster/drafts/${draftId}/download?path=${encodeURIComponent(path)}`
+}
+
+export async function downloadClusterOutput(draftId: string, path: string) {
+  const token = sessionStorage.getItem('bda_token')
+  const response = await fetch(clusterOutputUrl(draftId, path), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new Error('Failed to download cluster output')
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = path.split('/').pop() || 'cluster-output'
+  link.click()
+  URL.revokeObjectURL(url)
 }
 
 export function searchCopilotKnowledge(query: string, category?: string) {
@@ -80,6 +155,84 @@ export function searchCopilotKnowledge(query: string, category?: string) {
       total: z.number(),
       query: z.string(),
     }),
+  )
+}
+
+export function ingestLiterature(query: string, limit = 5) {
+  return apiRequest<Record<string, unknown>>('/copilot/literature/ingest', {
+    method: 'POST',
+    body: JSON.stringify({
+      query,
+      limit,
+      fetch_full_text: true,
+      extract_claims: true,
+    }),
+  })
+}
+
+export function searchLiteratureLibrary(query: string) {
+  return apiRequest<{ items: Array<Record<string, unknown>>; total: number }>(
+    `/copilot/literature?q=${encodeURIComponent(query)}`,
+  )
+}
+
+export function listLiteratureClaims(reviewStatus = 'pending_review') {
+  return apiRequest<{ items: Array<Record<string, unknown>>; total: number }>(
+    `/copilot/literature/claims?review_status=${encodeURIComponent(reviewStatus)}`,
+  )
+}
+
+export function reviewLiteratureClaim(claimId: string, reviewStatus: 'accepted' | 'rejected') {
+  return apiRequest<Record<string, unknown>>(
+    `/copilot/literature/claims/${claimId}`,
+    { method: 'PATCH', body: JSON.stringify({ review_status: reviewStatus }) },
+  )
+}
+
+export function listLiteratureRelations(reviewStatus = 'pending_review') {
+  return apiRequest<{ items: Array<Record<string, unknown>>; total: number }>(
+    `/copilot/literature/relations?review_status=${encodeURIComponent(reviewStatus)}`,
+  )
+}
+
+export function reviewLiteratureRelation(relationId: string, reviewStatus: 'accepted' | 'rejected') {
+  return apiRequest<Record<string, unknown>>(
+    `/copilot/literature/relations/${relationId}`,
+    { method: 'PATCH', body: JSON.stringify({ review_status: reviewStatus }) },
+  )
+}
+
+export interface LiteratureSubscription {
+  subscription_id: string
+  name: string
+  query: string
+  enabled: boolean
+  interval_hours: number
+  result_limit: number
+  fetch_full_text: boolean
+  extract_claims: boolean
+  last_status?: string | null
+  last_run_at?: string | null
+  next_run_at: string
+}
+
+export function listLiteratureSubscriptions() {
+  return apiRequest<{ items: LiteratureSubscription[]; total: number }>(
+    '/copilot/literature/subscriptions',
+  )
+}
+
+export function createLiteratureSubscription(payload: Omit<LiteratureSubscription, 'subscription_id' | 'last_status' | 'last_run_at' | 'next_run_at'>) {
+  return apiRequest<LiteratureSubscription>(
+    '/copilot/literature/subscriptions',
+    { method: 'POST', body: JSON.stringify(payload) },
+  )
+}
+
+export function runLiteratureSubscription(subscriptionId: string) {
+  return apiRequest<Record<string, unknown>>(
+    `/copilot/literature/subscriptions/${subscriptionId}/run`,
+    { method: 'POST' },
   )
 }
 

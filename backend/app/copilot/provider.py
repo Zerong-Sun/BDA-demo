@@ -27,6 +27,7 @@ class OpenAICompatibleProvider:
         settings = get_settings()
         self._client = OpenAI(base_url=settings.llm_api_base, api_key=settings.llm_api_key)
         self._model = settings.llm_model
+        self._is_deepseek = "api.deepseek.com" in settings.llm_api_base.lower()
 
     def chat(self, messages: list[dict], tools: list | None = None, response_format: dict | None = None) -> LLMResponse:
         kwargs: dict = {"model": self._model, "messages": messages}
@@ -35,6 +36,12 @@ class OpenAICompatibleProvider:
             kwargs["tool_choice"] = "auto"
         if response_format:
             kwargs["response_format"] = response_format
+        if self._is_deepseek and (tools or response_format):
+            # DeepSeek defaults to thinking mode. Structured extraction does not
+            # benefit from hidden reasoning, and tool turns require preserving
+            # reasoning_content across messages. Disable thinking for these
+            # compatibility-sensitive paths.
+            kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         response = self._client.chat.completions.create(**kwargs)
         message = response.choices[0].message
         return LLMResponse(

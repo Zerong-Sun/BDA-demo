@@ -17,6 +17,7 @@ import { useAppStore } from '../lib/store/appStore'
 import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import type { Artifact } from '../lib/schemas/artifact'
+import { ProjectContextBar } from '../features/projects/ProjectContextBar'
 
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
@@ -36,17 +37,19 @@ export function WorkflowPage() {
   const applicationWorkflowRunId = workflowRunIdsByProject[projectId]
 
   const {
-    data: demoWorkflowRun,
+    data: latestWorkflowRun,
     isError: workflowError,
     error: workflowQueryError,
     refetch: refetchWorkflow,
   } = useQuery({
-    queryKey: ['workflow-run', 'demo', projectId],
+    queryKey: ['workflow-run', 'latest', projectId],
     queryFn: () => getLatestWorkflowRunOrNull(projectId),
-    enabled: isDemoMode,
+    enabled: Boolean(projectId),
   })
 
-  const workflowRunId = isDemoMode ? demoWorkflowRun?.workflow_run_id : applicationWorkflowRunId
+  const workflowRunId =
+    applicationWorkflowRunId ??
+    latestWorkflowRun?.workflow_run_id
 
   const { data: workflowGraph } = useQuery({
     queryKey: ['workflow-graph', workflowRunId],
@@ -80,7 +83,7 @@ export function WorkflowPage() {
   const selectedNode = workflowNodes.find((node) => node.node_run_id === selectedNodeId) ?? null
   const selectedArtifact = visibleArtifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) ?? null
 
-  const workflowRun = isDemoMode ? demoWorkflowRun : workflowGraph?.workflow_run
+  const workflowRun = workflowGraph?.workflow_run ?? latestWorkflowRun
   const readOnly = isDemoMode || workflowRun?.status === 'completed'
 
   const createWorkflow = useMutation({
@@ -186,6 +189,7 @@ export function WorkflowPage() {
 
   return (
     <section>
+      <ProjectContextBar />
       <ComputeStatusStrip />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">

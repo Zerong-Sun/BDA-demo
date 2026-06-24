@@ -48,6 +48,19 @@ export function listComputeNodes(): Promise<ComputeNode[]> {
   return fetchPaginatedList('/compute-nodes', ComputeNodeSchema)
 }
 
+export interface ClusterHealth {
+  mode: string
+  connected: boolean
+  host?: string
+  remote_root?: string
+  queues: string[]
+  reason?: string | null
+}
+
+export function getClusterHealth(): Promise<ClusterHealth> {
+  return apiRequest<ClusterHealth>('/compute/cluster-health')
+}
+
 export function listServers(): Promise<ServerConnection[]> {
   return fetchPaginatedList('/servers', ServerConnectionSchema)
 }

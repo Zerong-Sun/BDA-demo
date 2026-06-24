@@ -10,6 +10,7 @@ interface AppState {
   activeProjectId: string
   workflowRunIdsByProject: Record<string, string>
   copilotOpen: boolean
+  settingsOpen: boolean
   copilotWidth: number
   targetIntakeOpen: boolean
   setLanguage: (language: Language) => void
@@ -17,6 +18,7 @@ interface AppState {
   setActiveProjectId: (projectId: string) => void
   setProjectWorkflowRunId: (projectId: string, workflowRunId: string) => void
   setCopilotOpen: (open: boolean) => void
+  setSettingsOpen: (open: boolean) => void
   setCopilotWidth: (width: number) => void
   setTargetIntakeOpen: (open: boolean) => void
 }
@@ -26,9 +28,10 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       language: 'en',
       appMode: 'application',
-      activeProjectId: 'proj_pd1_0423',
+      activeProjectId: '',
       workflowRunIdsByProject: {},
       copilotOpen: true,
+      settingsOpen: false,
       copilotWidth: 380,
       targetIntakeOpen: false,
       setLanguage: (language) => set({ language }),
@@ -42,6 +45,7 @@ export const useAppStore = create<AppState>()(
           },
         })),
       setCopilotOpen: (copilotOpen) => set({ copilotOpen }),
+      setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
       setCopilotWidth: (copilotWidth) => set({ copilotWidth }),
       setTargetIntakeOpen: (targetIntakeOpen) => set({ targetIntakeOpen }),
     }),
@@ -53,6 +57,7 @@ export const useAppStore = create<AppState>()(
         activeProjectId: state.activeProjectId,
         workflowRunIdsByProject: state.workflowRunIdsByProject,
         copilotOpen: state.copilotOpen,
+        settingsOpen: state.settingsOpen,
         copilotWidth: state.copilotWidth,
         targetIntakeOpen: state.targetIntakeOpen,
       }),

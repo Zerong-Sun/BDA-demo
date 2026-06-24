@@ -28,6 +28,12 @@ celery_app.conf.update(
     task_default_retry_delay=5,
     task_time_limit=60 * 30,
     task_soft_time_limit=60 * 25,
+    beat_schedule={
+        "scan-due-literature-subscriptions": {
+            "task": "bda.scan_literature_subscriptions",
+            "schedule": 15 * 60,
+        },
+    },
 )
 
 # Tasks autoretry on any unexpected error with exponential backoff and jitter.
@@ -70,6 +76,10 @@ def poll_job_status(self, job_id: str) -> dict:
 
                 node_status = "completed" if live.status == "completed" else "failed"
                 catalog.update_workflow_node(connection, node_run_id, status=node_status)
+            if job.get("workflow_run_id"):
+                from .services.campaign_service import sync_round_status
+
+                sync_round_status(connection, job["workflow_run_id"])
         if live.status in ("queued", "running"):
             poll_job_status.apply_async(args=[job_id], countdown=5)
         return {"job_id": job_id, "status": live.status}
@@ -103,3 +113,17 @@ def submit_node_job_task(self, node_run_id: str, compute_node_id: str | None = N
         raise
     finally:
         connection.close()
+
+
+@celery_app.task(name="bda.scan_literature_subscriptions", bind=True, **_RETRY_KWARGS)
+def scan_literature_subscriptions(self) -> dict:
+    from .db import connect, release_connection
+    from .services.literature_subscription_service import run_due_subscriptions
+
+    connection = connect()
+    try:
+        result = run_due_subscriptions(connection)
+        connection.commit()
+        return result
+    finally:
+        release_connection(connection)

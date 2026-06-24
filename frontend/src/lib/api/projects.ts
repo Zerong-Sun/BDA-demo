@@ -15,6 +15,20 @@ export function listProjects(): Promise<Project[]> {
   return fetchPaginatedList('/projects', ProjectSchema)
 }
 
+export interface CreateProjectPayload {
+  project_name: string
+  project_type: string
+  summary?: string
+}
+
+export function createProject(payload: CreateProjectPayload): Promise<Project> {
+  return apiRequest<Project>(
+    '/projects',
+    { method: 'POST', body: JSON.stringify(payload) },
+    ProjectSchema,
+  )
+}
+
 export function getProjectOverview(projectId: string) {
   return apiRequest<ProjectOverview>(`/projects/${projectId}/overview`, {}, ProjectOverviewSchema)
 }

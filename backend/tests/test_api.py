@@ -170,6 +170,114 @@ def test_copilot_knowledge_tool(client: TestClient, auth_headers: dict[str, str]
     assert any("Rosetta" in item["title"] or "interface" in item["title"].lower() for item in result["items"])
 
 
+def test_literature_ingest_search_and_review(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    monkeypatch,
+):
+    from backend.app.services import literature_ingestion
+
+    monkeypatch.setattr(
+        literature_ingestion,
+        "search_literature",
+        lambda query, limit=5: {
+            "query": query,
+            "source": "Europe PMC",
+            "total": 1,
+            "results": [{
+                "source": "MED",
+                "identifier": "999",
+                "title": "RFdiffusion binder design",
+                "authors": "B. Author",
+                "journal": "Test Journal",
+                "year": "2025",
+                "doi": "10.1000/rfd",
+                "pmid": "999",
+                "pmcid": None,
+                "cited_by_count": 1,
+                "is_open_access": False,
+                "abstract": "RFdiffusion generated protein backbones for binder design.",
+                "url": "https://europepmc.org/article/MED/999",
+            }],
+        },
+    )
+    ingested = client.post(
+        f"{API}/copilot/literature/ingest",
+        headers=auth_headers,
+        json={
+            "query": "RFdiffusion",
+            "limit": 1,
+            "fetch_full_text": False,
+            "extract_claims": False,
+        },
+    )
+    assert ingested.status_code == 200
+    document_id = ingested.json()["data"]["documents"][0]["document_id"]
+
+    searched = client.get(
+        f"{API}/copilot/literature?q=RFdiffusion",
+        headers=auth_headers,
+    )
+    assert searched.status_code == 200
+    assert searched.json()["data"]["items"][0]["document_id"] == document_id
+
+    detail = client.get(
+        f"{API}/copilot/literature/{document_id}",
+        headers=auth_headers,
+    )
+    assert detail.status_code == 200
+    assert detail.json()["data"]["content_kind"] == "abstract"
+
+
+def test_literature_subscription_crud_and_run(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    monkeypatch,
+):
+    from backend.app.services import literature_subscription_service
+
+    monkeypatch.setattr(
+        literature_subscription_service,
+        "ingest_europe_pmc_query",
+        lambda connection, query, **kwargs: {
+            "query": query,
+            "documents_ingested": 0,
+            "documents": [],
+        },
+    )
+    created = client.post(
+        f"{API}/copilot/literature/subscriptions",
+        headers=auth_headers,
+        json={
+            "name": "Daily binder papers",
+            "query": "protein binder design",
+            "enabled": True,
+            "interval_hours": 24,
+            "result_limit": 3,
+            "fetch_full_text": True,
+            "extract_claims": True,
+        },
+    )
+    assert created.status_code == 200
+    item = created.json()["data"]
+    assert item["enabled"] is True
+    assert item["fetch_full_text"] is True
+
+    listed = client.get(
+        f"{API}/copilot/literature/subscriptions",
+        headers=auth_headers,
+    )
+    assert listed.status_code == 200
+    assert any(row["subscription_id"] == item["subscription_id"] for row in listed.json()["data"]["items"])
+
+    run = client.post(
+        f"{API}/copilot/literature/subscriptions/{item['subscription_id']}/run",
+        headers=auth_headers,
+    )
+    assert run.status_code == 200
+    assert run.json()["data"]["status"] == "completed"
+
+
 def test_experiment_upload_csv(client: TestClient, auth_headers: dict[str, str]):
     csv_body = "candidate_id,experiment_type,pass_status,value,unit\nPD1Binder_c4361,BLI,pass,0.5,nM\n"
     response = client.post(
@@ -285,6 +393,30 @@ def test_registry_list(client: TestClient, auth_headers: dict[str, str]):
     assert {"RFdiffusion", "ProteinMPNN", "AlphaFold2", "Rosetta", "Mask RGN"}.issubset(names)
 
 
+def test_model_parameter_catalog_and_qm_script_import(client: TestClient, auth_headers: dict[str, str]):
+    catalog = client.get(
+        f"{API}/model-parameter-catalog?model_plugin_id=plugin_proteinmpnn",
+        headers=auth_headers,
+    )
+    assert catalog.status_code == 200
+    keys = {item["parameter_key"] for item in catalog.json()["data"]["items"]}
+    assert "sampling_temp" in keys
+
+    imported = client.post(
+        f"{API}/model-parameter-catalog/import-qm-scripts",
+        headers=auth_headers,
+    )
+    assert imported.status_code == 200
+    assert imported.json()["data"]["scripts_imported"] >= 1
+
+    consistency = client.get(
+        f"{API}/model-parameter-catalog/consistency?model_plugin_id=plugin_proteinmpnn",
+        headers=auth_headers,
+    )
+    assert consistency.status_code == 200
+    assert consistency.json()["data"]["models"]
+
+
 def test_model_plugin_schema_is_frontend_renderable(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/model-plugins/plugin_rfdiffusion", headers=auth_headers)
     assert response.status_code == 200
@@ -293,8 +425,8 @@ def test_model_plugin_schema_is_frontend_renderable(client: TestClient, auth_hea
     assert plugin["input_schema_json"]["ports"][0]["name"] == "target_structure"
     assert plugin["output_schema_json"]["ports"][0]["name"] == "backbone_set"
     fields = plugin["parameter_schema_json"]["fields"]
-    assert any(field["key"] == "num_designs" and field["type"] == "integer" for field in fields)
-    assert any(field["key"] == "diffusion_steps" and field["advanced"] is True for field in fields)
+    assert any(field["key"] == "inference.num_designs" and field["type"] == "integer" for field in fields)
+    assert any(field["key"] == "diffuser.T" and field["advanced"] is True for field in fields)
 
 
 def test_create_method_plugin_for_workflow_reference(client: TestClient, auth_headers: dict[str, str]):

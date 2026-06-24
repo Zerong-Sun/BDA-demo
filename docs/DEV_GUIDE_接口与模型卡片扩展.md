@@ -139,7 +139,7 @@ Graph edge 关键字段：
 
 ```bash
 BDA_COMPUTE_MODE=local \
-LLM_API_BASE=https://api.deepseek.com/v1 \
+LLM_API_BASE=https://api.deepseek.com \
 LLM_MODEL=deepseek-v4-pro \
 LLM_API_KEY='your-local-key' \
 ./.venv/bin/python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8100
@@ -611,7 +611,7 @@ esmfold: {
 本地环境变量：
 
 ```bash
-LLM_API_BASE=https://api.deepseek.com/v1
+LLM_API_BASE=https://api.deepseek.com
 LLM_MODEL=deepseek-v4-pro
 LLM_API_KEY=...
 ```
@@ -691,4 +691,3 @@ npm run build
 - 前端 Add node 能显示模型卡和参数。
 - 画布刷新后节点、edge 不丢。
 - `npm run build`、`npm test -- --run`、`pytest backend/tests -q` 通过。
-
