@@ -9,6 +9,7 @@ const NODE_META: Record<
   backbone_generation: { icon: 'wand-sparkles', resource: 'gpu', column: 1 },
   sequence_generation: { icon: 'dna', resource: 'gpu', column: 2 },
   fold_prediction: { icon: 'scan-search', resource: 'gpu', column: 3 },
+  workflow_pipeline: { icon: 'wand-sparkles', resource: 'gpu', column: 1 },
   scoring: { icon: 'activity', resource: 'cpu', column: 4 },
   selection: { icon: 'filter', resource: 'cpu', column: 5 },
   experiment: { icon: 'flask-conical', resource: 'manual', column: 6 },
@@ -40,16 +41,36 @@ function mapStatus(status: string): WorkflowNodeStatus {
   }
 }
 
-function parseMetrics(metrics: WorkflowNode['metrics_json']): Record<string, unknown> {
-  if (!metrics) return {}
-  if (typeof metrics === 'string') {
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {}
+  if (typeof value === 'string') {
     try {
-      return JSON.parse(metrics) as Record<string, unknown>
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
     } catch {
       return {}
     }
   }
-  return metrics as Record<string, unknown>
+  return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function parseMetrics(metrics: WorkflowNode['metrics_json']): Record<string, unknown> {
+  return parseRecord(metrics)
+}
+
+function parseParameters(parameters: WorkflowNode['parameters_json']): Record<string, unknown> {
+  return parseRecord(parameters)
+}
+
+function formatEstimateFooter(node: WorkflowNode): string | null {
+  const parameters = parseParameters(node.parameters_json)
+  const planned = parameters.planned
+  const current = parameters.current
+  const unit = parameters.estimate_unit
+  const time = parameters.estimated_time
+  if (planned == null || current == null || typeof unit !== 'string') return null
+  const progress = `${current}/${planned} ${unit}`
+  return typeof time === 'string' ? `${progress} · ${time}` : progress
 }
 
 function parsePosition(node: WorkflowNode, index: number): { x: number; y: number } {
@@ -81,6 +102,8 @@ export function footerFromMetrics(node: WorkflowNode): string {
   if (metrics.bli_positive != null) parts.push(`${metrics.bli_positive} BLI hits`)
   if (metrics.inputs_confirmed != null) parts.push(`${metrics.inputs_confirmed} inputs confirmed`)
   if (parts.length > 0) return parts[0]
+  const estimate = formatEstimateFooter(node)
+  if (estimate) return estimate
   return node.logs?.split('.')[0] ?? node.status
 }
 

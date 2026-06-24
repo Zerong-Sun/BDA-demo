@@ -1,4 +1,4 @@
-import { HashRouter, Navigate, Outlet, Route, Routes, useNavigate } from 'react-router-dom'
+import { HashRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useEffect } from 'react'
 import { Topbar } from './components/ui/Topbar'
@@ -11,6 +11,7 @@ import { CandidatesPage } from './app/Candidates'
 import { ResultsPage } from './app/Results'
 import { LoginPage } from './app/Login'
 import { ApiError, setUnauthorizedHandler } from './lib/api/client'
+import { useProjectContext } from './lib/hooks/useProjectContext'
 import { useAppStore } from './lib/store/appStore'
 
 const queryClient = new QueryClient({
@@ -61,16 +62,23 @@ function RequireAuth() {
 function AppShell() {
   const copilotOpen = useAppStore((s) => s.copilotOpen)
   const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
+  const location = useLocation()
+  const { projectId, activeProject } = useProjectContext()
+  const pageContext = `route=${location.pathname}; project_id=${projectId}; project_name=${activeProject?.project_name ?? 'unknown'}; query=${location.search || 'none'}`
 
   return (
     <>
       <Topbar />
-      <main className="mx-auto max-w-[1440px] px-6 py-6">
-        <ErrorBoundary>
-          <Outlet />
-        </ErrorBoundary>
-      </main>
-      <CopilotDrawer open={copilotOpen} onClose={() => setCopilotOpen(false)} />
+      <div className="flex min-h-[calc(100vh-4rem)]">
+        <main className="min-w-0 flex-1 px-6 py-6">
+          <div className="mx-auto max-w-[1480px]">
+            <ErrorBoundary>
+              <Outlet />
+            </ErrorBoundary>
+          </div>
+        </main>
+        <CopilotDrawer open={copilotOpen} onClose={() => setCopilotOpen(false)} pageContext={pageContext} />
+      </div>
       <Toast />
     </>
   )

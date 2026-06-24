@@ -1,0 +1,43 @@
+#!/bin/bash
+
+#BSUB -J mpnn
+#BSUB -q 4v100-16-e5
+#BSUB -n 1
+##BSUB -gpu "num=1"
+#BSUB -R "span[ptile=64]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+
+source activate /work/bme-liz/miniconda3/envs/mlfold
+
+folder_with_pdbs="./pdb"
+
+output_dir="./outputs0.5"
+if [ ! -d $output_dir ]
+then
+    mkdir -p $output_dir
+fi
+
+path_for_parsed_chains=$output_dir"/parsed_pdbs.jsonl"
+path_for_assigned_chains=$output_dir"/assigned_pdbs.jsonl"
+path_for_fixed_positions=$output_dir"/fixed_pdbs.jsonl"\
+
+chains_to_design="B"
+
+python  /work/bme-liz/software/proteinmpnn-main/helper_scripts/parse_multiple_chains.py --input_path=$folder_with_pdbs --output_path=$path_for_parsed_chains
+
+python  /work/bme-liz/software/proteinmpnn-main/helper_scripts/assign_fixed_chains.py --input_path=$path_for_parsed_chains --output_path=$path_for_assigned_chains --chain_list "$chains_to_design"
+
+python  /work/bme-liz/software/proteinmpnn-main/helper_scripts/make_fixed_positions_dict.py --input_path=$path_for_parsed_chains --output_path=$path_for_fixed_positions --chain_list "$chains_to_design" --position_list "$fixed_positions"
+
+python /work/bme-liz/software/proteinmpnn-main/protein_mpnn_run.py \
+        --jsonl_path $path_for_parsed_chains \
+        --chain_id_jsonl $path_for_assigned_chains \
+        --fixed_positions_jsonl $path_for_fixed_positions \
+        --out_folder $output_dir \
+        --num_seq_per_target 10 \
+        --sampling_temp "0.5" \
+        --seed 37 \
+        --batch_size 1 \
+        --pack_side_chains 1

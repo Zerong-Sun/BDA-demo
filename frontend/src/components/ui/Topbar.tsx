@@ -27,7 +27,7 @@ function currentUserLabel(): string | null {
 
 export function Topbar() {
   const navigate = useNavigate()
-  const { language, setLanguage, copilotOpen, setCopilotOpen } = useAppStore()
+  const { language, setLanguage, appMode, setAppMode, copilotOpen, setCopilotOpen } = useAppStore()
   const { t } = useI18n()
   const { projects, activeProject, projectId, setProjectId } = useProjectContext()
   const userLabel = currentUserLabel()
@@ -81,10 +81,28 @@ export function Topbar() {
       </label>
       <div className="flex items-center gap-3 text-xs text-bda-muted">
         <CopilotToggleButton active={copilotOpen} onClick={() => setCopilotOpen(!copilotOpen)} />
-        <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-full bg-bda-amber" />
-          {t.demoMode}
-        </span>
+        <div className="inline-flex rounded-md border border-bda-border bg-bda-panel p-0.5">
+          <button
+            type="button"
+            className={clsx(
+              'rounded px-2 py-1 transition-colors',
+              appMode === 'application' ? 'bg-bda-cyan text-bda-bg' : 'text-bda-muted hover:bg-bda-panel-hover',
+            )}
+            onClick={() => setAppMode('application')}
+          >
+            应用模式
+          </button>
+          <button
+            type="button"
+            className={clsx(
+              'rounded px-2 py-1 transition-colors',
+              appMode === 'demo' ? 'bg-bda-amber text-bda-bg' : 'text-bda-muted hover:bg-bda-panel-hover',
+            )}
+            onClick={() => setAppMode('demo')}
+          >
+            演示模式
+          </button>
+        </div>
         {userLabel ? (
           <>
             <span className="hidden text-bda-text sm:inline">{userLabel}</span>

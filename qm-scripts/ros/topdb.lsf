@@ -1,0 +1,64 @@
+#!/bin/bash
+#BSUB -J cif2pdb
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+set -Eeuo pipefail
+
+IN_DIR="./af3_collect_sum/cif"
+OUT_DIR="./af3_collect_sum/pdb"
+
+PY="/work/bme-sunzr/.conda/envs/gemmi/bin/python"
+
+mkdir -p "$OUT_DIR"
+[[ -d "$IN_DIR" ]] || { echo "[FATAL] IN_DIR not found: $IN_DIR" >&2; exit 1; }
+[[ -x "$PY" ]] || { echo "[FATAL] gemmi python not found/executable: $PY" >&2; exit 2; }
+
+export IN_DIR OUT_DIR
+
+"$PY" - <<'PY'
+import os, gzip, tempfile
+from pathlib import Path
+import gemmi
+
+IN_DIR = Path(os.environ["IN_DIR"])
+OUT_DIR = Path(os.environ["OUT_DIR"])
+
+def read_structure_maybe_gz(p: Path):
+    if p.name.endswith(".cif.gz"):
+        with gzip.open(p, "rb") as f:
+            data = f.read()
+        fd, tmp = tempfile.mkstemp(suffix=".cif")
+        os.close(fd)
+        tp = Path(tmp)
+        tp.write_bytes(data)
+        try:
+            return gemmi.read_structure(str(tp))
+        finally:
+            try: tp.unlink()
+            except Exception: pass
+    return gemmi.read_structure(str(p))
+
+cifs = sorted(IN_DIR.glob("*.cif")) + sorted(IN_DIR.glob("*.cif.gz"))
+if not cifs:
+    raise SystemExit(f"[FATAL] No .cif/.cif.gz in {IN_DIR}")
+
+ok = fail = 0
+for p in cifs:
+    base = p.name[:-7] if p.name.endswith(".cif.gz") else p.name[:-4]
+    outp = OUT_DIR / f"{base}.pdb"
+    try:
+        st = read_structure_maybe_gz(p)
+        st.write_pdb(str(outp))
+        ok += 1
+    except Exception as e:
+        fail += 1
+        print(f"[WARN] failed {p.name}: {e}")
+
+print(f"[INFO] done ok={ok} fail={fail} out={OUT_DIR}")
+if ok == 0:
+    raise SystemExit(3)
+PY

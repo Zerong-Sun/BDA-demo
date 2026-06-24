@@ -12,15 +12,15 @@ import {
   type Node,
   type NodeTypes,
 } from '@xyflow/react'
-import { Loader2 } from 'lucide-react'
+import { Loader2, MousePointer2 } from 'lucide-react'
 import { WorkflowNodeCard } from './WorkflowNode'
 import { WorkflowEdge } from './WorkflowEdge'
 import {
-  defaultWorkflowEdges,
-  defaultWorkflowNodes,
+  nodeTemplates,
   type BdaWorkflowEdge,
   type BdaWorkflowNode,
   type NodeTemplate,
+  type RecommendedWorkflowStep,
   type WorkflowNodeData,
 } from './workflowTypes'
 import { saveWorkflowLayout, addWorkflowNode } from '../../lib/api/workflow'
@@ -35,6 +35,7 @@ export interface WorkflowCanvasHandle {
     methods: string[],
     parameters: Record<string, unknown>,
   ) => Promise<void>
+  addRecommendedWorkflow: (steps: RecommendedWorkflowStep[], goal: string) => Promise<number>
 }
 
 interface WorkflowCanvasProps {
@@ -51,8 +52,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
     { initialNodes, initialEdges, workflowRunId, readOnly = false, onNodeAdded, onNodeSelected },
     ref,
   ) {
-    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes ?? defaultWorkflowNodes)
-    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges ?? defaultWorkflowEdges)
+    const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes ?? [])
+    const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges ?? [])
     const [addingNode, setAddingNode] = useState(false)
     const saveTimer = useRef<number | null>(null)
     const isInitialMount = useRef(true)
@@ -155,11 +156,10 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
           // Calculate position with staggering to avoid overlap
           const col = currentLen % 3
           const row = Math.floor(currentLen / 3) % 4
-          const x = 280 + col * 40
-          const y = 80 + row * 60 + col * 20
+          const x = 80 + col * 260
+          const y = 120 + row * 170 + col * 24
 
           if (!workflowRunId || readOnly) {
-            // Demo / local-only mode
             const id = `custom-${template.id}-${Date.now()}`
             const newNode: Node = {
               id,
@@ -168,9 +168,9 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
               data: {
                 label: nodeName,
                 description: template.body,
-              icon: template.icon,
-              status: 'demo' as const,
-              footer: methods.join(' · '),
+                icon: template.icon,
+                status: 'demo' as const,
+                footer: methods.join(' · '),
                 resource: template.resource,
                 methods,
                 parameters,
@@ -213,12 +213,115 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
       [addingNode, readOnly, workflowRunId, setNodes, onNodeAdded],
     )
 
-    useImperativeHandle(ref, () => ({ addNodeFromTemplate }), [addNodeFromTemplate])
+    const addRecommendedWorkflow = useCallback(
+      async (steps: RecommendedWorkflowStep[], goal: string) => {
+        if (addingNode || readOnly || steps.length === 0) return 0
+        setAddingNode(true)
+        try {
+          const existing = nodesRef.current
+          const branchIndex = Math.floor(existing.length / Math.max(steps.length, 1))
+          const baseY = existing.length === 0 ? 110 : 130 + branchIndex * 190
+          const createdNodes: BdaWorkflowNode[] = []
+
+          for (const [index, step] of steps.entries()) {
+            const template = nodeTemplates[step.templateId]
+            const col = index % 3
+            const row = Math.floor(index / 3)
+            const x = 80 + col * 280
+            const y = baseY + row * 210
+            const footer = `${step.estimate.current}/${step.estimate.planned} ${step.estimate.unit} · ${step.estimate.duration}`
+            const parameters = {
+              ...step.parameters,
+              copilot_goal: goal,
+              planned: step.estimate.planned,
+              current: step.estimate.current,
+              estimate_unit: step.estimate.unit,
+              estimated_time: step.estimate.duration,
+            }
+
+            if (!workflowRunId) {
+              const localNode: BdaWorkflowNode = {
+                id: `planned-${step.templateId}-${Date.now()}-${index}`,
+                type: 'workflowNode',
+                position: { x, y },
+                data: {
+                  label: step.name,
+                  description: template.body,
+                  icon: template.icon,
+                  status: 'not_started',
+                  footer,
+                  resource: template.resource,
+                  methods: step.methods,
+                  parameters,
+                },
+              }
+              createdNodes.push(localNode)
+              continue
+            }
+
+            const created = await addWorkflowNode(workflowRunId, {
+              node_type: template.nodeType,
+              node_name: step.name,
+              model_name: template.modelName,
+              model_version: template.modelVersion,
+              model_plugin_id: template.pluginId,
+              parameters_json: { methods: step.methods, ...parameters },
+              position: { x, y },
+            })
+            createdNodes.push({
+              id: created.node_run_id,
+              type: 'workflowNode',
+              position: { x, y },
+              data: {
+                label: created.node_name,
+                description: template.body,
+                icon: template.icon,
+                status: 'not_started',
+                footer,
+                resource: template.resource,
+                methods: step.methods,
+                parameters,
+              },
+            })
+          }
+
+          const newEdges: BdaWorkflowEdge[] = createdNodes.slice(0, -1).map((node, index) => ({
+            id: `e-${node.id}-${createdNodes[index + 1].id}`,
+            source: node.id,
+            target: createdNodes[index + 1].id,
+            sourceHandle: 'output',
+            targetHandle: 'input',
+            type: 'workflowEdge',
+            animated: index === 0,
+          }))
+
+          const nextNodes = [...nodesRef.current, ...createdNodes] as BdaWorkflowNode[]
+          const nextEdges = [...edgesRef.current, ...newEdges] as BdaWorkflowEdge[]
+          setNodes(nextNodes)
+          setEdges(nextEdges)
+          persistLayout(nextNodes, nextEdges)
+          onNodeAdded?.()
+          return createdNodes.length
+        } finally {
+          setAddingNode(false)
+        }
+      },
+      [addingNode, readOnly, workflowRunId, setNodes, setEdges, persistLayout, onNodeAdded],
+    )
+
+    useImperativeHandle(ref, () => ({ addNodeFromTemplate, addRecommendedWorkflow }), [
+      addNodeFromTemplate,
+      addRecommendedWorkflow,
+    ])
 
     const proOptions = useMemo(() => ({ hideAttribution: true }), [])
+    const flowKey = useMemo(
+      () => nodes.map((node) => node.id).join('|') || 'empty-workflow',
+      [nodes],
+    )
 
     return (
-      <div className="relative h-[640px] rounded-lg border border-bda-border bg-bda-bg-elevated">
+      <div className="relative h-[680px] rounded-lg border border-bda-border bg-bda-bg-elevated">
         {readOnly ? (
           <p className="border-b border-bda-border px-3 py-2 text-xs text-bda-muted">
             Completed run — nodes can be repositioned; adding or rewiring steps is locked.
@@ -232,7 +335,23 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
             </div>
           </div>
         ) : null}
+        {nodes.length === 0 ? (
+          <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center p-6">
+            <div className="max-w-md rounded-lg border border-dashed border-bda-border bg-bda-bg/85 p-5 text-center shadow-lg backdrop-blur">
+              <MousePointer2 className="mx-auto mb-3 h-5 w-5 text-bda-cyan" />
+              <h3 className="text-sm font-semibold text-bda-text">空白工作流</h3>
+              <p className="mt-2 text-xs leading-relaxed text-bda-muted">
+                从左侧添加模型节点，或在上方输入目标生成推荐路线。添加两个节点后，从卡片右侧圆点拖到下一张卡片左侧圆点即可连线。
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="pointer-events-none absolute left-3 top-3 z-[1] rounded-md border border-bda-border bg-bda-bg/80 px-3 py-2 text-xs text-bda-muted backdrop-blur">
+            连线：从节点右侧输出点拖到下一节点左侧输入点
+          </div>
+        )}
         <ReactFlow
+          key={flowKey}
           nodes={nodes}
           edges={edges}
           onNodesChange={onNodesChange}
@@ -244,6 +363,7 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
+          fitViewOptions={{ padding: 0.2 }}
           proOptions={proOptions}
           nodesDraggable
           nodesConnectable={!readOnly}

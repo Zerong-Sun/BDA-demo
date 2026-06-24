@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#BSUB -J rmsd
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+# 用你之前跑 mpnn 的那个环境
+source activate /work/bme-liz/miniconda3/envs/mlfold
+
+# 进入脚本所在目录（可选，如果你提交时不在这个目录就加上）
+# cd /project/your_job
+
+python rmsd.py > rmsd.log 2>&1

@@ -1,46 +1,72 @@
-import { MessageSquare, X } from 'lucide-react'
+import type { PointerEvent as ReactPointerEvent } from 'react'
+import { GripVertical, MessageSquare, X } from 'lucide-react'
 import { CopilotChat } from '../../features/copilot/CopilotChat'
 import { useI18n } from '../../lib/i18n'
+import { useAppStore } from '../../lib/store/appStore'
 
 interface CopilotDrawerProps {
   open: boolean
   onClose: () => void
+  pageContext?: string
 }
 
-export function CopilotDrawer({ open, onClose }: CopilotDrawerProps) {
+export function CopilotDrawer({ open, onClose, pageContext }: CopilotDrawerProps) {
   const { t } = useI18n()
+  const copilotWidth = useAppStore((s) => s.copilotWidth)
+  const setCopilotWidth = useAppStore((s) => s.setCopilotWidth)
 
   if (!open) return null
 
+  const startResize = (event: ReactPointerEvent<HTMLButtonElement>) => {
+    event.currentTarget.setPointerCapture(event.pointerId)
+    const startX = event.clientX
+    const startWidth = copilotWidth
+
+    const onMove = (moveEvent: PointerEvent) => {
+      const nextWidth = Math.min(560, Math.max(300, startWidth - (moveEvent.clientX - startX)))
+      setCopilotWidth(nextWidth)
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
   return (
-    <>
+    <aside
+      className="fixed inset-y-0 right-0 z-50 flex max-w-full shrink-0 flex-col border-l border-bda-border bg-bda-panel shadow-2xl lg:relative lg:inset-auto lg:z-auto lg:min-h-[calc(100vh-4rem)] lg:shadow-none"
+      style={{ width: `min(${copilotWidth}px, 100vw)` }}
+    >
       <button
         type="button"
-        aria-label="Close copilot"
-        className="fixed inset-0 z-40 bg-black/40"
-        onClick={onClose}
-      />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col border-l border-bda-border bg-bda-panel shadow-2xl">
-        <div className="flex items-start justify-between border-b border-bda-border p-4">
-          <div>
-            <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
-            <h2 className="text-lg font-semibold">{t.experiments.copilotTitle}</h2>
-            <p className="mt-1 text-xs text-bda-muted">Phase 1 demo rules · DeepSeek hook reserved</p>
-          </div>
-          <button
-            type="button"
-            className="rounded-md border border-bda-border p-1.5 hover:bg-bda-panel-hover"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            <X className="h-4 w-4" />
-          </button>
+        aria-label="Resize Copilot"
+        className="absolute inset-y-0 -left-2 flex w-4 cursor-col-resize items-center justify-center text-bda-muted hover:text-bda-cyan"
+        onPointerDown={startResize}
+      >
+        <GripVertical className="h-4 w-4" />
+      </button>
+      <div className="flex items-start justify-between border-b border-bda-border p-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
+          <h2 className="text-lg font-semibold">{t.experiments.copilotTitle}</h2>
+          <p className="mt-1 text-xs text-bda-muted">Reads project, page, workflow, and selected context.</p>
         </div>
-        <div className="min-h-0 flex-1">
-          <CopilotChat />
-        </div>
-      </aside>
-    </>
+        <button
+          type="button"
+          className="rounded-md border border-bda-border p-1.5 hover:bg-bda-panel-hover"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="min-h-0 flex-1">
+        <CopilotChat pageContext={pageContext} />
+      </div>
+    </aside>
   )
 }
 

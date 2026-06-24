@@ -1,0 +1,32 @@
+{
+  "job_id": "job_d50776341851",
+  "project_id": "proj_nanocage_0518",
+  "workflow_run_id": "run_proj_nanocage_0518_a90323b0",
+  "node_run_id": "node_d13762648d",
+  "plugin_id": "plugin_alphafold2",
+  "model_name": "AlphaFold2",
+  "inputs": [
+    {
+      "port": "sequence_set",
+      "artifact_id": "art_2dd4e79035e54371",
+      "path": "/input/art_2dd4e79035e54371_designed.fasta",
+      "format": "fasta",
+      "artifact_type": "sequence_set",
+      "metadata": {
+        "sequence_count": 1,
+        "residue_count": 20,
+        "sequence_lengths": [
+          20
+        ],
+        "count": 1,
+        "source_model": "ProteinMPNN",
+        "source_job_id": "job_58bc8c346b43",
+        "source_port": "sequence_set"
+      }
+    }
+  ],
+  "parameters": {
+    "model_preset": "multimer",
+    "num_recycles": 1
+  }
+}

@@ -3,7 +3,7 @@ import { matchSkill } from './skills/registry'
 import { sendCopilotMessage, streamCopilotMessage } from '../../lib/api/copilot'
 
 interface ChatMessage {
-  role: 'user' | 'assistant'
+  role: 'user' | 'assistant' | 'system'
   content: string
 }
 
@@ -21,7 +21,7 @@ const seedMessages: ChatMessage[] = [
 
 const MAX_COPILOT_HISTORY = 20
 
-export function useCopilotChat(projectId?: string) {
+export function useCopilotChat(projectId?: string, pageContext?: string) {
   const [messages, setMessages] = useState<ChatMessage[]>(seedMessages)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -36,8 +36,18 @@ export function useCopilotChat(projectId?: string) {
     setLoading(true)
     setError(null)
 
+    const scopedMessages: ChatMessage[] = pageContext
+      ? [
+          {
+            role: 'system',
+            content: `Page context available to Copilot: ${pageContext}`,
+          },
+          ...nextMessages.slice(-MAX_COPILOT_HISTORY),
+        ]
+      : nextMessages.slice(-MAX_COPILOT_HISTORY)
+
     const payload = {
-      messages: nextMessages.slice(-MAX_COPILOT_HISTORY),
+      messages: scopedMessages,
       project_id: projectId,
       skill,
     }

@@ -1,0 +1,82 @@
+#!/bin/bash
+#BSUB -J combine_fasta
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+set -euo pipefail
+
+
+INDIR=./outputs/seqs
+OUTFA=./mpnn.fa
+
+OUTFA_DIR="$(dirname "$OUTFA")"
+mkdir -p "$OUTFA_DIR"
+
+
+
+if [[ ! -d "$INDIR" ]]; then
+  echo "[ERROR] 输入目录不存在或不是文件夹：$INDIR" >&2
+  exit 1
+fi
+
+# 收集 .fa/.fasta（大小写不敏感），按文件名排序
+mapfile -t FA_FILES < <(find "$INDIR" -maxdepth 1 -type f \( -iname "*.fa" -o -iname "*.fasta" \) | LC_ALL=C sort)
+
+if (( ${#FA_FILES[@]} == 0 )); then
+  echo "[ERROR] 在目录中未找到 .fa 或 .fasta 文件：$INDIR" >&2
+  exit 1
+fi
+
+# 清空输出文件
+: > "$OUTFA"
+
+n_written=0
+
+for fa in "${FA_FILES[@]}"; do
+  # 取 basename（去扩展名）
+  fname="$(basename "$fa")"
+  base="${fname%.*}"
+
+  # 逐文件处理：跳过第1条序列，仅输出第2..N条
+  # 输出头：>basename-seqK（K 从 0 开始；原文件第2条 -> seq0，第4条 -> seq2）
+  awk -v base="$base" '
+    function flush(    i) {
+      if (keep) {
+        print ">" out_header
+        for (i = 1; i <= length(seq); i += 60) print substr(seq, i, 60)
+      }
+    }
+    BEGIN { idx = -1; keep = 0; seq = ""; out_header = "" }
+    /^>/ {
+      if (idx >= 1) flush()
+      idx++
+      seq = ""
+      keep = (idx >= 1)
+      if (keep) {
+        k = idx - 1
+        out_header = base "-seq" k
+      }
+      next
+    }
+    {
+      if (!keep) next
+      gsub(/[ \t\r]/, "", $0)
+      if (length($0) > 0) seq = seq $0
+    }
+    END {
+      if (idx >= 1) flush()
+    }
+  ' "$fa" >> "$OUTFA"
+
+  # 统计：每输出一个 header 就算一条
+  add="$(grep -c '^>' "$OUTFA" || true)"
+done
+
+# 最终统计
+n_written="$(grep -c '^>' "$OUTFA" || true)"
+echo "[DONE] 输入目录：$INDIR"
+echo "[DONE] 输出文件：$OUTFA"
+echo "[DONE] 共写入：${n_written} 条序列"

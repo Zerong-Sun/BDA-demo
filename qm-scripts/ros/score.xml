@@ -1,0 +1,63 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="sfxn" weights="beta"/>
+	</SCOREFXNS>
+
+	<TASKOPERATIONS>
+		<SelectBySASA name="sasa_surf" mode="sc" state="monomer" core_asa="0" surface_asa="0" core="0" boundary="1" surface="1" verbose="1" />//selects surface and boundary residues of BUILDING BLOCK
+	</TASKOPERATIONS>
+
+	<RESIDUE_SELECTORS>
+
+		<Task name="sasa_surf_selector" designable="true" task_operations="sasa_surf" />
+		<Chain name="chainA" chains="A" />
+        <Chain name="chainB" chains="B" />
+        <Neighborhood name= "A_neigbor" selector="chainA" include_focus_in_subset="0"/>
+        <Neighborhood name= "B_neigbor" selector="chainB" include_focus_in_subset="0"/>
+        <Or name="interface_resis" selectors="A_neigbor,B_neigbor" />
+        <And name="interface_surf_resis" selectors="interface_resis,sasa_surf_selector" />
+        <Not name="lock_resis" selector="interface_surf_resis" />
+
+	</RESIDUE_SELECTORS>
+	
+	<TASKOPERATIONS>
+		<IncludeCurrent name="ic" />									//includes input pdb's rotamers
+		<LimitAromaChi2 name="limitaro" chi2max="110" chi2min="70" />	//disallow extreme aromatic rotamers
+		<RestrictToRepacking name="repack_only" />						//for minimize/repack
+		<ExtraRotamersGeneric name="ex1_ex2" ex1="1" ex2="1" />			//use ex1 ex2 rotamers
+
+		<OperateOnResidueSubset name="pack_task" selector="interface_surf_resis" >
+			<RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="lock_task" selector="lock_resis" >
+			<PreventRepackingRLT/> </OperateOnResidueSubset>
+	</TASKOPERATIONS>
+
+	<MOVERS>
+		<TaskAwareMinMover name="min_clean_no_rb" scorefxn="sfxn" bb="0" chi="1" jump="0" task_operations="pack_task,lock_task" /> //this is for ddG
+	</MOVERS>
+
+	<FILTERS>
+		<ShapeComplementarity name="sc" verbose="1" jump="1" min_sc="0.5" write_int_area="1" write_median_dist="1" residue_selector1="A_neigbor" residue_selector2="B_neigbor" confidence="0" />
+
+		<Sasa name="sasa" threshold="300" upper_threshold="9999" jump="1" hydrophobic="0" polar="0" confidence="0" />
+		<Sasa name="sasa_hydro" threshold="300" upper_threshold="9999" jump="1" hydrophobic="1" polar="0" confidence="0" />
+
+		<ContactMolecularSurface name="cms" min_interface="0" distance_weight="1.0" verbose="1" quick="0" target_selector="A_neigbor" binder_selector="B_neigbor" confidence="0" />
+
+		<Ddg name="ddG" jump="1" repeats="5" extreme_value_removal="1" translate_by="1000" scorefxn="sfxn" task_operations="pack_task,lock_task,repack_only,ic,ex1_ex2,limitaro" repack="1" threshold="0" relax_mover="min_clean_no_rb" repack_bound="1" relax_bound="1" repack_unbound="1" relax_unbound="1" confidence="0" />
+
+	</FILTERS>
+
+	<APPLY_TO_POSE>
+	</APPLY_TO_POSE>
+
+	<PROTOCOLS>
+		<Add filter_name="sc" />
+		<Add filter_name="sasa" />
+		<Add filter_name="sasa_hydro" />
+		<Add filter_name="cms" />
+		<Add filter_name="ddG" />
+	</PROTOCOLS>
+	
+	<OUTPUT scorefxn="sfxn" />
+</ROSETTASCRIPTS>

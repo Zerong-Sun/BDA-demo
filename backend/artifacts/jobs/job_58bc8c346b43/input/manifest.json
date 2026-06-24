@@ -1,0 +1,31 @@
+{
+  "job_id": "job_58bc8c346b43",
+  "project_id": "proj_nanocage_0518",
+  "workflow_run_id": "run_proj_nanocage_0518_a90323b0",
+  "node_run_id": "node_7babbbe306",
+  "plugin_id": "plugin_proteinmpnn",
+  "model_name": "ProteinMPNN",
+  "inputs": [
+    {
+      "port": "backbone_set",
+      "artifact_id": "art_580edd0cc7d54793",
+      "path": "/input/art_580edd0cc7d54793_backbone_001.pdb",
+      "format": "pdb",
+      "artifact_type": "backbone_set",
+      "metadata": {
+        "atom_count": 2,
+        "chain_count": 1,
+        "chains": [],
+        "residue_count": 0,
+        "count": 1,
+        "source_model": "RFdiffusion",
+        "source_job_id": "job_75f8a70aeb5d",
+        "source_port": "backbone_set"
+      }
+    }
+  ],
+  "parameters": {
+    "num_seq_per_target": 1,
+    "sampling_temperature": 0.1
+  }
+}

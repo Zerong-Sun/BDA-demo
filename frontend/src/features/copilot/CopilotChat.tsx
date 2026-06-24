@@ -3,9 +3,9 @@ import { Send } from 'lucide-react'
 import { useCopilotChat } from './useCopilotChat'
 import { useProjectContext } from '../../lib/hooks/useProjectContext'
 
-export function CopilotChat() {
+export function CopilotChat({ pageContext }: { pageContext?: string }) {
   const { projectId } = useProjectContext()
-  const { messages, loading, error, send } = useCopilotChat(projectId)
+  const { messages, loading, error, send } = useCopilotChat(projectId, pageContext)
   const [input, setInput] = useState('Explain why c4361 should anchor round two')
 
   const handleSend = async () => {
@@ -23,7 +23,7 @@ export function CopilotChat() {
             {error}
           </div>
         ) : null}
-        {messages.map((msg, idx) => (
+        {messages.filter((msg) => msg.role !== 'system').map((msg, idx) => (
           <div
             key={`${msg.role}-${idx}`}
             className={`rounded-lg px-3 py-2 text-sm ${
