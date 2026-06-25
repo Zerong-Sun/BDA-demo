@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import shutil
 import sqlite3
@@ -387,6 +388,159 @@ def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
     return env
 
 
+def parameter_checksum(parameters: dict[str, Any]) -> str:
+    payload = json.dumps(parameters, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
+def node_submission_readiness(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+) -> dict[str, Any]:
+    node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+    if node is None:
+        raise ValueError("node_not_found")
+    blockers: list[dict[str, Any]] = []
+    plugin = None
+    if node.get("model_name"):
+        plugin = next(
+            (
+                item
+                for item in registry.list_model_plugins(connection)
+                if item.get("model_name") == node.get("model_name")
+            ),
+            None,
+        )
+    if plugin is None:
+        blockers.append({
+            "code": "manual_or_unregistered_node",
+            "message": "This node requires manual review/completion and cannot be submitted to compute.",
+        })
+    if node.get("status") in {"queued", "staging", "running", "completed"}:
+        blockers.append({
+            "code": "node_not_submittable_status",
+            "message": f"Node status is {node.get('status')}.",
+        })
+    active = connection.execute(
+        """
+        SELECT job_id, status FROM jobs
+        WHERE node_run_id = ? AND status IN ('queued', 'staging', 'running')
+        ORDER BY created_at DESC LIMIT 1
+        """,
+        (node_run_id,),
+    ).fetchone()
+    if active:
+        blockers.append({
+            "code": "active_job_exists",
+            "message": f"Active job {active['job_id']} already exists.",
+        })
+    incoming = [
+        edge
+        for edge in catalog.list_workflow_edges(connection, node["workflow_run_id"])
+        if edge.get("target_node_run_id") == node_run_id
+        and edge.get("edge_type", "data") in {"data", "control", "review_gate"}
+    ]
+    for edge in incoming:
+        source = get_by_id(
+            connection,
+            "workflow_node_runs",
+            "node_run_id",
+            edge["source_node_run_id"],
+        )
+        if source is None or source.get("status") != "completed":
+            blockers.append({
+                "code": "upstream_not_completed",
+                "source_node_run_id": edge["source_node_run_id"],
+                "source_node_name": (source or {}).get("node_name"),
+                "source_status": (source or {}).get("status", "missing"),
+                "message": "An upstream node or review gate is not completed.",
+            })
+    parameters = node.get("parameters_json") or {}
+    validation: dict[str, Any] = {"valid": True, "errors": [], "warnings": []}
+    strict_rfdiffusion = (
+        node.get("model_name") == "RFdiffusion"
+        and bool(parameters.get("design_mode") or parameters.get("requires_user_review"))
+    )
+    if strict_rfdiffusion:
+        from .sweet_protein_planner import validate_rfdiffusion_parameters
+
+        validation = validate_rfdiffusion_parameters(parameters)
+        for error in validation["errors"]:
+            blockers.append({
+                "code": "invalid_parameter",
+                "parameter": error["parameter"],
+                "message": error["message"],
+            })
+        resolved_inputs = resolve_node_input_artifacts(connection, node)
+        has_structure_artifact = False
+        for ref in _normalize_input_refs(resolved_inputs):
+            artifact = artifact_repo.get_artifact(connection, ref["artifact_id"])
+            if artifact and artifact.get("artifact_type") in {
+                "target_structure",
+                "cleaned_structure",
+                "structure",
+            }:
+                has_structure_artifact = True
+                break
+        if not has_structure_artifact:
+            blockers.append({
+                "code": "missing_target_structure",
+                "message": (
+                    "RFdiffusion requires a reviewed target/scaffold structure artifact "
+                    "attached to this node before submission."
+                ),
+            })
+    return {
+        "ready": not blockers,
+        "node": node,
+        "plugin": plugin,
+        "blockers": blockers,
+        "parameter_checksum": parameter_checksum(parameters),
+        "validation": validation,
+    }
+
+
+def preview_node_submission(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+) -> dict[str, Any]:
+    readiness = node_submission_readiness(connection, node_run_id)
+    node = readiness["node"]
+    plugin = readiness["plugin"]
+    parameters = node.get("parameters_json") or {}
+    if (
+        node.get("model_name") == "RFdiffusion"
+        and bool(parameters.get("design_mode") or parameters.get("requires_user_review"))
+    ):
+        from .sweet_protein_planner import render_rfdiffusion_command
+
+        model_command_preview = (
+            render_rfdiffusion_command(parameters)
+            if readiness["validation"]["valid"]
+            else ""
+        )
+    else:
+        model_command_preview = ""
+    command = (plugin or {}).get("command_template") or ""
+    resources = (plugin or {}).get("resource_requirement_json") or {}
+    return {
+        "node_run_id": node_run_id,
+        "ready": readiness["ready"],
+        "blockers": readiness["blockers"],
+        "parameter_checksum": readiness["parameter_checksum"],
+        "model_name": node.get("model_name"),
+        "plugin_id": (plugin or {}).get("model_plugin_id"),
+        "container_image": (plugin or {}).get("container_image"),
+        "resources": resources,
+        "command": command,
+        "model_command_preview": model_command_preview,
+        "inputs": resolve_node_input_artifacts(connection, node),
+        "expected_outputs": (plugin or {}).get("output_schema_json") or {},
+        "requires_confirmation": True,
+        "validation": readiness["validation"],
+    }
+
+
 def _enqueue_poll(job_id: str) -> None:
     try:
         from ..celery_app import poll_job_status
@@ -396,15 +550,29 @@ def _enqueue_poll(job_id: str) -> None:
         pass
 
 
-def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_node_id: str | None = None) -> dict:
-    node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
-    if node is None:
-        raise ValueError("node_not_found")
-
-    plugin = None
-    if node.get("model_name"):
-        plugins = registry.list_model_plugins(connection)
-        plugin = next((p for p in plugins if p.get("model_name") == node.get("model_name")), None)
+def submit_node_job(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    compute_node_id: str | None = None,
+    *,
+    expected_parameter_checksum: str | None = None,
+) -> dict:
+    readiness = node_submission_readiness(connection, node_run_id)
+    node = readiness["node"]
+    plugin = readiness["plugin"]
+    if readiness["blockers"]:
+        codes = ",".join(item["code"] for item in readiness["blockers"])
+        raise ValueError(f"node_not_ready:{codes}")
+    if (
+        (node.get("parameters_json") or {}).get("requires_user_review")
+        and not expected_parameter_checksum
+    ):
+        raise ValueError("node_preview_confirmation_required")
+    if (
+        expected_parameter_checksum
+        and expected_parameter_checksum != readiness["parameter_checksum"]
+    ):
+        raise ValueError("node_parameters_changed_after_preview")
 
     plugin_id = (plugin or {}).get("model_plugin_id", "unknown")
     job = create_job(
@@ -456,8 +624,21 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         logs=st.logs,
         external_id=handle.external_id,
     )
-    if st.status == "completed":
-        collect_job_outputs(connection, job["job_id"])
+    if st.status in ("completed", "failed", "cancelled"):
+        if st.status == "completed":
+            collect_job_outputs(connection, job["job_id"])
+        catalog.update_workflow_node(
+            connection,
+            node_run_id,
+            status="completed" if st.status == "completed" else st.status,
+        )
+        from .run_coordinator import handle_job_terminal
+
+        handle_job_terminal(
+            connection,
+            job=get_job(connection, job["job_id"]) or job,
+            status=st.status,
+        )
     if st.status in ("queued", "running"):
         catalog.update_workflow_node(connection, node_run_id, status="queued")
         _enqueue_poll(job["job_id"])
@@ -470,6 +651,8 @@ def submit_workflow_jobs(connection: sqlite3.Connection, workflow_run_id: str, c
     jobs = []
     for node in nodes:
         if node.get("status") in ("completed", "running", "queued"):
+            continue
+        if (node.get("parameters_json") or {}).get("requires_user_review"):
             continue
         try:
             job = submit_node_job(connection, node["node_run_id"], compute_node_id)

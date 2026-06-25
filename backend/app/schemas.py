@@ -15,6 +15,69 @@ class RoutePlanRequest(BaseModel):
     constraints: dict[str, Any] = Field(default_factory=dict)
 
 
+class ResearchBriefCreateRequest(BaseModel):
+    project_id: str
+    title: str = Field(default="AI 甜味蛋白研发", min_length=1, max_length=200)
+    objective: str = Field(min_length=10, max_length=5000)
+    product_context: str = Field(default="food_ingredient", min_length=1, max_length=80)
+    constraints: dict[str, Any] = Field(default_factory=dict)
+    source_material: list[dict[str, Any]] = Field(default_factory=list)
+
+
+class ResearchPlanRequest(BaseModel):
+    selected_route: str | None = Field(default=None, max_length=80)
+
+
+class EvidenceReviewRequest(BaseModel):
+    review_status: str = Field(pattern="^(accepted|rejected|pending_review)$")
+
+
+class ResearchFindingReviewRequest(BaseModel):
+    review_status: str = Field(pattern="^(accepted|rejected|pending_review)$")
+
+
+class MarkdownResearchSourceRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=240)
+    content: str = Field(min_length=20, max_length=2_000_000)
+    source_uri: str | None = Field(default=None, max_length=1000)
+
+
+class WorkflowPlanMaterializeRequest(BaseModel):
+    selected_route: str = Field(min_length=1, max_length=80)
+
+
+class ExperimentPlanUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    objective: str | None = Field(default=None, min_length=1, max_length=4000)
+    status: str | None = Field(default=None, pattern="^(draft|active|completed|archived)$")
+    ethics_requirements: list[dict[str, Any]] | None = None
+    regulatory_questions: list[dict[str, Any]] | None = None
+    result_template: dict[str, Any] | None = None
+
+
+class ExperimentStepUpdateRequest(BaseModel):
+    title: str | None = Field(default=None, min_length=1, max_length=240)
+    purpose: str | None = Field(default=None, min_length=1, max_length=4000)
+    samples: list[Any] | None = None
+    controls: list[Any] | None = None
+    readouts: list[Any] | None = None
+    acceptance_criteria: list[Any] | None = None
+    dependencies: list[Any] | None = None
+    owner: str | None = Field(default=None, max_length=160)
+    status: str | None = Field(default=None, pattern="^(planned|ready|in_progress|completed|blocked)$")
+    result_artifact_id: str | None = None
+    notes: str | None = Field(default=None, max_length=4000)
+
+
+class AutomationPolicyUpdateRequest(BaseModel):
+    mode: str = Field(default="confirm_each_node", pattern="^(confirm_each_node|auto_after_gate|advisory_only)$")
+    auto_submit_ready: bool = False
+    notify_on_ready: bool = True
+    notify_on_terminal: bool = True
+    max_auto_retries: int = Field(default=0, ge=0, le=5)
+    retry_backoff_seconds: int = Field(default=60, ge=5, le=3600)
+
+
 class CreateProjectRequest(BaseModel):
     project_name: str = Field(min_length=1, max_length=160)
     project_type: str = Field(default="protein_design", min_length=1, max_length=80)

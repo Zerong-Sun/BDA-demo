@@ -85,6 +85,12 @@ def register_model_parameter_catalog(connection: sqlite3.Connection) -> None:
     sync_plugin_parameters(connection, registry.list_model_plugins(connection))
 
 
+def register_domain_catalogs(connection: sqlite3.Connection) -> None:
+    from backend.app.services.sweet_protein_catalog import register_sweet_protein_catalog
+
+    register_sweet_protein_catalog(connection)
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -100,6 +106,7 @@ def init_db(seed: bool = True) -> Path:
         register_builtin_plugins(connection)
         register_builtin_knowledge(connection)
         register_model_parameter_catalog(connection)
+        register_domain_catalogs(connection)
         connection.commit()
     finally:
         connection.close()

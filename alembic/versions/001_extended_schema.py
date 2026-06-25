@@ -15,10 +15,17 @@ branch_labels = None
 depends_on = None
 
 
+def _execute_statements(sql: str) -> None:
+    for statement in sql.split(";"):
+        statement = statement.strip()
+        if statement and not statement.startswith("-- Add organization_id"):
+            op.get_bind().exec_driver_sql(statement)
+
+
 def upgrade() -> None:
-    schema_path = Path(__file__).resolve().parents[2] / "backend" / "db" / "schema_extended.sql"
+    schema_path = Path(__file__).resolve().parents[2] / "backend" / "db" / "schema.sql"
     if schema_path.exists():
-        op.execute(schema_path.read_text())
+        _execute_statements(schema_path.read_text())
 
 
 def downgrade() -> None:

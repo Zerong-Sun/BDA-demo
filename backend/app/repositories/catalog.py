@@ -478,6 +478,7 @@ def update_workflow_node(
     *,
     position_json: str | None = None,
     parameters_json: str | None = None,
+    input_files_json: str | None = None,
     output_files_json: str | None = None,
     metrics_json: str | None = None,
     status: str | None = None,
@@ -490,6 +491,9 @@ def update_workflow_node(
     if parameters_json is not None:
         updates.append("parameters_json = ?")
         params.append(parameters_json)
+    if input_files_json is not None:
+        updates.append("input_files_json = ?")
+        params.append(input_files_json)
     if output_files_json is not None:
         updates.append("output_files_json = ?")
         params.append(output_files_json)

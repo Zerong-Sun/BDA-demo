@@ -28,6 +28,7 @@ class AddWorkflowNodeRequest(BaseModel):
 class UpdateWorkflowNodeRequest(BaseModel):
     position: dict | None = None
     parameters_json: dict | None = None
+    input_files_json: dict | list | None = None
     status: str | None = None
 
 
@@ -88,7 +89,6 @@ def patch_workflow_graph(
         raise HTTPException(status_code=404, detail="workflow_run_not_found")
     if run["status"] == "completed":
         raise HTTPException(status_code=409, detail="workflow_run_read_only")
-
     for node in payload.nodes:
         node_run_id = node.get("node_run_id")
         position = node.get("position")
@@ -157,16 +157,97 @@ def patch_workflow_node(
         raise HTTPException(status_code=404, detail="workflow_run_not_found")
     if run["status"] == "completed":
         raise HTTPException(status_code=409, detail="workflow_run_read_only")
+    existing_node = catalog.get_workflow_node(connection, node_run_id)
+    if existing_node is None or existing_node.get("workflow_run_id") != workflow_run_id:
+        raise HTTPException(status_code=404, detail="node_not_found")
+    if payload.status is not None:
+        controlled_manual_types = {
+            "research_review",
+            "structure_preparation",
+            "review_gate",
+        }
+        parameters = existing_node.get("parameters_json") or {}
+        if (
+            parameters.get("requires_user_review")
+            or existing_node.get("node_type") in controlled_manual_types
+            or existing_node.get("status") == "waiting_external_result"
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail="controlled_node_requires_specialized_transition",
+            )
+    if payload.input_files_json is not None:
+        project_id = catalog.get_workflow_run_project_id(connection, workflow_run_id)
+        refs: list[str] = []
+        values = (
+            payload.input_files_json.values()
+            if isinstance(payload.input_files_json, dict)
+            else payload.input_files_json
+        )
+        for value in values:
+            entries = value if isinstance(value, list) else [value]
+            for entry in entries:
+                if isinstance(entry, str):
+                    refs.append(entry)
+                elif isinstance(entry, dict) and entry.get("artifact_id"):
+                    refs.append(str(entry["artifact_id"]))
+        for artifact_id in refs:
+            artifact = artifact_repo.get_artifact(connection, artifact_id)
+            if artifact is None:
+                raise HTTPException(status_code=400, detail=f"artifact_not_found:{artifact_id}")
+            if artifact.get("project_id") != project_id:
+                raise HTTPException(status_code=403, detail="artifact_project_mismatch")
 
     node = catalog.update_workflow_node(
         connection,
         node_run_id,
         position_json=json.dumps(payload.position) if payload.position else None,
-        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json else None,
+        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json is not None else None,
+        input_files_json=json.dumps(payload.input_files_json) if payload.input_files_json is not None else None,
         status=payload.status,
     )
     if node is None:
         raise HTTPException(status_code=404, detail="node_not_found")
+    if payload.parameters_json is not None and existing_node.get("model_name"):
+        plan_row = connection.execute(
+            """
+            SELECT workflow_plan_id, nodes_json FROM workflow_plans
+            WHERE materialized_workflow_run_id = ?
+            """,
+            (workflow_run_id,),
+        ).fetchone()
+        plan_node_key = None
+        if plan_row:
+            planned_nodes = json.loads(plan_row["nodes_json"] or "[]")
+            matched = next(
+                (
+                    planned
+                    for planned in planned_nodes
+                    if planned.get("name") == existing_node.get("node_name")
+                    and planned.get("model_name") == existing_node.get("model_name")
+                ),
+                None,
+            )
+            plan_node_key = (matched or {}).get("key")
+        recommendation_rows = connection.execute(
+            """
+            SELECT r.parameter_recommendation_id, r.parameter_key, r.recommended_value_json
+            FROM parameter_recommendations r
+            WHERE r.workflow_plan_id = ? AND r.node_key = ?
+            """,
+            (plan_row["workflow_plan_id"], plan_node_key),
+        ).fetchall() if plan_row and plan_node_key else []
+        for recommendation in recommendation_rows:
+            recommended = json.loads(recommendation["recommended_value_json"])
+            current = payload.parameters_json.get(recommendation["parameter_key"])
+            connection.execute(
+                """
+                UPDATE parameter_recommendations
+                SET user_modified = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE parameter_recommendation_id = ?
+                """,
+                (int(current != recommended), recommendation["parameter_recommendation_id"]),
+            )
     return envelope(node)
 
 

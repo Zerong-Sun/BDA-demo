@@ -48,7 +48,7 @@ _RETRY_KWARGS = {
 
 @celery_app.task(name="bda.poll_job_status", bind=True, **_RETRY_KWARGS)
 def poll_job_status(self, job_id: str) -> dict:
-    from .db import connect
+    from .db import connect, release_connection
     from .compute.factory import get_compute_adapter
     from .services import job_service
 
@@ -80,25 +80,36 @@ def poll_job_status(self, job_id: str) -> dict:
                 from .services.campaign_service import sync_round_status
 
                 sync_round_status(connection, job["workflow_run_id"])
+            if live.status in ("completed", "failed", "cancelled"):
+                from .services.run_coordinator import handle_job_terminal
+
+                handle_job_terminal(
+                    connection,
+                    job=job_service.get_job(connection, job_id) or job,
+                    status=live.status,
+                )
         if live.status in ("queued", "running"):
             poll_job_status.apply_async(args=[job_id], countdown=5)
+        connection.commit()
         return {"job_id": job_id, "status": live.status}
     except Exception as exc:  # noqa: BLE001 - logged, then re-raised for autoretry
+        connection.rollback()
         logger.error("poll_job_status_failed", job_id=job_id, error=str(exc))
         raise
     finally:
-        connection.close()
+        release_connection(connection)
 
 
 @celery_app.task(name="bda.submit_node_job", bind=True, **_RETRY_KWARGS)
 def submit_node_job_task(self, node_run_id: str, compute_node_id: str | None = None) -> dict:
-    from .db import connect
+    from .db import connect, release_connection
     from .repositories import catalog
     from .services import job_service
 
     connection = connect()
     try:
         job = job_service.submit_node_job(connection, node_run_id, compute_node_id)
+        connection.commit()
         poll_job_status.delay(job["job_id"])
         return job
     except Exception as exc:  # noqa: BLE001
@@ -108,11 +119,15 @@ def submit_node_job_task(self, node_run_id: str, compute_node_id: str | None = N
         if self.request.retries >= self.max_retries:
             try:
                 catalog.update_workflow_node(connection, node_run_id, status="failed")
+                connection.commit()
             except Exception:  # noqa: BLE001
+                connection.rollback()
                 logger.error("submit_node_job_cleanup_failed", node_run_id=node_run_id)
+        else:
+            connection.rollback()
         raise
     finally:
-        connection.close()
+        release_connection(connection)
 
 
 @celery_app.task(name="bda.scan_literature_subscriptions", bind=True, **_RETRY_KWARGS)

@@ -13,7 +13,7 @@ if db_url:
     if db_url.startswith("postgresql://"):
         db_url = db_url.replace("postgresql://", "postgresql+psycopg2://", 1)
     elif not db_url.startswith("sqlite"):
-        db_url = f"sqlite:///{db_url.lstrip('/')}"
+        db_url = f"sqlite:///{db_url}"
     config.set_main_option("sqlalchemy.url", db_url)
 elif not config.get_main_option("sqlalchemy.url"):
     config.set_main_option("sqlalchemy.url", "sqlite:///backend/db/bda.sqlite3")

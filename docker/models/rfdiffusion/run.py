@@ -32,6 +32,7 @@ def _find_input(manifest: dict, *ports: str) -> dict | None:
 manifest_in = _load_input_manifest()
 target = _find_input(manifest_in, "target_structure", "cleaned_structure", "structure")
 parameters = manifest_in.get("parameters") or {}
+num_designs = parameters.get("inference.num_designs", parameters.get("num_designs", 1))
 out = Path(os.environ.get("BDA_OUTPUT_DIR", "/output"))
 out.mkdir(parents=True, exist_ok=True)
 pdb = out / "backbone_001.pdb"
@@ -39,7 +40,7 @@ pdb.write_text(
     "\n".join([
         "REMARK BDA stub RFdiffusion output",
         f"REMARK input_target {target.get('artifact_id') if target else 'none'}",
-        f"REMARK num_designs {parameters.get('num_designs', 1)}",
+        f"REMARK num_designs {num_designs}",
         "ATOM      1  N   GLY B   1       0.000   0.000   0.000  1.00 20.00           N",
         "ATOM      2  CA  GLY B   1       1.200   0.000   0.000  1.00 20.00           C",
         "TER",

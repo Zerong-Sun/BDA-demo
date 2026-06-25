@@ -61,9 +61,13 @@ def search_library(
             clauses.append(
                 "(LOWER(d.title) LIKE ? OR LOWER(COALESCE(d.abstract_text, '')) LIKE ? "
                 "OR LOWER(COALESCE(c.statement, '')) LIKE ? "
-                "OR LOWER(COALESCE(e.evidence_excerpt, '')) LIKE ?)"
+                "OR LOWER(COALESCE(e.evidence_excerpt, '')) LIKE ? "
+                "OR EXISTS ("
+                "SELECT 1 FROM document_chunks dc "
+                "WHERE dc.document_id = d.document_id AND LOWER(dc.content) LIKE ?"
+                "))"
             )
-            params.extend([pattern, pattern, pattern, pattern])
+            params.extend([pattern, pattern, pattern, pattern, pattern])
         search_filter = "AND (" + " OR ".join(clauses) + ")"
     rows = connection.execute(
         f"""
@@ -73,7 +77,12 @@ def search_library(
                c.claim_id, c.statement, c.claim_type, c.context_json,
                c.confidence, c.review_status, c.extraction_method,
                e.chunk_id, e.evidence_excerpt, e.evidence_role,
-               ch.section_title, ch.section_path
+               ch.section_title, ch.section_path,
+               COALESCE((
+                   SELECT GROUP_CONCAT(dc2.content, ' ')
+                   FROM document_chunks dc2
+                   WHERE dc2.document_id = d.document_id
+               ), '') AS document_chunk_text
         FROM literature_documents d
         LEFT JOIN scientific_claims c ON c.document_id = d.document_id {claim_filter}
         LEFT JOIN claim_evidence e ON e.claim_id = c.claim_id
@@ -90,12 +99,14 @@ def search_library(
         statement = str(item.get("statement") or "").lower()
         evidence = str(item.get("evidence_excerpt") or "").lower()
         abstract = str(item.get("abstract_text") or "").lower()
+        chunk_text = str(item.get("document_chunk_text") or "").lower()
         value = 0
         for token in tokens:
             value += 8 if token in title else 0
             value += 6 if token in statement else 0
             value += 3 if token in evidence else 0
             value += 1 if token in abstract else 0
+            value += 2 if token in chunk_text else 0
         return value, int(item.get("publication_year") or 0)
 
     ranked = sorted(items, key=score, reverse=True)

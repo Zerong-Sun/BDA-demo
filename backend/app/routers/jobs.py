@@ -32,9 +32,21 @@ def get_job(
                 output_artifacts=live.output_artifacts or None,
                 error_message=live.error_message,
             ) or job
-            if live.status == "completed":
-                job_service.collect_job_outputs(connection, job_id)
-                job = job_service.get_job(connection, job_id) or job
+            if live.status in {"completed", "failed", "cancelled"}:
+                if live.status == "completed":
+                    job_service.collect_job_outputs(connection, job_id)
+                    job = job_service.get_job(connection, job_id) or job
+                if job.get("node_run_id"):
+                    from ..repositories import catalog
+
+                    catalog.update_workflow_node(
+                        connection,
+                        job["node_run_id"],
+                        status="completed" if live.status == "completed" else live.status,
+                    )
+                from ..services.run_coordinator import handle_job_terminal
+
+                handle_job_terminal(connection, job=job, status=live.status)
     return envelope(job)
 
 
@@ -67,7 +79,14 @@ def cancel_job(
     adapter = get_compute_adapter()
     cancelled = adapter.cancel(job_id, job.get("external_id"))
     if cancelled:
-        job_service.update_job_status(connection, job_id, status="cancelled")
+        job = job_service.update_job_status(connection, job_id, status="cancelled") or job
+        if job.get("node_run_id"):
+            from ..repositories import catalog
+
+            catalog.update_workflow_node(connection, job["node_run_id"], status="cancelled")
+        from ..services.run_coordinator import handle_job_terminal
+
+        handle_job_terminal(connection, job=job, status="cancelled")
         return envelope({"job_id": job_id, "status": "cancelled"})
     return envelope({"job_id": job_id, "status": job.get("status"), "cancelled": False})
 

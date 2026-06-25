@@ -270,6 +270,304 @@ CREATE TABLE IF NOT EXISTS research_sources (
   UNIQUE(source_type, uri)
 );
 
+CREATE TABLE IF NOT EXISTS research_briefs (
+  research_brief_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  product_context TEXT NOT NULL DEFAULT 'food_ingredient',
+  constraints_json TEXT NOT NULL DEFAULT '{}',
+  source_material_json TEXT NOT NULL DEFAULT '[]',
+  assumptions_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'draft',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS research_findings (
+  research_finding_id TEXT PRIMARY KEY,
+  research_brief_id TEXT NOT NULL,
+  track TEXT NOT NULL,
+  title TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  evidence_level TEXT NOT NULL DEFAULT 'research_seed',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  uncertainty TEXT,
+  review_status TEXT NOT NULL DEFAULT 'pending_review',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS workflow_plans (
+  workflow_plan_id TEXT PRIMARY KEY,
+  research_brief_id TEXT NOT NULL,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  selected_route TEXT,
+  route_options_json TEXT NOT NULL DEFAULT '[]',
+  dossier_json TEXT NOT NULL DEFAULT '{}',
+  nodes_json TEXT NOT NULL DEFAULT '[]',
+  edges_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'draft',
+  materialized_workflow_run_id TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE,
+  FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+  FOREIGN KEY (materialized_workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS research_questions (
+  research_question_id TEXT PRIMARY KEY,
+  research_brief_id TEXT NOT NULL,
+  track TEXT NOT NULL,
+  question TEXT NOT NULL,
+  query_json TEXT NOT NULL DEFAULT '{}',
+  priority INTEGER NOT NULL DEFAULT 100,
+  status TEXT NOT NULL DEFAULT 'pending',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS research_runs (
+  research_run_id TEXT PRIMARY KEY,
+  research_brief_id TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  progress_json TEXT NOT NULL DEFAULT '{}',
+  result_summary_json TEXT NOT NULL DEFAULT '{}',
+  error_message TEXT,
+  started_at TEXT,
+  completed_at TEXT,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS evidence_links (
+  evidence_link_id TEXT PRIMARY KEY,
+  research_run_id TEXT NOT NULL,
+  research_question_id TEXT,
+  research_finding_id TEXT,
+  source_type TEXT NOT NULL,
+  source_identifier TEXT,
+  title TEXT NOT NULL,
+  uri TEXT,
+  evidence_excerpt TEXT,
+  evidence_level TEXT NOT NULL DEFAULT 'metadata',
+  applicability_json TEXT NOT NULL DEFAULT '{}',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  review_status TEXT NOT NULL DEFAULT 'pending_review',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_run_id) REFERENCES research_runs(research_run_id) ON DELETE CASCADE,
+  FOREIGN KEY (research_question_id) REFERENCES research_questions(research_question_id) ON DELETE SET NULL,
+  FOREIGN KEY (research_finding_id) REFERENCES research_findings(research_finding_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS design_hypotheses (
+  design_hypothesis_id TEXT PRIMARY KEY,
+  research_brief_id TEXT NOT NULL,
+  hypothesis TEXT NOT NULL,
+  rationale TEXT,
+  falsification_test TEXT,
+  evidence_link_ids_json TEXT NOT NULL DEFAULT '[]',
+  confidence TEXT NOT NULL DEFAULT 'low',
+  status TEXT NOT NULL DEFAULT 'proposed',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS parameter_recommendations (
+  parameter_recommendation_id TEXT PRIMARY KEY,
+  workflow_plan_id TEXT NOT NULL,
+  node_key TEXT NOT NULL,
+  model_name TEXT,
+  parameter_key TEXT NOT NULL,
+  recommended_value_json TEXT,
+  default_value_json TEXT,
+  recommended_range_json TEXT NOT NULL DEFAULT '{}',
+  source_refs_json TEXT NOT NULL DEFAULT '[]',
+  rationale TEXT,
+  confidence TEXT NOT NULL DEFAULT 'inferred',
+  validation_rules_json TEXT NOT NULL DEFAULT '{}',
+  user_modified INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workflow_plan_id) REFERENCES workflow_plans(workflow_plan_id) ON DELETE CASCADE,
+  UNIQUE(workflow_plan_id, node_key, parameter_key)
+);
+
+CREATE TABLE IF NOT EXISTS decision_gates (
+  decision_gate_id TEXT PRIMARY KEY,
+  workflow_plan_id TEXT,
+  workflow_run_id TEXT,
+  node_run_id TEXT,
+  gate_type TEXT NOT NULL,
+  name TEXT NOT NULL,
+  criteria_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'pending',
+  rationale TEXT,
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workflow_plan_id) REFERENCES workflow_plans(workflow_plan_id) ON DELETE CASCADE,
+  FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+  FOREIGN KEY (node_run_id) REFERENCES workflow_node_runs(node_run_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS experiment_plans (
+  experiment_plan_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  workflow_plan_id TEXT,
+  workflow_run_id TEXT,
+  node_run_id TEXT,
+  title TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  ethics_requirements_json TEXT NOT NULL DEFAULT '[]',
+  regulatory_questions_json TEXT NOT NULL DEFAULT '[]',
+  result_template_json TEXT NOT NULL DEFAULT '{}',
+  version INTEGER NOT NULL DEFAULT 1,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+  FOREIGN KEY (workflow_plan_id) REFERENCES workflow_plans(workflow_plan_id) ON DELETE SET NULL,
+  FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE SET NULL,
+  FOREIGN KEY (node_run_id) REFERENCES workflow_node_runs(node_run_id) ON DELETE SET NULL
+);
+
+CREATE TABLE IF NOT EXISTS experiment_plan_steps (
+  experiment_plan_step_id TEXT PRIMARY KEY,
+  experiment_plan_id TEXT NOT NULL,
+  stage_key TEXT NOT NULL,
+  stage_order INTEGER NOT NULL,
+  title TEXT NOT NULL,
+  purpose TEXT NOT NULL,
+  samples_json TEXT NOT NULL DEFAULT '[]',
+  controls_json TEXT NOT NULL DEFAULT '[]',
+  readouts_json TEXT NOT NULL DEFAULT '[]',
+  acceptance_criteria_json TEXT NOT NULL DEFAULT '[]',
+  dependencies_json TEXT NOT NULL DEFAULT '[]',
+  owner TEXT,
+  safety_level TEXT NOT NULL DEFAULT 'high_level_plan',
+  status TEXT NOT NULL DEFAULT 'planned',
+  result_artifact_id TEXT,
+  notes TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (experiment_plan_id) REFERENCES experiment_plans(experiment_plan_id) ON DELETE CASCADE,
+  FOREIGN KEY (result_artifact_id) REFERENCES artifacts(artifact_id) ON DELETE SET NULL,
+  UNIQUE(experiment_plan_id, stage_key)
+);
+
+CREATE TABLE IF NOT EXISTS run_automation_policies (
+  automation_policy_id TEXT PRIMARY KEY,
+  workflow_run_id TEXT NOT NULL UNIQUE,
+  mode TEXT NOT NULL DEFAULT 'confirm_each_node',
+  auto_submit_ready INTEGER NOT NULL DEFAULT 0,
+  notify_on_ready INTEGER NOT NULL DEFAULT 1,
+  notify_on_terminal INTEGER NOT NULL DEFAULT 1,
+  max_auto_retries INTEGER NOT NULL DEFAULT 0,
+  retry_backoff_seconds INTEGER NOT NULL DEFAULT 60,
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS notifications (
+  notification_id TEXT PRIMARY KEY,
+  user_id TEXT,
+  project_id TEXT,
+  workflow_run_id TEXT,
+  node_run_id TEXT,
+  notification_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  message TEXT NOT NULL,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'unread',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  read_at TEXT,
+  FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+  FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+  FOREIGN KEY (node_run_id) REFERENCES workflow_node_runs(node_run_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS protein_scaffolds (
+  scaffold_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL UNIQUE,
+  scaffold_class TEXT NOT NULL,
+  properties_json TEXT NOT NULL DEFAULT '{}',
+  evidence_json TEXT NOT NULL DEFAULT '[]',
+  risk_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS receptor_regions (
+  receptor_region_id TEXT PRIMARY KEY,
+  receptor_name TEXT NOT NULL,
+  species TEXT NOT NULL,
+  subunit TEXT,
+  domain TEXT,
+  region_label TEXT NOT NULL,
+  residues_json TEXT NOT NULL DEFAULT '[]',
+  evidence_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'hypothesis',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS regulatory_precedents (
+  regulatory_precedent_id TEXT PRIMARY KEY,
+  jurisdiction TEXT NOT NULL,
+  authority TEXT NOT NULL,
+  identifier TEXT,
+  subject TEXT NOT NULL,
+  status_class TEXT NOT NULL,
+  official_uri TEXT,
+  conditions_json TEXT NOT NULL DEFAULT '{}',
+  evidence_json TEXT NOT NULL DEFAULT '[]',
+  verification_status TEXT NOT NULL DEFAULT 'pending_verification',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(authority, identifier)
+);
+
+CREATE TABLE IF NOT EXISTS assay_templates (
+  assay_template_id TEXT PRIMARY KEY,
+  assay_key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  template_json TEXT NOT NULL DEFAULT '{}',
+  safety_level TEXT NOT NULL DEFAULT 'high_level_plan',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS food_matrix_profiles (
+  food_matrix_profile_id TEXT PRIMARY KEY,
+  matrix_key TEXT NOT NULL UNIQUE,
+  title TEXT NOT NULL,
+  constraints_json TEXT NOT NULL DEFAULT '{}',
+  tests_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS script_assets (
   script_asset_id TEXT PRIMARY KEY,
   source_id TEXT NOT NULL,
@@ -520,6 +818,15 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_category ON knowledge_entries(category);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_status ON knowledge_entries(status);
 CREATE INDEX IF NOT EXISTS idx_research_sources_type ON research_sources(source_type);
+CREATE INDEX IF NOT EXISTS idx_research_briefs_project ON research_briefs(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_research_findings_brief ON research_findings(research_brief_id, track);
+CREATE INDEX IF NOT EXISTS idx_workflow_plans_brief ON workflow_plans(research_brief_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_research_questions_brief ON research_questions(research_brief_id, priority);
+CREATE INDEX IF NOT EXISTS idx_research_runs_brief ON research_runs(research_brief_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_evidence_links_run ON evidence_links(research_run_id, review_status);
+CREATE INDEX IF NOT EXISTS idx_experiment_plans_project ON experiment_plans(project_id, created_at);
+CREATE INDEX IF NOT EXISTS idx_experiment_steps_plan ON experiment_plan_steps(experiment_plan_id, stage_order);
+CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, status, created_at);
 CREATE INDEX IF NOT EXISTS idx_script_assets_model ON script_assets(model_plugin_id);
 CREATE INDEX IF NOT EXISTS idx_parameter_catalog_model ON model_parameter_catalog(model_plugin_id);
 CREATE INDEX IF NOT EXISTS idx_script_parameter_model ON script_parameter_observations(model_plugin_id);

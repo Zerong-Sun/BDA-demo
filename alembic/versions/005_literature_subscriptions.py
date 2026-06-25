@@ -15,12 +15,19 @@ branch_labels = None
 depends_on = None
 
 
+def _execute_statements(sql: str) -> None:
+    for statement in sql.split(";"):
+        statement = statement.strip()
+        if statement:
+            op.get_bind().exec_driver_sql(statement)
+
+
 def upgrade() -> None:
     schema_path = Path(__file__).resolve().parents[2] / "backend" / "db" / "schema.sql"
     schema = schema_path.read_text()
     start = schema.index("CREATE TABLE IF NOT EXISTS literature_subscriptions")
     end = schema.index("CREATE TABLE IF NOT EXISTS audit_logs")
-    op.execute(schema[start:end])
+    _execute_statements(schema[start:end])
     op.execute(
         "CREATE INDEX IF NOT EXISTS idx_literature_subscriptions_due "
         "ON literature_subscriptions(enabled, next_run_at)"

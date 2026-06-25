@@ -10,7 +10,16 @@ import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
 import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
-import { addWorkflowNode, createWorkflowRun, getWorkflowGraph, saveWorkflowLayout, submitWorkflowRun } from '../lib/api/workflow'
+import {
+  addWorkflowNode,
+  createWorkflowRun,
+  evaluateReadyWorkflowNodes,
+  getWorkflowAutomationPolicy,
+  getWorkflowGraph,
+  saveWorkflowLayout,
+  submitWorkflowRun,
+  updateWorkflowAutomationPolicy,
+} from '../lib/api/workflow'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useAppStore } from '../lib/store/appStore'
@@ -59,6 +68,11 @@ export function WorkflowPage() {
       const nodes = query.state.data?.nodes ?? []
       return nodes.some((node) => ['queued', 'staging', 'running', 'collecting_outputs'].includes(node.status)) ? 3000 : false
     },
+  })
+  const { data: automationPolicy } = useQuery({
+    queryKey: ['workflow-automation-policy', workflowRunId],
+    queryFn: () => getWorkflowAutomationPolicy(workflowRunId!),
+    enabled: Boolean(workflowRunId),
   })
 
   const { data: projectArtifacts = [] } = useQuery({
@@ -189,6 +203,34 @@ export function WorkflowPage() {
     },
     onError: () => showToast('Failed to start workflow', 'error'),
   })
+  const updateAutomation = useMutation({
+    mutationFn: (mode: 'confirm_each_node' | 'auto_after_gate' | 'advisory_only') => {
+      if (!workflowRunId) throw new Error('No workflow run available')
+      return updateWorkflowAutomationPolicy(workflowRunId, {
+        mode,
+        auto_submit_ready: mode === 'auto_after_gate',
+        notify_on_ready: true,
+        notify_on_terminal: true,
+        max_auto_retries: mode === 'auto_after_gate' ? 1 : 0,
+        retry_backoff_seconds: 60,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-automation-policy', workflowRunId] })
+      showToast('Automation policy updated', 'success')
+    },
+  })
+  const evaluateReady = useMutation({
+    mutationFn: () => evaluateReadyWorkflowNodes(workflowRunId!),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
+      showToast(
+        `${result.ready_nodes.length} ready · ${result.waiting_external_nodes.length} waiting external`,
+        'info',
+      )
+    },
+  })
 
   return (
     <section>
@@ -220,7 +262,7 @@ export function WorkflowPage() {
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-              disabled={startWorkflow.isPending}
+              disabled={readOnly || startWorkflow.isPending}
               onClick={() => startWorkflow.mutate()}
             >
               <Play className="h-4 w-4" />
@@ -237,6 +279,31 @@ export function WorkflowPage() {
         ) : (
           <span className="text-xs text-bda-muted">No workflow run for this project yet</span>
         )}
+        {workflowRunId && !isDemoMode ? (
+          <>
+            <select
+              aria-label="Workflow automation policy"
+              className="rounded border border-bda-border bg-bda-panel px-2 py-2 text-xs"
+              value={automationPolicy?.mode ?? 'confirm_each_node'}
+              disabled={updateAutomation.isPending}
+              onChange={(event) => updateAutomation.mutate(
+                event.target.value as 'confirm_each_node' | 'auto_after_gate' | 'advisory_only',
+              )}
+            >
+              <option value="confirm_each_node">Confirm each node</option>
+              <option value="auto_after_gate">Auto after approved gate</option>
+              <option value="advisory_only">Advisory only</option>
+            </select>
+            <button
+              type="button"
+              className="rounded border border-bda-border px-2 py-2 text-xs"
+              disabled={evaluateReady.isPending}
+              onClick={() => evaluateReady.mutate()}
+            >
+              Evaluate gates
+            </button>
+          </>
+        ) : null}
       </div>
 
       <ApiState
@@ -296,7 +363,6 @@ export function WorkflowPage() {
               }}
               onArtifactSelected={(artifact) => {
                 setSelectedArtifactId(artifact.artifact_id)
-                setSelectedNodeId(null)
               }}
             />
           </div>
@@ -351,6 +417,7 @@ export function WorkflowPage() {
 
           <div className="order-3">
             <WorkflowInspector
+              key={selectedNode?.node_run_id ?? selectedArtifact?.artifact_id ?? 'workflow-summary'}
               workflowRunId={workflowRunId}
               selectedNode={selectedNode}
               selectedArtifact={selectedArtifact}

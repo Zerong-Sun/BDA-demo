@@ -1,3 +1,5 @@
+import csv
+import io
 import json
 import sqlite3
 import uuid
@@ -15,7 +17,16 @@ from ..copilot.biomaterials_skill import (
     is_programmable_biomaterials_question,
 )
 from ..db import get_connection
-from ..repositories import catalog, knowledge, literature, literature_subscriptions
+from ..repositories import (
+    automation,
+    catalog,
+    experiment_plans,
+    knowledge,
+    literature,
+    literature_subscriptions,
+    research_execution,
+    research_planner,
+)
 from ..schemas import (
     CandidateExplanationRequest,
     ClaimRelationDetectRequest,
@@ -25,8 +36,16 @@ from ..schemas import (
     CopilotConfigUpdateRequest,
     LiteratureIngestRequest,
     LiteratureSubscriptionRequest,
+    MarkdownResearchSourceRequest,
+    EvidenceReviewRequest,
+    ExperimentPlanUpdateRequest,
+    ExperimentStepUpdateRequest,
+    ResearchFindingReviewRequest,
     ResultInterpretationRequest,
+    ResearchBriefCreateRequest,
+    ResearchPlanRequest,
     RoutePlanRequest,
+    WorkflowPlanMaterializeRequest,
 )
 from ..settings import get_settings
 from ..utils.response import envelope
@@ -613,6 +632,574 @@ def route_plan(
         "input_summary": payload.model_dump(),
         "existing_node_count": len(nodes),
     })
+
+
+@router.post("/research-briefs")
+def create_research_brief(
+    payload: ResearchBriefCreateRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
+    from ..services.sweet_protein_planner import create_brief
+
+    item = create_brief(
+        connection,
+        project_id=payload.project_id,
+        title=payload.title,
+        objective=payload.objective,
+        product_context=payload.product_context,
+        constraints=payload.constraints,
+        source_material=payload.source_material,
+        created_by=user["user_id"],
+    )
+    return envelope(item)
+
+
+@router.get("/research-briefs")
+def list_research_briefs(
+    project_id: str = Query(min_length=1, max_length=160),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, project_id)
+    items = research_planner.list_project_briefs(connection, project_id)
+    return envelope({"items": items, "total": len(items)})
+
+
+@router.get("/research-briefs/{research_brief_id}")
+def get_research_brief(
+    research_brief_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    item = research_planner.get_brief(connection, research_brief_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, item["project_id"])
+    return envelope({
+        **item,
+        "findings": research_planner.list_findings(connection, research_brief_id),
+        "questions": research_execution.list_questions(connection, research_brief_id),
+        "research_runs": research_execution.list_runs(connection, research_brief_id),
+        "hypotheses": research_execution.list_hypotheses(connection, research_brief_id),
+    })
+
+
+@router.post("/research-briefs/{research_brief_id}/sources/markdown")
+def ingest_research_markdown(
+    research_brief_id: str,
+    payload: MarkdownResearchSourceRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    from ..services.research_source_ingestion import ingest_markdown_source
+
+    try:
+        item = ingest_markdown_source(
+            connection,
+            research_brief_id=research_brief_id,
+            title=payload.title,
+            content=payload.content,
+            source_uri=payload.source_uri,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return envelope(item)
+
+
+@router.post("/research-briefs/{research_brief_id}/plan")
+def create_research_plan(
+    research_brief_id: str,
+    payload: ResearchPlanRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    from ..services.sweet_protein_planner import generate_plan
+
+    try:
+        item = generate_plan(
+            connection,
+            research_brief_id=research_brief_id,
+            selected_route=payload.selected_route,
+            created_by=user["user_id"],
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return envelope(item)
+
+
+@router.post("/research-briefs/{research_brief_id}/research-runs")
+def create_research_run(
+    research_brief_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    from ..services.research_execution_service import ensure_questions
+
+    ensure_questions(connection, research_brief_id)
+    run = research_execution.create_run(
+        connection,
+        research_run_id=f"research_run_{uuid.uuid4().hex[:12]}",
+        research_brief_id=research_brief_id,
+        created_by=user["user_id"],
+    )
+    return envelope(run)
+
+
+@router.post("/research-runs/{research_run_id}/start")
+def start_research_run(
+    research_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    run = research_execution.get_run(connection, research_run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="research_run_not_found")
+    brief = research_planner.get_brief(connection, run["research_brief_id"])
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    if run["status"] in {"running", "completed", "partial"}:
+        return envelope(run)
+    from ..services.research_execution_service import execute_research_run
+
+    return envelope(execute_research_run(connection, research_run_id))
+
+
+@router.get("/research-runs/{research_run_id}")
+def get_research_run(
+    research_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    run = research_execution.get_run(connection, research_run_id)
+    if run is None:
+        raise HTTPException(status_code=404, detail="research_run_not_found")
+    brief = research_planner.get_brief(connection, run["research_brief_id"])
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    return envelope(run)
+
+
+@router.patch("/research-evidence/{evidence_link_id}")
+def review_research_evidence(
+    evidence_link_id: str,
+    payload: EvidenceReviewRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    row = connection.execute(
+        """
+        SELECT e.*, b.project_id FROM evidence_links e
+        JOIN research_runs r ON r.research_run_id = e.research_run_id
+        JOIN research_briefs b ON b.research_brief_id = r.research_brief_id
+        WHERE e.evidence_link_id = ?
+        """,
+        (evidence_link_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="evidence_link_not_found")
+    _ensure_project_access(connection, user, row["project_id"])
+    return envelope(research_execution.review_evidence(
+        connection,
+        evidence_link_id,
+        payload.review_status,
+        user["user_id"],
+    ))
+
+
+@router.patch("/research-findings/{research_finding_id}/review")
+def review_research_finding(
+    research_finding_id: str,
+    payload: ResearchFindingReviewRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    row = connection.execute(
+        """
+        SELECT f.*, b.project_id FROM research_findings f
+        JOIN research_briefs b ON b.research_brief_id = f.research_brief_id
+        WHERE f.research_finding_id = ?
+        """,
+        (research_finding_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="research_finding_not_found")
+    _ensure_project_access(connection, user, row["project_id"])
+    connection.execute(
+        """
+        UPDATE research_findings
+        SET review_status = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE research_finding_id = ?
+        """,
+        (payload.review_status, research_finding_id),
+    )
+    item = connection.execute(
+        "SELECT * FROM research_findings WHERE research_finding_id = ?",
+        (research_finding_id,),
+    ).fetchone()
+    from ..repositories.base import decode_row
+
+    return envelope(decode_row(item))
+
+
+@router.get("/research-briefs/{research_brief_id}/dossier-export")
+def export_research_dossier(
+    research_brief_id: str,
+    format: str = Query(default="markdown", pattern="^(markdown|json)$"),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    payload = {
+        "brief": brief,
+        "questions": research_execution.list_questions(connection, research_brief_id),
+        "findings": research_planner.list_findings(connection, research_brief_id),
+        "hypotheses": research_execution.list_hypotheses(connection, research_brief_id),
+        "runs": research_execution.list_runs(connection, research_brief_id),
+    }
+    if format == "json":
+        return Response(
+            content=json.dumps(payload, ensure_ascii=False, indent=2, default=str),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{research_brief_id}.json"'},
+        )
+    lines = [
+        f"# {brief['title']}",
+        "",
+        brief["objective"],
+        "",
+        "## Assumptions",
+        *[f"- {item.get('key')}: {item.get('value')} ({item.get('status')})" for item in brief.get("assumptions_json", [])],
+        "",
+        "## Findings",
+        *[
+            f"- [{item.get('review_status')}] **{item['title']}**: {item['statement']}"
+            for item in payload["findings"]
+        ],
+        "",
+        "## Design hypotheses",
+        *[
+            f"- **{item['hypothesis']}** — {item.get('rationale') or ''}"
+            for item in payload["hypotheses"]
+        ],
+    ]
+    return Response(
+        content="\n".join(lines),
+        media_type="text/markdown",
+        headers={"Content-Disposition": f'attachment; filename="{research_brief_id}.md"'},
+    )
+
+
+@router.get("/workflow-plans/{workflow_plan_id}")
+def get_workflow_plan(
+    workflow_plan_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    item = research_planner.get_plan(connection, workflow_plan_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="workflow_plan_not_found")
+    _ensure_project_access(connection, user, item["project_id"])
+    return envelope(item)
+
+
+@router.get("/workflow-runs/{workflow_run_id}/experiment-plan")
+def get_workflow_experiment_plan(
+    workflow_run_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    project_id = catalog.get_workflow_run_project_id(connection, workflow_run_id)
+    _ensure_project_access(connection, user, project_id)
+    item = experiment_plans.get_by_workflow_run(connection, workflow_run_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="experiment_plan_not_found")
+    return envelope(item)
+
+
+@router.get("/workflow-runs/{workflow_run_id}/parameter-recommendations")
+def get_workflow_parameter_recommendations(
+    workflow_run_id: str,
+    node_run_id: str | None = None,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    project_id = catalog.get_workflow_run_project_id(connection, workflow_run_id)
+    _ensure_project_access(connection, user, project_id)
+    node = catalog.get_workflow_node(connection, node_run_id) if node_run_id else None
+    if node_run_id and (node is None or node.get("workflow_run_id") != workflow_run_id):
+        raise HTTPException(status_code=404, detail="node_not_found")
+    plan_row = connection.execute(
+        """
+        SELECT nodes_json FROM workflow_plans
+        WHERE materialized_workflow_run_id = ?
+        """,
+        (workflow_run_id,),
+    ).fetchone()
+    plan_node_key = None
+    if node and plan_row:
+        planned_nodes = json.loads(plan_row["nodes_json"] or "[]")
+        matched = next(
+            (
+                planned
+                for planned in planned_nodes
+                if planned.get("name") == node.get("node_name")
+                and planned.get("model_name") == node.get("model_name")
+            ),
+            None,
+        )
+        plan_node_key = (matched or {}).get("key")
+    rows = connection.execute(
+        """
+        SELECT r.* FROM parameter_recommendations r
+        JOIN workflow_plans p ON p.workflow_plan_id = r.workflow_plan_id
+        WHERE p.materialized_workflow_run_id = ?
+          AND (? IS NULL OR r.node_key = ?)
+        ORDER BY r.node_key, r.parameter_key
+        """,
+        (workflow_run_id, plan_node_key, plan_node_key),
+    ).fetchall()
+    from ..repositories.base import decode_rows
+
+    current_parameters = (node or {}).get("parameters_json") or {}
+    items = decode_rows(rows)
+    for item in items:
+        item["current_value"] = current_parameters.get(item["parameter_key"])
+        item["differs_from_recommendation"] = (
+            item["current_value"] != item.get("recommended_value_json")
+        )
+    return envelope({"items": items, "total": len(items)})
+
+
+@router.get("/experiment-plans/{experiment_plan_id}/result-template")
+def download_experiment_result_template(
+    experiment_plan_id: str,
+    format: str = Query(default="csv", pattern="^(csv|json)$"),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    item = experiment_plans.get_plan(connection, experiment_plan_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="experiment_plan_not_found")
+    _ensure_project_access(connection, user, item["project_id"])
+    columns = (item.get("result_template_json") or {}).get("required_columns") or [
+        "candidate_id", "stage_key", "metric", "value", "unit", "pass_status", "notes",
+    ]
+    if format == "json":
+        return Response(
+            content=json.dumps(
+                {
+                    "experiment_plan_id": experiment_plan_id,
+                    "columns": columns,
+                    "stage_keys": [step["stage_key"] for step in item["steps"]],
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="{experiment_plan_id}-results.json"'},
+        )
+    stream = io.StringIO()
+    writer = csv.writer(stream)
+    writer.writerow(columns)
+    for step in item["steps"]:
+        row = {column: "" for column in columns}
+        row["stage_key"] = step["stage_key"]
+        writer.writerow([row[column] for column in columns])
+    return Response(
+        content=stream.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{experiment_plan_id}-results.csv"'},
+    )
+
+
+@router.patch("/experiment-plans/{experiment_plan_id}")
+def update_experiment_plan(
+    experiment_plan_id: str,
+    payload: ExperimentPlanUpdateRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    item = experiment_plans.get_plan(connection, experiment_plan_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="experiment_plan_not_found")
+    _ensure_project_access(connection, user, item["project_id"])
+    if payload.status == "completed" and any(
+        step["status"] != "completed" for step in item["steps"]
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="experiment_plan_completion_requires_all_steps",
+        )
+    return envelope(experiment_plans.update_plan(
+        connection,
+        experiment_plan_id,
+        **payload.model_dump(),
+    ))
+
+
+@router.patch("/experiment-plan-steps/{step_id}")
+def update_experiment_plan_step(
+    step_id: str,
+    payload: ExperimentStepUpdateRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    row = connection.execute(
+        """
+        SELECT s.*, p.project_id FROM experiment_plan_steps s
+        JOIN experiment_plans p ON p.experiment_plan_id = s.experiment_plan_id
+        WHERE s.experiment_plan_step_id = ?
+        """,
+        (step_id,),
+    ).fetchone()
+    if row is None:
+        raise HTTPException(status_code=404, detail="experiment_plan_step_not_found")
+    _ensure_project_access(connection, user, row["project_id"])
+    if payload.result_artifact_id:
+        artifact = connection.execute(
+            "SELECT project_id FROM artifacts WHERE artifact_id = ?",
+            (payload.result_artifact_id,),
+        ).fetchone()
+        if artifact is None or artifact["project_id"] != row["project_id"]:
+            raise HTTPException(status_code=400, detail="experiment_result_artifact_mismatch")
+    requested_status = payload.status
+    existing_result_artifact_id = row["result_artifact_id"]
+    if (
+        requested_status == "completed"
+        and not payload.result_artifact_id
+        and not existing_result_artifact_id
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail="experiment_step_completion_requires_result_artifact",
+        )
+    dependencies = json.loads(row["dependencies_json"] or "[]")
+    if requested_status in {"ready", "in_progress", "completed"} and dependencies:
+        placeholders = ",".join("?" for _ in dependencies)
+        dependency_rows = connection.execute(
+            f"""
+            SELECT stage_key, status FROM experiment_plan_steps
+            WHERE experiment_plan_id = ? AND stage_key IN ({placeholders})
+            """,
+            (row["experiment_plan_id"], *dependencies),
+        ).fetchall()
+        dependency_status = {item["stage_key"]: item["status"] for item in dependency_rows}
+        incomplete = [key for key in dependencies if dependency_status.get(key) != "completed"]
+        if incomplete:
+            raise HTTPException(
+                status_code=409,
+                detail=f"experiment_dependencies_incomplete:{','.join(incomplete)}",
+            )
+    updated_step = experiment_plans.update_step(
+        connection,
+        step_id,
+        {key: value for key, value in payload.model_dump().items() if value is not None},
+    )
+    plan = experiment_plans.synchronize_plan_status(connection, row["experiment_plan_id"])
+    if plan and plan["status"] == "completed" and plan.get("node_run_id"):
+        catalog.update_workflow_node(connection, plan["node_run_id"], status="completed")
+        from ..services.run_coordinator import evaluate_downstream_nodes
+
+        evaluate_downstream_nodes(
+            connection,
+            workflow_run_id=plan["workflow_run_id"],
+            completed_node_run_id=plan["node_run_id"],
+        )
+        try:
+            from ..services.campaign_service import sync_round_status
+
+            sync_round_status(connection, plan["workflow_run_id"])
+        except ValueError:
+            pass
+    return envelope({"step": updated_step, "plan": plan})
+
+
+@router.get("/notifications")
+def list_user_notifications(
+    project_id: str | None = None,
+    unread_only: bool = False,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    if project_id:
+        _ensure_project_access(connection, user, project_id)
+    items = automation.list_notifications(
+        connection,
+        user_id=user["user_id"],
+        project_id=project_id,
+        unread_only=unread_only,
+    )
+    items = [
+        item for item in items
+        if not item.get("project_id")
+        or verify_project_access(connection, user, item["project_id"])
+    ]
+    return envelope({"items": items, "total": len(items)})
+
+
+@router.patch("/notifications/{notification_id}/read")
+def read_notification(
+    notification_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    existing = connection.execute(
+        "SELECT * FROM notifications WHERE notification_id = ?",
+        (notification_id,),
+    ).fetchone()
+    if existing is None:
+        raise HTTPException(status_code=404, detail="notification_not_found")
+    if existing["project_id"]:
+        _ensure_project_access(connection, user, existing["project_id"])
+    if existing["user_id"] != user["user_id"]:
+        raise HTTPException(status_code=404, detail="notification_not_found")
+    item = automation.mark_read(connection, notification_id, user["user_id"])
+    if item is None:
+        raise HTTPException(status_code=404, detail="notification_not_found")
+    return envelope(item)
+
+
+@router.post("/workflow-plans/{workflow_plan_id}/materialize")
+def materialize_workflow_plan(
+    workflow_plan_id: str,
+    payload: WorkflowPlanMaterializeRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    item = research_planner.get_plan(connection, workflow_plan_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="workflow_plan_not_found")
+    _ensure_project_access(connection, user, item["project_id"])
+    from ..services.sweet_protein_planner import materialize_plan
+
+    try:
+        result = materialize_plan(
+            connection,
+            workflow_plan_id=workflow_plan_id,
+            selected_route=payload.selected_route,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return envelope(result)
 
 
 @router.post("/candidate-explanation")

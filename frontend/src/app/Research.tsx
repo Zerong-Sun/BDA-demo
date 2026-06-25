@@ -3,17 +3,29 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, LoaderCircle, Play, Search, X } from 'lucide-react'
 
 import {
+  createResearchBrief,
+  createResearchRun,
   createLiteratureSubscription,
   detectLiteratureRelations,
+  generateResearchPlan,
   ingestLiterature,
+  ingestResearchMarkdown,
   listLiteratureClaims,
   listLiteratureRelations,
   listLiteratureSubscriptions,
+  listResearchBriefs,
+  listNotifications,
+  materializeWorkflowPlan,
+  reviewResearchEvidence,
+  startResearchRun,
+  downloadResearchDossier,
   reviewLiteratureClaim,
   reviewLiteratureRelation,
   runLiteratureSubscription,
   searchLiteratureLibrary,
   updateLiteratureSubscription,
+  type ResearchRun,
+  type WorkflowPlan,
 } from '../lib/api/copilot'
 import {
   createCampaign,
@@ -340,18 +352,308 @@ function CampaignPanel() {
   )
 }
 
+function SweetProteinBuilder() {
+  const { projectId } = useProjectContext()
+  const client = useQueryClient()
+  const [objective, setObjective] = useState(
+    '设计一个适合饮料应用的 AI 甜味蛋白；比较 single-chain monellin、brazzein 与 de novo 路线，并生成可审核的计算和实验 workflow。',
+  )
+  const [plan, setPlan] = useState<WorkflowPlan | null>(null)
+  const [selectedRoute, setSelectedRoute] = useState('monellin_redesign')
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
+  const [sourceSummary, setSourceSummary] = useState('')
+  const [researchRun, setResearchRun] = useState<ResearchRun | null>(null)
+  const [dossierTab, setDossierTab] = useState<'evidence' | 'scaffolds' | 'workflow' | 'risks'>('evidence')
+  const applyPlan = (generated: WorkflowPlan) => {
+    setPlan(generated)
+    setSelectedRoute(generated.selected_route ?? 'monellin_redesign')
+  }
+  const briefs = useQuery({
+    queryKey: ['research-briefs', projectId],
+    queryFn: () => listResearchBriefs(projectId),
+    enabled: Boolean(projectId),
+  })
+  const notifications = useQuery({
+    queryKey: ['notifications', projectId],
+    queryFn: () => listNotifications(projectId),
+    enabled: Boolean(projectId),
+    refetchInterval: 5000,
+  })
+  const create = useMutation({
+    mutationFn: async () => {
+      const brief = await createResearchBrief({
+        project_id: projectId,
+        title: 'AI 甜味蛋白研发',
+        objective,
+        product_context: 'food_ingredient',
+        constraints: {
+          first_application: 'beverage',
+          receptor_species: 'human',
+          require_node_confirmation: true,
+        },
+        source_material: [{
+          title: 'AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20',
+          kind: 'markdown_research_seed',
+          reference_count: 35,
+        }],
+      })
+      let ingested: { chunk_count: number; reference_count: number } | null = null
+      if (sourceFile) {
+        ingested = await ingestResearchMarkdown(brief.research_brief_id, {
+          title: sourceFile.name,
+          content: await sourceFile.text(),
+          source_uri: `upload://${sourceFile.name}`,
+        })
+      }
+      const run = await createResearchRun(brief.research_brief_id)
+      const completedRun = await startResearchRun(run.research_run_id)
+      const generated = await generateResearchPlan(brief.research_brief_id, selectedRoute)
+      return { generated, ingested, completedRun }
+    },
+    onSuccess: ({ generated, ingested, completedRun }) => {
+      if (ingested) {
+        setSourceSummary(`已摄取 ${ingested.chunk_count} 个章节块、${ingested.reference_count} 个引用链接`)
+      }
+      setResearchRun(completedRun)
+      applyPlan(generated)
+      client.invalidateQueries({ queryKey: ['research-briefs', projectId] })
+    },
+  })
+  const changeRoute = useMutation({
+    mutationFn: (routeId: string) => {
+      if (!plan) throw new Error('No workflow plan')
+      return generateResearchPlan(plan.research_brief_id, routeId)
+    },
+    onSuccess: applyPlan,
+  })
+  const materialize = useMutation({
+    mutationFn: () => {
+      if (!plan) throw new Error('No workflow plan')
+      return materializeWorkflowPlan(plan.workflow_plan_id, selectedRoute)
+    },
+    onSuccess: (result) => {
+      setPlan((current) => current ? {
+        ...current,
+        selected_route: result.selected_route,
+        materialized_workflow_run_id: result.workflow_run_id,
+        status: 'materialized',
+      } : current)
+    },
+  })
+  const reviewEvidence = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: 'accepted' | 'rejected' }) =>
+      reviewResearchEvidence(id, status),
+    onSuccess: (updated) => {
+      setResearchRun((current) => current ? {
+        ...current,
+        evidence: current.evidence.map((item) =>
+          item.evidence_link_id === updated.evidence_link_id ? updated : item),
+      } : current)
+    },
+  })
+  const actionError = create.error || materialize.error
+
+  return (
+    <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
+      <aside className="space-y-4 rounded-lg border border-bda-border bg-bda-panel p-4">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-bda-cyan">Research brief</p>
+          <h2 className="font-semibold">甜味蛋白 Research Builder</h2>
+        </div>
+        <textarea
+          className="min-h-40 w-full rounded border border-bda-border bg-bda-bg p-3 text-sm"
+          value={objective}
+          onChange={(event) => setObjective(event.target.value)}
+        />
+        <select
+          className="w-full rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm"
+          value={selectedRoute}
+          onChange={(event) => setSelectedRoute(event.target.value)}
+        >
+          <option value="monellin_redesign">Single-chain monellin 定向改造</option>
+          <option value="brazzein_redesign">Brazzein-53/54 定向改造</option>
+          <option value="ph_responsive_research">pH-responsive 研究路线</option>
+          <option value="de_novo_binder">De novo 受体 binder（高风险）</option>
+        </select>
+        <label className="block rounded border border-dashed border-bda-border p-3 text-xs text-bda-muted">
+          <span className="block font-medium text-bda-text">参考资料 Markdown</span>
+          <input
+            className="mt-2 block w-full text-xs"
+            type="file"
+            accept=".md,text/markdown,text/plain"
+            onChange={(event) => {
+              setSourceFile(event.target.files?.[0] ?? null)
+              setSourceSummary('')
+            }}
+          />
+          <span className="mt-1 block">
+            {sourceFile ? sourceFile.name : '可上传已有研究资料；系统将按章节切块并提取引用。'}
+          </span>
+        </label>
+        <button
+          className="w-full rounded bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+          disabled={!projectId || objective.trim().length < 10 || create.isPending}
+          onClick={() => create.mutate()}
+        >
+          {create.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}
+          建立 dossier 与路线
+        </button>
+        <div className="border-t border-bda-border pt-3">
+          <p className="text-xs text-bda-muted">当前项目 Brief：{briefs.data?.total ?? 0}</p>
+          <p className="mt-1 text-xs text-bda-muted">
+            内置资料作为 research seed；FDA 状态、近期结构和预印本仍进入待核验队列。
+          </p>
+          {sourceSummary ? <p className="mt-2 text-xs text-bda-green">{sourceSummary}</p> : null}
+          {notifications.data?.items.slice(0, 3).map((item, index) => (
+            <div key={`${text(item.notification_id)}-${index}`} className="mt-2 rounded border border-bda-border p-2 text-xs">
+              <strong>{text(item.title)}</strong>
+              <p className="text-bda-muted">{text(item.message)}</p>
+            </div>
+          ))}
+        </div>
+      </aside>
+
+      <section className="space-y-4">
+        {actionError ? <p className="rounded border border-bda-red/40 p-3 text-sm text-bda-red">{actionError.message}</p> : null}
+        {!plan ? (
+          <div className="rounded-lg border border-dashed border-bda-border bg-bda-panel p-8 text-center text-sm text-bda-muted">
+            输入目标后，系统会生成骨架比较、证据边界、实验 gates 和可物化 workflow。
+          </div>
+        ) : (
+          <>
+            <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bda-cyan">Research dossier</p>
+                  <h2 className="font-semibold">证据、骨架与风险</h2>
+                </div>
+                <div className="flex gap-2">
+                  <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => void downloadResearchDossier(plan.research_brief_id, 'markdown')}>导出 Markdown</button>
+                  <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => void downloadResearchDossier(plan.research_brief_id, 'json')}>导出 JSON</button>
+                </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(['evidence', 'scaffolds', 'workflow', 'risks'] as const).map((item) => (
+                  <button
+                    key={item}
+                    className={`rounded px-2 py-1 text-xs ${dossierTab === item ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`}
+                    onClick={() => setDossierTab(item)}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+              {dossierTab === 'evidence' ? (
+                <div className="mt-3 space-y-2">
+                  <p className="text-xs text-bda-muted">
+                    Research run: {researchRun?.status ?? 'not started'} · evidence {researchRun?.evidence.length ?? 0}
+                  </p>
+                  {researchRun?.evidence.slice(0, 30).map((item) => (
+                    <article key={item.evidence_link_id} className="rounded border border-bda-border p-3 text-sm">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] uppercase text-bda-cyan">{item.source_type} · {item.evidence_level}</span>
+                          <h3 className="font-medium">{item.title}</h3>
+                        </div>
+                        <span className="text-xs text-bda-muted">{item.review_status}</span>
+                      </div>
+                      {item.evidence_excerpt ? <p className="mt-2 line-clamp-3 text-xs text-bda-muted">{item.evidence_excerpt}</p> : null}
+                      <div className="mt-2 flex gap-3 text-xs">
+                        {item.uri ? <a className="text-bda-cyan" href={item.uri} target="_blank" rel="noreferrer">Source</a> : null}
+                        <button className="text-bda-green" onClick={() => reviewEvidence.mutate({ id: item.evidence_link_id, status: 'accepted' })}>Accept</button>
+                        <button className="text-bda-red" onClick={() => reviewEvidence.mutate({ id: item.evidence_link_id, status: 'rejected' })}>Reject</button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              ) : dossierTab === 'scaffolds' ? (
+                <div className="mt-3 grid gap-2 md:grid-cols-2">
+                  {((plan.dossier_json.scaffolds as Array<Record<string, unknown>>) ?? []).map((item) => (
+                    <article key={text(item.id)} className="rounded border border-bda-border p-3 text-sm">
+                      <strong>{text(item.name)}</strong>
+                      <p className="mt-1 text-xs text-bda-muted">Focus: {Array.isArray(item.design_focus) ? item.design_focus.join(', ') : ''}</p>
+                      <p className="mt-1 text-xs text-bda-amber">Risks: {Array.isArray(item.risks) ? item.risks.join(', ') : ''}</p>
+                    </article>
+                  ))}
+                </div>
+              ) : dossierTab === 'workflow' ? (
+                <ol className="mt-3 space-y-2 text-sm">
+                  {plan.nodes_json.map((node, index) => (
+                    <li key={`${text(node.key)}-${index}`} className="rounded border border-bda-border p-2">
+                      {index + 1}. {text(node.name)}
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="mt-3 space-y-2 text-sm text-bda-muted">
+                  {((plan.dossier_json.verification_queue as string[]) ?? []).map((item) => (
+                    <p key={item} className="rounded border border-bda-border p-2">{item}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bda-cyan">Route comparison</p>
+                  <h2 className="font-semibold">{plan.name}</h2>
+                </div>
+                <button
+                  className="rounded bg-bda-green px-3 py-2 text-sm text-bda-bg disabled:opacity-50"
+                  disabled={materialize.isPending || Boolean(plan.materialized_workflow_run_id)}
+                  onClick={() => materialize.mutate()}
+                >
+                  生成真实 Workflow
+                </button>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {plan.route_options_json.map((route) => (
+                  <button
+                    key={route.route_id}
+                    className={`rounded border p-3 text-left ${selectedRoute === route.route_id ? 'border-bda-cyan bg-bda-cyan/10' : 'border-bda-border'}`}
+                    disabled={changeRoute.isPending}
+                    onClick={() => {
+                      setSelectedRoute(route.route_id)
+                      changeRoute.mutate(route.route_id)
+                    }}
+                  >
+                    <strong className="text-sm">{route.name}</strong>
+                    <p className="mt-1 text-xs text-bda-muted">{route.rationale}</p>
+                    <p className="mt-2 text-[11px] uppercase text-bda-amber">{route.recommendation}</p>
+                  </button>
+                ))}
+              </div>
+              {plan.materialized_workflow_run_id ? (
+                <p className="mt-3 text-sm text-bda-green">
+                  已生成 Workflow：{plan.materialized_workflow_run_id}
+                </p>
+              ) : null}
+            </div>
+
+            <div className="rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
+              生成真实 Workflow 后，请在 Workflow 页面选择 RFdiffusion 节点，附加已审核的结构 artifact，
+              编辑参数并生成与实际 runner 一致的提交预览。
+            </div>
+          </>
+        )}
+      </section>
+    </div>
+  )
+}
+
 export function ResearchPage() {
-  const [tab, setTab] = useState<'literature' | 'campaigns'>('literature')
+  const [tab, setTab] = useState<'builder' | 'literature' | 'campaigns'>('builder')
   return (
     <div>
       <div className="mb-6 flex items-end justify-between">
         <div><p className="text-xs uppercase tracking-wide text-bda-cyan">Research automation</p><h1 className="text-2xl font-semibold">知识学习与闭环研发</h1></div>
         <div className="flex gap-2">
+          <button className={`rounded px-3 py-2 text-sm ${tab === 'builder' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('builder')}>甜味蛋白 Builder</button>
           <button className={`rounded px-3 py-2 text-sm ${tab === 'literature' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('literature')}>文献与证据</button>
           <button className={`rounded px-3 py-2 text-sm ${tab === 'campaigns' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('campaigns')}>Campaign 闭环</button>
         </div>
       </div>
-      {tab === 'literature' ? <LiteraturePanel /> : <CampaignPanel />}
+      {tab === 'builder' ? <SweetProteinBuilder /> : tab === 'literature' ? <LiteraturePanel /> : <CampaignPanel />}
     </div>
   )
 }
