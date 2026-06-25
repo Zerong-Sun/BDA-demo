@@ -9,7 +9,7 @@ import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSi
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
 import { defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
-import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
+import { getLatestWorkflowRunOrNull, listProjectWorkflowRuns } from '../lib/api/projects'
 import {
   addWorkflowNode,
   createWorkflowRun,
@@ -54,6 +54,11 @@ export function WorkflowPage() {
   } = useQuery({
     queryKey: ['workflow-run', 'latest', projectId],
     queryFn: () => getLatestWorkflowRunOrNull(projectId),
+    enabled: Boolean(projectId),
+  })
+  const { data: projectWorkflowRuns = [] } = useQuery({
+    queryKey: ['workflow-runs', projectId],
+    queryFn: () => listProjectWorkflowRuns(projectId),
     enabled: Boolean(projectId),
   })
 
@@ -282,9 +287,25 @@ export function WorkflowPage() {
         {isDemoMode ? (
           <span className="text-xs text-bda-muted">演示模式：读取项目已有演示数据，只读展示。</span>
         ) : workflowRun ? (
-          <span className="text-xs text-bda-muted">
-            Run {workflowRun.workflow_run_id} · {workflowRun.status}
-          </span>
+          <label className="flex items-center gap-2 text-xs text-bda-muted">
+            <span>Workflow run</span>
+            <select
+              aria-label="Workflow run"
+              className="max-w-[30rem] rounded border border-bda-border bg-bda-panel px-2 py-2 text-xs text-bda-text"
+              value={workflowRunId ?? ''}
+              onChange={(event) => {
+                setSelectedNodeId(null)
+                setSelectedArtifactId(undefined)
+                setProjectWorkflowRunId(projectId, event.target.value)
+              }}
+            >
+              {projectWorkflowRuns.map((run) => (
+                <option key={run.workflow_run_id} value={run.workflow_run_id}>
+                  {run.selected_route ?? run.workflow_run_id} · {run.status}
+                </option>
+              ))}
+            </select>
+          </label>
         ) : (
           <span className="text-xs text-bda-muted">No workflow run for this project yet</span>
         )}

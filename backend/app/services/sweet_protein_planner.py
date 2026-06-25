@@ -246,25 +246,64 @@ def _rf_parameters(route_id: str) -> dict[str, Any]:
         "brazzein_redesign": "brazzein_53",
         "ph_responsive_research": "ph_responsive",
     }.get(route_id)
+    # For monellin, the input is prepared as natural chain B (A1-50) and
+    # natural chain A (B1-44). Omitting a /0 chain break tells RFdiffusion to
+    # emit one continuous chain, with a sampled 2-4 residue linker between the
+    # two experimentally established motifs. The canonical MNEI linker is GF.
     contigs = {
-        # RCSB 2O9U contains 96 modeled residues after chain normalization.
-        "single_chain_monellin": "[A1-96]",
+        "single_chain_monellin": "[A1-50/2-4/B1-44]",
         # RCSB 4HE7 contains 53 modeled residues; the curated sequence is 54 aa.
         "brazzein_53": "[A1-53]",
         "ph_responsive": "",
     }.get(scaffold, "")
+    partial_t = {
+        # Variable-length linker motif scaffolding is not compatible with
+        # partial diffusion's exact input/output length requirement.
+        "single_chain_monellin": 0,
+        # Keep the compact four-disulfide brazzein fold close to 4HE7.
+        "brazzein_53": 5,
+    }.get(scaffold, 0 if de_novo else 10)
     return {
-        "design_mode": "receptor_binder_de_novo" if de_novo else "scaffold_partial_diffusion",
+        "design_mode": (
+            "receptor_binder_de_novo"
+            if de_novo
+            else (
+                "motif_scaffolding_with_linker"
+                if scaffold == "single_chain_monellin"
+                else "scaffold_partial_diffusion"
+            )
+        ),
         "scaffold": None if de_novo else scaffold,
         "inference.input_pdb": "",
         "contigmap.contigs": "[70-100]" if de_novo else contigs,
         "ppi.hotspot_res": "",
-        "inference.num_designs": 1000 if de_novo else 300,
-        "diffuser.partial_T": 0 if de_novo else 10,
+        "inference.num_designs": 1000 if de_novo else 100,
+        "diffuser.partial_T": partial_t,
         "diffuser.T": 50,
         "denoiser.noise_scale_ca": 0.5 if not de_novo else 1.0,
         "denoiser.noise_scale_frame": 0.5 if not de_novo else 1.0,
+        "contigmap.provide_seq": (
+            # Zero-indexed modeled cysteine positions in 4HE7.
+            "[2,14,20,24,35,45,47,50]"
+            if scaffold == "brazzein_53"
+            else ""
+        ),
         "preserve_disulfides": scaffold == "brazzein_53",
+        "linker_design": (
+            {
+                "input_chain_order": "natural chain B then natural chain A",
+                "linker_length_range": [2, 4],
+                "validated_reference_linker": "GF",
+                "output_chain_count": 1,
+            }
+            if scaffold == "single_chain_monellin"
+            else None
+        ),
+        "charge_design_guidance": {
+            "stage": "ProteinMPNN_and_downstream_selection",
+            "goal": "retain or enrich solvent-exposed positive patches without globally overcharging the protein",
+            "warning": "RFdiffusion generates backbone geometry and does not optimize side-chain charge.",
+        },
         "copilot_basis": "research_seed_pending_primary_source_verification",
         "requires_user_review": True,
     }
@@ -277,6 +316,10 @@ def build_workflow(route_id: str) -> tuple[list[dict[str, Any]], list[dict[str, 
         design_name = "pH-responsive scaffold redesign"
     elif route_id == "de_novo_binder":
         design_name = "De novo receptor binder generation"
+    elif route_id == "monellin_redesign":
+        design_name = "Monellin single-chain linker scaffolding"
+    elif route_id == "brazzein_redesign":
+        design_name = "Brazzein disulfide-preserving partial diffusion"
     else:
         design_name = "Constrained scaffold redesign"
     nodes = [
@@ -627,6 +670,8 @@ def validate_rfdiffusion_parameters(parameters: dict[str, Any]) -> dict[str, Any
             "design_mode",
             "scaffold",
             "preserve_disulfides",
+            "linker_design",
+            "charge_design_guidance",
             "copilot_basis",
             "requires_user_review",
             "inference.input_pdb",
@@ -695,7 +740,15 @@ def _replace_parameter_recommendations(
         fields_by_key = {field.get("key"): field for field in fields}
         for key, value in (node.get("parameters") or {}).items():
             field = fields_by_key.get(key) or {}
-            if key in {"copilot_basis", "requires_user_review", "design_mode", "scaffold"}:
+            if key in {
+                "copilot_basis",
+                "requires_user_review",
+                "design_mode",
+                "scaffold",
+                "linker_design",
+                "charge_design_guidance",
+                "preserve_disulfides",
+            }:
                 continue
             recommended_range = {
                 k: field[k] for k in ("min", "max", "options") if k in field

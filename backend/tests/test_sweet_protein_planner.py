@@ -95,6 +95,13 @@ def test_sweet_protein_brief_plan_and_materialize(
     assert "scaffolds" in plan["dossier_json"]
     assert "https://example.org/revised" in plan["dossier_json"]["source_reference_queue"]
     assert plan["version"] == 1
+    monellin_rf = next(
+        node for node in plan["nodes_json"] if node.get("model_name") == "RFdiffusion"
+    )
+    assert monellin_rf["parameters"]["contigmap.contigs"] == "[A1-50/2-4/B1-44]"
+    assert monellin_rf["parameters"]["inference.num_designs"] == 100
+    assert monellin_rf["parameters"]["diffuser.partial_T"] == 0
+    assert monellin_rf["parameters"]["linker_design"]["validated_reference_linker"] == "GF"
 
     revised_plan_response = client.post(
         f"{API}/copilot/research-briefs/{brief['research_brief_id']}/plan",
@@ -105,6 +112,13 @@ def test_sweet_protein_brief_plan_and_materialize(
     revised_plan = revised_plan_response.json()["data"]
     assert revised_plan["version"] == 2
     assert revised_plan["supersedes_workflow_plan_id"] == plan["workflow_plan_id"]
+    brazzein_rf = next(
+        node for node in revised_plan["nodes_json"] if node.get("model_name") == "RFdiffusion"
+    )
+    assert brazzein_rf["parameters"]["contigmap.contigs"] == "[A1-53]"
+    assert brazzein_rf["parameters"]["inference.num_designs"] == 100
+    assert brazzein_rf["parameters"]["diffuser.partial_T"] == 5
+    assert brazzein_rf["parameters"]["contigmap.provide_seq"] == "[2,14,20,24,35,45,47,50]"
 
     sequence_comparison = client.post(
         f"{API}/copilot/research-briefs/{brief['research_brief_id']}/sequence-comparison",

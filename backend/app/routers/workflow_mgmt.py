@@ -228,6 +228,14 @@ def patch_workflow_node(
                 ),
                 None,
             )
+            if matched is None and existing_node.get("model_name"):
+                model_matches = [
+                    planned
+                    for planned in planned_nodes
+                    if planned.get("model_name") == existing_node.get("model_name")
+                ]
+                if len(model_matches) == 1:
+                    matched = model_matches[0]
             plan_node_key = (matched or {}).get("key")
         recommendation_rows = connection.execute(
             """

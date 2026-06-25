@@ -28,6 +28,12 @@ def test_create_project_and_workflow_run(client: TestClient, auth_headers: dict[
         headers=auth_headers,
     )
     assert run.status_code == 200
+    listed = client.get(
+        f"{API}/projects/{project['project_id']}/workflow-runs",
+        headers=auth_headers,
+    )
+    assert listed.status_code == 200
+    assert listed.json()["data"]["items"][0]["workflow_run_id"] == run.json()["data"]["workflow_run_id"]
 
 
 def test_get_candidate_by_id(client: TestClient, auth_headers: dict[str, str]):

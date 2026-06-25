@@ -70,6 +70,10 @@ export function getLatestWorkflowRun(projectId: string) {
   return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs/latest`, {}, WorkflowRunSchema)
 }
 
+export function listProjectWorkflowRuns(projectId: string): Promise<WorkflowRun[]> {
+  return fetchPaginatedList(`/projects/${projectId}/workflow-runs`, WorkflowRunSchema)
+}
+
 export async function getLatestWorkflowRunOrNull(projectId: string): Promise<WorkflowRun | null> {
   try {
     return await getLatestWorkflowRun(projectId)

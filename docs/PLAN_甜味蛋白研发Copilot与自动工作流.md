@@ -527,13 +527,19 @@ Research Dossier 用 tab 展示：
 
 验收结果：
 
-- 后端：106 tests passed，coverage 74.14%。
+- 后端：111 tests passed，coverage 74.47%。
 - 前端：16 tests passed。
 - 全新数据库 Alembic `upgrade head`、TypeScript production build 和 `git diff --check` 均通过。
 - 测试数据库已与开发数据库隔离，避免验收测试清空浏览器项目状态。
 - 已通过网站完成 `<100 aa` 甜味蛋白实例验收，并将官方序列/结构、研究 dossier、
   比较结果、实验模板、清洗脚本和 RFdiffusion 提交预览归档到
   `deliverables/sweet_protein_under100aa_20260625/`。
+- 新建 `SweetProtein_RFdiffusion_100x2_20260626` 持久化项目，建立
+  monellin 单链 linker 与 brazzein 保守 partial diffusion 两条独立 Workflow Run；
+  每条路线配置 100 个骨架，并保存输入 PDB、参数 checksum、input manifest、
+  LSF 脚本、可信 wrapper、失败/重试历史和后续 ProteinMPNN 正电表面约束。
+- Workflow 页面支持在同一项目内切换多个 run，便于后续打开项目继续选择
+  monellin 或 brazzein 输出进入 ProteinMPNN。
 
 实现边界：
 

@@ -189,6 +189,21 @@ def project_latest_workflow_run(
     return envelope(item)
 
 
+@router.get("/projects/{project_id}/workflow-runs")
+def project_workflow_runs(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    items = catalog.list_project_workflow_runs(connection, project_id)
+    return envelope({
+        "items": items,
+        "total": len(items),
+        "limit": len(items),
+        "offset": 0,
+    })
+
+
 @router.get("/workflow-runs/{workflow_run_id}")
 def workflow_run(
     workflow_run_id: str,

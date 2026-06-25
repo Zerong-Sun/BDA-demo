@@ -178,6 +178,9 @@ class LocalProcessAdapter:
 class RemoteLsfAdapter:
     """Stage jobs over SSH and execute trusted wrappers through IBM Spectrum LSF."""
 
+    _LOCAL_WRAPPERS = {
+        "plugin_rfdiffusion": REPO_ROOT / "cluster_wrappers" / "rfdiffusion_job.py",
+    }
     _SAFE_JOB_ID = re.compile(r"^job_[A-Za-z0-9_-]+$")
     _LSF_STATUS = {
         "PEND": "queued",
@@ -269,15 +272,22 @@ class RemoteLsfAdapter:
         if not job.input_dir or not job.work_dir:
             raise RuntimeError("remote_lsf_workspace_missing")
         remote_dir = self._remote_job_dir(job.job_id)
+        script_path = Path(job.work_dir) / "submit.lsf"
+        script_path.write_text(script, encoding="utf-8")
+        wrapper_path = self._LOCAL_WRAPPERS.get(job.plugin_id)
+        if wrapper_path:
+            if not wrapper_path.is_file():
+                raise RuntimeError(f"trusted_wrapper_missing:{job.plugin_id}")
+            staged_wrapper = Path(job.work_dir) / wrapper_path.name
+            staged_wrapper.write_bytes(wrapper_path.read_bytes())
+            staged_wrapper.chmod(0o700)
         self._run_ssh(
             f"umask 077 && mkdir -p {shlex.quote(remote_dir)}/input "
             f"{shlex.quote(remote_dir)}/output {shlex.quote(remote_dir)}/work "
             f"{shlex.quote(remote_dir)}/logs"
         )
-        script_path = Path(job.work_dir) / "submit.lsf"
-        script_path.write_text(script, encoding="utf-8")
         archive = subprocess.run(
-            ["tar", "-C", str(Path(job.input_dir).parent), "-cf", "-", "input", "work/submit.lsf"],
+            ["tar", "-C", str(Path(job.input_dir).parent), "-cf", "-", "input", "work"],
             capture_output=True,
             check=True,
         ).stdout

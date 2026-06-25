@@ -1,0 +1,56 @@
+{
+  "job_id": "job_8b6d4668af4d",
+  "project_id": "proj_sweetprotein_rfdiffusion_100x2_160d28",
+  "workflow_run_id": "run_proj_sweetprotein_rfdiffusion_100x2_160d28_449a8216",
+  "node_run_id": "node_ae2d3b9519",
+  "plugin_id": "plugin_rfdiffusion",
+  "model_name": "RFdiffusion",
+  "inputs": [
+    {
+      "port": "target_structure",
+      "artifact_id": "art_79d1e3c207524d58",
+      "path": "/input/art_79d1e3c207524d58_2O9U_monellin_B50_A44_for_linker_design.pdb",
+      "format": "pdb",
+      "artifact_type": "target_structure",
+      "metadata": {
+        "atom_count": 775,
+        "chain_count": 2,
+        "chains": [
+          "A",
+          "B"
+        ],
+        "residue_count": 94
+      }
+    }
+  ],
+  "parameters": {
+    "design_mode": "motif_scaffolding_with_linker",
+    "scaffold": "single_chain_monellin",
+    "inference.input_pdb": "",
+    "contigmap.contigs": "[A1-50/2-4/B1-44]",
+    "ppi.hotspot_res": "",
+    "inference.num_designs": 100,
+    "diffuser.partial_T": 0,
+    "diffuser.T": 50,
+    "denoiser.noise_scale_ca": 0.5,
+    "denoiser.noise_scale_frame": 0.5,
+    "contigmap.provide_seq": "",
+    "preserve_disulfides": false,
+    "linker_design": {
+      "input_chain_order": "natural chain B then natural chain A",
+      "linker_length_range": [
+        2,
+        4
+      ],
+      "validated_reference_linker": "GF",
+      "output_chain_count": 1
+    },
+    "charge_design_guidance": {
+      "stage": "ProteinMPNN_and_downstream_selection",
+      "goal": "retain or enrich solvent-exposed positive patches without globally overcharging the protein",
+      "warning": "RFdiffusion generates backbone geometry and does not optimize side-chain charge."
+    },
+    "copilot_basis": "research_seed_pending_primary_source_verification",
+    "requires_user_review": true
+  }
+}

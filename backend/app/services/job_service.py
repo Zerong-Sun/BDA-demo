@@ -468,6 +468,12 @@ def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
     gpu_count = requirements.get("gpu_count") or 0
     if gpu_count:
         env.setdefault("BDA_GPU", "1")
+    cpu_count = requirements.get("cpu_count")
+    if cpu_count:
+        env.setdefault("BDA_CPU_COUNT", str(cpu_count))
+    memory_gb = requirements.get("memory_gb")
+    if memory_gb:
+        env.setdefault("BDA_MEMORY_GB", str(memory_gb))
     return env
 
 
@@ -696,8 +702,19 @@ def submit_node_job(
     try:
         handle = adapter.submit(spec)
     except RuntimeError as exc:
-        update_job_status(connection, job["job_id"], status="failed", error_message=str(exc))
-        raise ValueError(str(exc)) from exc
+        failed_job = update_job_status(
+            connection,
+            job["job_id"],
+            status="failed",
+            error_message=str(exc),
+        )
+        catalog.update_workflow_node(
+            connection,
+            node_run_id,
+            status="failed",
+            error_message=str(exc),
+        )
+        return failed_job or get_job(connection, job["job_id"]) or job
 
     st = adapter.status(job["job_id"], handle.external_id)
     update_job_status(

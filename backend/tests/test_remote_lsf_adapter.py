@@ -81,3 +81,20 @@ def test_status_maps_lsf_states(monkeypatch):
 
     assert status.status == "running"
     assert "model is running" in status.logs
+
+
+def test_rfdiffusion_wrapper_is_staged_before_remote_upload(tmp_path: Path, monkeypatch):
+    adapter = make_adapter()
+    adapter._plugin_commands["plugin_rfdiffusion"] = "python work/rfdiffusion_job.py"
+    job = make_job(tmp_path, gpu=True)
+    job.plugin_id = "plugin_rfdiffusion"
+
+    def fail_ssh(*_args, **_kwargs):
+        raise RuntimeError("remote_lsf_ssh_failed:offline")
+
+    monkeypatch.setattr(adapter, "_run_ssh", fail_ssh)
+    with pytest.raises(RuntimeError, match="remote_lsf_ssh_failed"):
+        adapter._upload_workspace(job, "#!/bin/bash\n")
+
+    assert (Path(job.work_dir) / "submit.lsf").is_file()
+    assert (Path(job.work_dir) / "rfdiffusion_job.py").is_file()

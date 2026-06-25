@@ -1,0 +1,17 @@
+#!/bin/bash
+#BSUB -J bda-job_3730ec5f78a7
+#BSUB -q gpu-bme-liz
+#BSUB -n 8
+#BSUB -R "span[ptile=1]"
+#BSUB -o logs/%J.out
+#BSUB -e logs/%J.err
+#BSUB -gpu "num=1"
+
+set -Eeuo pipefail
+cd /work/bme-sunzr/bda/jobs/job_3730ec5f78a7
+mkdir -p output work logs
+export BDA_JOB_ID=job_3730ec5f78a7
+export BDA_INPUT_MANIFEST="$PWD/input/manifest.json"
+export BDA_OUTPUT_DIR="$PWD/output"
+export BDA_WORK_DIR="$PWD/work"
+python work/rfdiffusion_job.py

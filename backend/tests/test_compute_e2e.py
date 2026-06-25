@@ -6,6 +6,11 @@ from backend.app.services import job_service
 API = "/api/v1"
 
 
+class FailingComputeAdapter:
+    def submit(self, _job):
+        raise RuntimeError("remote_lsf_ssh_failed:offline")
+
+
 def test_local_stub_submit_collects_artifacts(
     client: TestClient,
     auth_headers: dict[str, str],
@@ -51,6 +56,51 @@ def test_local_stub_submit_collects_artifacts(
     assert graph.status_code == 200
     artifacts = graph.json()["data"]["artifacts"]
     assert any(artifact["artifact_type"] == "sequence_set" for artifact in artifacts)
+
+
+def test_submission_failure_is_persisted_for_retry(
+    client: TestClient,
+    auth_headers: dict[str, str],
+    monkeypatch,
+):
+    monkeypatch.setattr(job_service, "get_compute_adapter", lambda: FailingComputeAdapter())
+    create = client.post(f"{API}/projects/proj_nanocage_0518/workflow-runs", headers=auth_headers)
+    run_id = create.json()["data"]["workflow_run_id"]
+    node_id = _add_model_node(
+        client,
+        auth_headers,
+        run_id,
+        model_name="ProteinMPNN",
+        node_type="sequence_generation",
+        parameters={"num_seq_per_target": 1},
+    )
+    submit = client.post(
+        f"{API}/workflow-node-runs/{node_id}/submit-to-compute",
+        headers=auth_headers,
+        json={},
+    )
+    assert submit.status_code == 200
+    payload = submit.json()["data"]
+    assert payload["status"] == "failed"
+    graph = client.get(f"{API}/workflow-runs/{run_id}/graph", headers=auth_headers).json()["data"]
+    assert graph["jobs"][0]["status"] == "failed"
+    assert graph["nodes"][0]["status"] == "failed"
+
+
+def test_plugin_runtime_env_includes_declared_cpu_and_memory():
+    env = job_service._plugin_runtime_env({
+        "resource_requirement_json": {
+            "gpu_count": 1,
+            "cpu_count": 8,
+            "memory_gb": 32,
+            "runtime_env": {},
+        }
+    })
+    assert env == {
+        "BDA_GPU": "1",
+        "BDA_CPU_COUNT": "8",
+        "BDA_MEMORY_GB": "32",
+    }
 
 
 def _add_model_node(

@@ -37,6 +37,7 @@ export const WorkflowRunSchema = z.object({
   workflow_run_id: z.string(),
   task_id: z.string(),
   status: z.string(),
+  selected_route: z.string().nullable().optional(),
   summary_metrics_json: z.union([z.record(z.string(), z.unknown()), z.string()]).optional(),
   layout_json: z.string().nullable().optional(),
 })

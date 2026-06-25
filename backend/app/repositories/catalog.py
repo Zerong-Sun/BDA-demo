@@ -258,6 +258,21 @@ def get_latest_project_workflow_run(connection: sqlite3.Connection, project_id: 
     return get_by_id(connection, "workflow_runs", "workflow_run_id", row["workflow_run_id"]) if row else None
 
 
+def list_project_workflow_runs(connection: sqlite3.Connection, project_id: str) -> list[dict]:
+    rows = connection.execute(
+        """
+        SELECT wr.*, p.selected_route
+        FROM workflow_runs wr
+        JOIN design_tasks dt ON dt.task_id = wr.task_id
+        LEFT JOIN workflow_plans p ON p.materialized_workflow_run_id = wr.workflow_run_id
+        WHERE dt.project_id = ?
+        ORDER BY wr.start_time DESC, wr.rowid DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return decode_rows(rows)
+
+
 def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str) -> dict[str, int]:
     run = get_latest_project_workflow_run(connection, project_id)
     if run is None:
