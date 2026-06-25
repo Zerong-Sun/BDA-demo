@@ -10,6 +10,12 @@ BDA is a full-stack protein binder design automation platform:
 - **Storage**: Local filesystem or MinIO
 - **Auth**: JWT Bearer + RBAC (admin/researcher/viewer)
 
+Detailed references:
+
+- [Repository structure](REPOSITORY_STRUCTURE.md)
+- [Data model](DATA_MODEL.md)
+- [Sweet-protein Copilot plan](PLAN_甜味蛋白研发Copilot与自动工作流.md)
+
 ## API
 
 All endpoints are under `/api/v1/`. OpenAPI docs at `/api/docs`.
@@ -48,3 +54,7 @@ Container images in `docker/models/`:
 Build: `docker build -t bda/proteinmpnn:1.0.0 docker/models/proteinmpnn`
 
 Set `BDA_COMPUTE_MODE=local` to run built-in stub runners without Docker, or `BDA_COMPUTE_MODE=docker` to enable real container submission.
+
+External source trees and checkpoints belong under the ignored local
+`models/` workspace or a cluster/object-store mount. They are not vendored into
+the application repository.

@@ -37,7 +37,8 @@ BDA 当前已经具备前端工作流画布、候选展示、结果交付、Fast
 - 计算：`DemoComputeAdapter` 和 `LocalDockerAdapter`。
 - 文件：已有 PDB/mmCIF 上传、候选结构下载、项目 delivery zip 下载。
 - 模型脚手架：`docker/models/rfdiffusion`、`proteinmpnn`、`alphafold2`、`rosetta`。
-- 内部模型：`maskrgnn_clean` 已在仓库内，但还没有被注册为平台插件。
+- 内部模型：MaskRGNN 源码和权重通过本地/集群 `models/` 挂载，不直接
+  vendoring 到应用仓库；平台侧保留插件注册和标准 runner 接口。
 
 主要缺口：
 
@@ -354,7 +355,8 @@ Artifact 类型建议：
 
 接入策略：
 
-- 先封装 `maskrgnn_clean/inference.py` 为标准 runner。
+- 先将挂载的 MaskRGNN inference 入口封装为 `docker/models/` 下的标准
+  runner，并通过 manifest 指定 checkpoint key。
 - 将配置文件路径和 checkpoint 路径放入 plugin resource/env，不让前端直接传任意本地路径。
 - 输出必须写 `/output/manifest.json`，FASTA 和 CSV 作为 artifact 注册。
 

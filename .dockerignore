@@ -21,8 +21,10 @@ frontend/.vite
 .env.*
 !.env.example
 backend/db/*.sqlite3*
-artifacts/uploads
-artifacts/structures
+backend/artifacts/jobs
+backend/artifacts/uploads
+backend/artifacts/copilot-cluster-drafts
+models
 
 # Editor / OS noise
 .DS_Store
@@ -30,6 +32,9 @@ artifacts/structures
 .idea
 .vscode
 *.log
+.coverage
+coverage.xml
+htmlcov
 
 # Docs & demo assets not needed at runtime
 docs

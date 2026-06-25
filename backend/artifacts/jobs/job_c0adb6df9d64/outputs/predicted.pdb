@@ -1,7 +1,0 @@
-REMARK BDA stub AlphaFold2 output
-REMARK input_sequences art_08e7028daf4c4315
-REMARK model_preset multimer
-ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00 85.00           N
-ATOM      2  CA  ALA A   1       1.400   0.000   0.000  1.00 85.00           C
-TER
-END

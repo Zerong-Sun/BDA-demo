@@ -23,3 +23,7 @@ def test_if_missing_still_applies_schema_to_existing_database(tmp_path, monkeypa
 
     assert "literature_subscriptions" in tables
     assert "research_campaigns" in tables
+    assert "users" in tables
+    assert "jobs" in tables
+    assert "research_briefs" in tables
+    assert "experiment_plans" in tables

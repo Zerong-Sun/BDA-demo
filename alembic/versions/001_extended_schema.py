@@ -23,9 +23,11 @@ def _execute_statements(sql: str) -> None:
 
 
 def upgrade() -> None:
-    schema_path = Path(__file__).resolve().parents[2] / "backend" / "db" / "schema.sql"
-    if schema_path.exists():
-        _execute_statements(schema_path.read_text())
+    schema_root = Path(__file__).resolve().parents[2] / "backend" / "db"
+    for filename in ("schema.sql", "schema_extended.sql"):
+        schema_path = schema_root / filename
+        if schema_path.exists():
+            _execute_statements(schema_path.read_text())
 
 
 def downgrade() -> None:

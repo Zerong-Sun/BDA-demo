@@ -174,6 +174,7 @@ BDA/
 ├── frontend/              # React SPA (Experiments, Workflow, Candidates, Results)
 ├── backend/               # FastAPI API gateway, DB schema, Copilot, compute adapters
 ├── docker/models/         # Model plugin container images
+├── models/README.md       # Local-only external model/checkpoint contract
 ├── alembic/               # PostgreSQL migrations
 ├── nginx/                 # Reverse proxy config
 ├── monitoring/            # Prometheus config
@@ -188,6 +189,8 @@ BDA/
 | [`docs/PRD01_完整产品需求文档.md`](docs/PRD01_完整产品需求文档.md) | Full product requirements (vision, users, roadmap) |
 | [`docs/FRD01_前端设计说明.md`](docs/FRD01_前端设计说明.md) | Frontend design spec and acceptance criteria |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | System architecture, API groups, deployment |
+| [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | Source layout, layering, and versioning policy |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | Database ownership, workflow, research, and artifact model |
 | [`docs/PHASE1_ACCEPTANCE.md`](docs/PHASE1_ACCEPTANCE.md) | Phase 1 + P1 acceptance checklist |
 
 ---

@@ -174,6 +174,7 @@ BDA/
 ├── frontend/              # React SPA（实验、工作流、候选、结果）
 ├── backend/               # FastAPI 网关、数据库模式、Copilot、计算适配器
 ├── docker/models/         # 模型插件容器镜像
+├── models/README.md       # 本地第三方模型与权重目录契约
 ├── alembic/               # PostgreSQL 迁移
 ├── nginx/                 # 反向代理配置
 ├── monitoring/            # Prometheus 配置
@@ -188,6 +189,8 @@ BDA/
 | [`docs/PRD01_完整产品需求文档.md`](docs/PRD01_完整产品需求文档.md) | 完整产品需求（愿景、用户、路线图） |
 | [`docs/FRD01_前端设计说明.md`](docs/FRD01_前端设计说明.md) | 前端设计规范与验收标准 |
 | [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) | 系统架构、API 分组、部署说明 |
+| [`docs/REPOSITORY_STRUCTURE.md`](docs/REPOSITORY_STRUCTURE.md) | 源码目录、分层和版本管理规则 |
+| [`docs/DATA_MODEL.md`](docs/DATA_MODEL.md) | 数据所有权、工作流、研究证据和制品模型 |
 | [`docs/PHASE1_ACCEPTANCE.md`](docs/PHASE1_ACCEPTANCE.md) | Phase 1 + P1 验收清单 |
 
 ---
