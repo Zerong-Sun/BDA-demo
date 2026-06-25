@@ -7,6 +7,7 @@ import uuid
 from typing import Any
 
 from ..repositories import catalog, research_planner, registry
+from ..settings import get_settings
 
 REFERENCE_SEED = {
     "title": "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
@@ -264,8 +265,46 @@ def generate_plan(
     brief = research_planner.get_brief(connection, research_brief_id)
     if brief is None:
         raise ValueError("research_brief_not_found")
-    route_id = selected_route or "monellin_redesign"
+    provisional_route = selected_route or "monellin_redesign"
+    nodes, edges = build_workflow(provisional_route)
+    llm_synthesis = None
+    llm_error = None
+    try:
+        from .llm_planning_service import synthesize_sweet_protein_plan
+
+        llm_synthesis = synthesize_sweet_protein_plan(
+            connection,
+            brief=brief,
+            canonical_routes=ROUTES,
+            canonical_nodes=nodes,
+        )
+    except Exception as exc:
+        llm_error = str(exc)[:500]
+    route_id = selected_route or (llm_synthesis or {}).get("selected_route") or provisional_route
     nodes, edges = build_workflow(route_id)
+    if llm_synthesis:
+        allowed_by_node = {
+            node["key"]: set((node.get("parameters") or {}).keys())
+            for node in nodes
+        }
+        for node in nodes:
+            overrides = (
+                (llm_synthesis.get("parameter_overrides") or {}).get(node["key"])
+                if isinstance(llm_synthesis.get("parameter_overrides"), dict)
+                else None
+            )
+            if not isinstance(overrides, dict):
+                continue
+            sanitized = {
+                key: value
+                for key, value in overrides.items()
+                if key in allowed_by_node[node["key"]]
+                and key.lower() not in {"command", "shell", "script"}
+            }
+            candidate = {**(node.get("parameters") or {}), **sanitized}
+            if node["key"] == "rf" and not validate_rfdiffusion_parameters(candidate)["valid"]:
+                continue
+            node["parameters"] = candidate
     source_material = brief.get("source_material_json") or []
     source_refs = list(dict.fromkeys(
         str(item.get("title"))
@@ -274,6 +313,22 @@ def generate_plan(
     ))
     findings = _findings(source_refs)
     research_planner.replace_findings(connection, research_brief_id, findings)
+    route_options = [dict(item) for item in ROUTES]
+    if llm_synthesis:
+        assessments = {
+            item.get("route_id"): item
+            for item in (llm_synthesis.get("route_assessments") or [])
+            if isinstance(item, dict)
+        }
+        for route in route_options:
+            assessment = assessments.get(route["route_id"])
+            if not assessment:
+                continue
+            for key in ("recommendation", "rationale", "key_risks"):
+                if assessment.get(key):
+                    route[key] = assessment[key]
+            route["required_evidence"] = assessment.get("required_evidence") or []
+            route["expected_benefits"] = assessment.get("expected_benefits") or []
     dossier = {
         "seed": REFERENCE_SEED,
         "scaffolds": SCAFFOLDS,
@@ -302,7 +357,30 @@ def generate_plan(
             "manufacturing_economics",
             "safety_and_regulatory",
         ],
+        "assumptions": (llm_synthesis or {}).get("assumptions") or brief.get("assumptions_json") or [],
+        "risks": (llm_synthesis or {}).get("risks") or [],
+        "success_criteria": (llm_synthesis or {}).get("success_criteria") or [],
+        "planning_summary": (llm_synthesis or {}).get("planning_summary"),
+        "planning_provenance": {
+            "mode": "llm_validated" if llm_synthesis else "deterministic_fallback",
+            "model": get_settings().llm_model if llm_synthesis else None,
+            "fallback_reason": llm_error,
+            "guardrails": [
+                "canonical_route_ids_only",
+                "registered_models_only",
+                "existing_parameter_keys_only",
+                "trusted_script_renderer_only",
+            ],
+        },
     }
+    if llm_synthesis and isinstance(llm_synthesis.get("receptor_synthesis"), dict):
+        dossier["receptor"] = {
+            **dossier["receptor"],
+            **llm_synthesis["receptor_synthesis"],
+            "warning": dossier["receptor"]["warning"],
+        }
+    if llm_synthesis and llm_synthesis.get("verification_queue"):
+        dossier["verification_queue"] = llm_synthesis["verification_queue"]
     plan = research_planner.create_plan(
         connection,
         workflow_plan_id=_id("plan"),
@@ -310,7 +388,7 @@ def generate_plan(
         project_id=brief["project_id"],
         name=f"{brief['title']} · sweet protein workflow",
         selected_route=route_id,
-        route_options=ROUTES,
+        route_options=route_options,
         dossier=dossier,
         nodes=nodes,
         edges=edges,

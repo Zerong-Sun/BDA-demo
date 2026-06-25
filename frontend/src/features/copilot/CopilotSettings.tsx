@@ -13,7 +13,7 @@ export function CopilotSettings() {
   const [baseUrlDraft, setBaseUrlDraft] = useState<string | null>(null)
   const [modelDraft, setModelDraft] = useState<string | null>(null)
   const [apiKey, setApiKey] = useState('')
-  const baseUrl = baseUrlDraft ?? config?.llm_api_base ?? 'https://api.deepseek.com'
+  const baseUrl = baseUrlDraft ?? config?.llm_api_base ?? 'https://api.deepseek.com/v1'
   const model = modelDraft ?? config?.llm_model ?? 'deepseek-v4-pro'
 
   const save = useMutation({

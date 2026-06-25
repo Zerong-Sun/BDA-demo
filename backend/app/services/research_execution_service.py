@@ -63,12 +63,21 @@ def ensure_questions(connection: sqlite3.Connection, research_brief_id: str) -> 
     existing = research_execution.list_questions(connection, research_brief_id)
     if existing:
         return existing
+    templates = QUESTION_TEMPLATES
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is not None:
+        try:
+            from .llm_planning_service import decompose_research_questions
+
+            templates = decompose_research_questions(brief) or templates
+        except Exception:
+            templates = QUESTION_TEMPLATES
     return research_execution.replace_questions(
         connection,
         research_brief_id,
         [
             {"research_question_id": _id("question"), **item}
-            for item in QUESTION_TEMPLATES
+            for item in templates
         ],
     )
 
@@ -198,6 +207,62 @@ def execute_research_run(
         )
     research_execution.replace_evidence(connection, research_run_id, evidence)
     hypotheses = _hypotheses(run["research_brief_id"], evidence)
+    synthesis = None
+    brief = research_planner.get_brief(connection, run["research_brief_id"])
+    if brief is not None:
+        try:
+            from .llm_planning_service import synthesize_research_evidence
+
+            synthesis = synthesize_research_evidence(brief=brief, evidence=evidence)
+        except Exception as exc:
+            failures.append({"track": "evidence_synthesis", "error": str(exc)[:300]})
+    if synthesis:
+        valid_evidence_ids = {item["evidence_link_id"] for item in evidence}
+        synthesized_findings = []
+        for item in (synthesis.get("findings") or [])[:30]:
+            if not isinstance(item, dict) or not item.get("title") or not item.get("statement"):
+                continue
+            refs = [
+                evidence_id for evidence_id in (item.get("evidence_link_ids") or [])
+                if evidence_id in valid_evidence_ids
+            ]
+            synthesized_findings.append({
+                "research_finding_id": _id("finding"),
+                "track": str(item.get("track") or "synthesis")[:80],
+                "title": str(item["title"])[:240],
+                "statement": str(item["statement"])[:4000],
+                "evidence_level": str(item.get("evidence_level") or "llm_synthesis")[:80],
+                "source_refs": refs,
+                "uncertainty": str(item.get("uncertainty") or "")[:1000],
+            })
+        if synthesized_findings:
+            research_planner.replace_findings(
+                connection,
+                run["research_brief_id"],
+                synthesized_findings,
+            )
+        synthesized_hypotheses = []
+        for item in (synthesis.get("hypotheses") or [])[:20]:
+            if not isinstance(item, dict) or not item.get("hypothesis"):
+                continue
+            synthesized_hypotheses.append({
+                "design_hypothesis_id": _id("hypothesis"),
+                "research_brief_id": run["research_brief_id"],
+                "hypothesis": str(item["hypothesis"])[:4000],
+                "rationale": str(item.get("rationale") or "")[:4000],
+                "falsification_test": str(item.get("falsification_test") or "")[:4000],
+                "evidence_link_ids": [
+                    evidence_id for evidence_id in (item.get("evidence_link_ids") or [])
+                    if evidence_id in valid_evidence_ids
+                ],
+                "confidence": (
+                    item.get("confidence")
+                    if item.get("confidence") in {"low", "medium", "high"}
+                    else "medium"
+                ),
+            })
+        if synthesized_hypotheses:
+            hypotheses = synthesized_hypotheses
     research_execution.replace_hypotheses(connection, run["research_brief_id"], hypotheses)
     terminal_status = "partial" if failures else "completed"
     return research_execution.update_run(
@@ -210,6 +275,9 @@ def execute_research_run(
             "source_types": sorted({item["source_type"] for item in evidence}),
             "failures": failures,
             "hypothesis_count": len(hypotheses),
+            "synthesis_mode": "llm_validated" if synthesis else "deterministic_fallback",
+            "conflicts": (synthesis or {}).get("conflicts") or [],
+            "unresolved_questions": (synthesis or {}).get("unresolved_questions") or [],
         },
         error_message="; ".join(item["error"] for item in failures) if failures else None,
     ) or {}

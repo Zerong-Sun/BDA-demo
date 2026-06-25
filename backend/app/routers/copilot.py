@@ -619,22 +619,33 @@ def route_plan(
     user: dict = Depends(get_current_user),
 ):
     _ensure_project_access(connection, user, payload.project_id)
-    nodes = catalog.list_workflow_nodes(connection, "run_pd1_round1") if payload.project_id else []
+    from ..services.llm_planning_service import plan_generic_workflow
+
+    project_context = None
+    if payload.project_id:
+        project = catalog.get_project(connection, payload.project_id) or {}
+        task = catalog.get_project_design_task(connection, payload.project_id) or {}
+        project_context = {
+            "project_name": project.get("project_name"),
+            "project_type": project.get("project_type"),
+            "task_type": task.get("task_type"),
+            "task_objective": task.get("objective"),
+            "candidate_funnel": catalog.get_project_candidate_funnel(
+                connection,
+                payload.project_id,
+            ),
+        }
+    result = plan_generic_workflow(
+        connection,
+        target=payload.target,
+        objective=payload.objective,
+        constraints=payload.constraints,
+        project_context=project_context,
+    )
     return envelope({
-        "mode": "rule_based_demo",
-        "route": [
-            "target_intake",
-            "RFdiffusion backbone generation",
-            "ProteinMPNN sequence design",
-            "AlphaFold2 complex prediction",
-            "Rosetta relax / interface scoring",
-            "BDA filters",
-            "Wet-lab validation",
-        ],
-        "compute_status": "not_connected",
-        "note": "Demo mode returns a precomputed PD-1 binder route.",
+        **result,
+        "route": [step["name"] for step in result["steps"]],
         "input_summary": payload.model_dump(),
-        "existing_node_count": len(nodes),
     })
 
 

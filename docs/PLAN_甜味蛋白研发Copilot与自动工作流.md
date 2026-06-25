@@ -42,14 +42,16 @@ Copilot 应完成：
 
 ### 需要补齐
 
-- 当前路线推荐是前端硬编码，未由 LLM、证据和项目约束生成。
-- 缺少“研究问题拆解 → 多源检索 → 证据矩阵 → 设计假设”的持久化对象。
-- 缺少 FDA GRAS 等官方法规来源、蛋白序列/结构对齐、受体结合位点和机制证据专用工具。
-- 缺少完整的项目级 design brief、assumption、risk、decision gate 和 success criteria。
-- workflow 节点参数虽然可注册，但现有 Inspector 主要只读，不能完整分层编辑、校验和版本比较。
-- 湿实验只有普通 manual node，缺少可展开的实验包、阶段 gate、结果模板和后续建议。
-- 现有 LSF 路径同时存在 Copilot draft 和 workflow job 两条链路，需要统一审核、提交和追踪语义。
-- 缺少长任务的 checkpoint、失败恢复、通知和“自动下一步/等待确认”策略。
+以下缺口已在当前分支补齐：
+
+- [x] 路线推荐由 DeepSeek LLM 结合证据、项目约束和注册插件生成；后端执行路线、节点与参数白名单校验。
+- [x] “研究问题拆解 → 多源检索 → 证据矩阵 → 设计假设”使用持久化 Research Brief/Run/Question/Evidence/Finding/Hypothesis 对象。
+- [x] FDA GRAS 官方记录队列、UniProt/PDB/Europe PMC 检索、序列全局比对和 PDB CA/Kabsch 结构叠合。
+- [x] 项目级 design brief、assumption、risk、decision gate 和 success criteria，并进入 dossier 与版本化导出。
+- [x] Inspector 支持参数分层编辑、schema 校验、推荐值 diff、脚本预览和 checksum 确认。
+- [x] 可展开的实验包、阶段依赖 gate、结果 artifact、CSV/JSON/XLSX 模板和 Campaign 后续建议。
+- [x] Workflow job 作为统一提交链路；Copilot 仅生成可审核计划，真实执行走受信任 renderer/adapter。
+- [x] Research progress checkpoint、Job 状态轮询、产物 contract、显式重试、通知及自动/确认/建议三种推进策略。
 
 ## 3. 产品流程
 
@@ -505,6 +507,8 @@ Research Dossier 用 tab 展示：
 
 本分支已完成计划中的首个可运行版本：
 
+- DeepSeek `deepseek-v4-pro` OpenAI-compatible 接入、真实连通性验证、结构化 research decomposition、证据综合和路线规划。
+- LLM 输出经过 canonical route、registered plugin、existing parameter key 和 trusted renderer 四层校验；失败时回退确定性模板。
 - Research Brief、问题树、多源 Research Run、证据审核、设计假设和 Markdown/JSON dossier 导出。
 - 用户 Markdown seed 的摄取、更新、分块、引用队列和本地检索。
 - monellin、brazzein、pH-responsive 和 de novo 路线比较，以及后端持久化 workflow plan。
@@ -523,7 +527,7 @@ Research Dossier 用 tab 展示：
 
 验收结果：
 
-- 后端：103 tests passed，coverage 73.86%。
+- 后端：105 tests passed，coverage 73.91%。
 - 前端：16 tests passed。
 - 全新数据库 Alembic `upgrade head`、TypeScript production build 和 `git diff --check` 均通过。
 

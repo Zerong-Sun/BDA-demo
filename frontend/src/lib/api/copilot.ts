@@ -98,6 +98,8 @@ export interface SweetProteinRoute {
   generation: string
   rationale: string
   key_risks: string[]
+  required_evidence?: string[]
+  expected_benefits?: string[]
 }
 
 export interface WorkflowPlan {
@@ -411,10 +413,41 @@ export async function streamCopilotMessage(
   }
 }
 
-export function planRoute(projectId: string, target = 'PD-1') {
-  return apiRequest<Record<string, unknown>>('/copilot/route-plan', {
+export interface PlannedWorkflowStep {
+  template_id: 'rf' | 'mpnn' | 'af2' | 'rosetta' | 'filter' | 'lab'
+  name: string
+  methods: string[]
+  parameters: Record<string, unknown>
+  estimate: {
+    planned: number
+    unit: string
+    duration: string
+  }
+}
+
+export interface PlannedWorkflowRoute {
+  mode: 'llm_validated' | 'validated_fallback'
+  summary?: string
+  assumptions?: string[]
+  risks?: string[]
+  fallback_reason?: string
+  steps: PlannedWorkflowStep[]
+}
+
+export function planRoute(
+  projectId: string,
+  goal: string,
+  objective = 'protein_design',
+  constraints: Record<string, unknown> = {},
+) {
+  return apiRequest<PlannedWorkflowRoute>('/copilot/route-plan', {
     method: 'POST',
-    body: JSON.stringify({ project_id: projectId, target }),
+    body: JSON.stringify({
+      project_id: projectId,
+      target: goal,
+      objective,
+      constraints,
+    }),
   })
 }
 

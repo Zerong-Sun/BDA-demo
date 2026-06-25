@@ -5,9 +5,21 @@ from fastapi.testclient import TestClient
 
 from backend.app.db.pool import reset_pool
 from backend.app.main import app
+from backend.app.settings import get_settings
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "db" / "bda.sqlite3"
+
+
+@pytest.fixture(autouse=True)
+def disable_live_llm_calls():
+    settings = get_settings()
+    original_key = settings.llm_api_key
+    settings.llm_api_key = ""
+    try:
+        yield
+    finally:
+        settings.llm_api_key = original_key
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -7,7 +7,7 @@ import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
-import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
+import { defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
 import {
@@ -27,6 +27,7 @@ import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import type { Artifact } from '../lib/schemas/artifact'
 import { ProjectContextBar } from '../features/projects/ProjectContextBar'
+import { planRoute } from '../lib/api/copilot'
 
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
@@ -117,7 +118,11 @@ export function WorkflowPage() {
     mutationFn: async () => {
       const runId = applicationWorkflowRunId ?? (await createWorkflowRun(projectId)).workflow_run_id
       setProjectWorkflowRunId(projectId, runId)
-      const steps = buildRecommendedWorkflow(goal)
+      const plannedRoute = await planRoute(projectId, goal, 'protein_design', {
+        require_human_review: true,
+        trusted_runner_only: true,
+      })
+      const steps = plannedRoute.steps
       const existingNodes = graph?.nodes ?? []
       const existingEdges = graph?.edges ?? []
       const branchIndex = Math.floor(existingNodes.length / Math.max(steps.length, 1))
@@ -125,7 +130,7 @@ export function WorkflowPage() {
       const createdNodes: Array<{ id: string; position: { x: number; y: number } }> = []
 
       for (const [index, step] of steps.entries()) {
-        const template = nodeTemplates[step.templateId]
+        const template = nodeTemplates[step.template_id]
         const col = index % 3
         const row = Math.floor(index / 3)
         const x = 80 + col * 280
@@ -140,8 +145,12 @@ export function WorkflowPage() {
             methods: step.methods,
             ...step.parameters,
             copilot_goal: goal,
+            planning_mode: plannedRoute.mode,
+            planning_summary: plannedRoute.summary,
+            planning_assumptions: plannedRoute.assumptions ?? [],
+            planning_risks: plannedRoute.risks ?? [],
             planned: step.estimate.planned,
-            current: step.estimate.current,
+            current: 0,
             estimate_unit: step.estimate.unit,
             estimated_time: step.estimate.duration,
           },

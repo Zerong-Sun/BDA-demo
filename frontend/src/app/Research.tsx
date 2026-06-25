@@ -423,7 +423,7 @@ function SweetProteinBuilder() {
       }
       const run = await createResearchRun(brief.research_brief_id)
       const completedRun = await startResearchRun(run.research_run_id)
-      const generated = await generateResearchPlan(brief.research_brief_id, selectedRoute)
+      const generated = await generateResearchPlan(brief.research_brief_id)
       return { generated, ingested, completedRun }
     },
     onSuccess: ({ generated, ingested, completedRun }) => {
@@ -561,7 +561,11 @@ function SweetProteinBuilder() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div>
                   <p className="text-xs uppercase tracking-wide text-bda-cyan">Research dossier</p>
-                  <h2 className="font-semibold">证据、骨架与风险</h2>
+                  <h2 className="font-semibold">证据、骨架与风险 · v{plan.version ?? 1}</h2>
+                  <p className="mt-1 text-xs text-bda-muted">
+                    规划模式：{text((plan.dossier_json.planning_provenance as Record<string, unknown> | undefined)?.mode) || 'deterministic_fallback'}
+                    {plan.dossier_json.planning_summary ? ` · ${text(plan.dossier_json.planning_summary)}` : ''}
+                  </p>
                 </div>
                 <div className="flex gap-2">
                   <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => void downloadResearchDossier(plan.research_brief_id, 'markdown')}>导出 Markdown</button>
@@ -679,10 +683,31 @@ function SweetProteinBuilder() {
                   ))}
                 </ol>
               ) : (
-                <div className="mt-3 space-y-2 text-sm text-bda-muted">
+                <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  <div className="space-y-2 text-sm text-bda-muted">
+                    <h3 className="font-medium text-bda-text">待核验事项</h3>
                   {((plan.dossier_json.verification_queue as string[]) ?? []).map((item) => (
                     <p key={item} className="rounded border border-bda-border p-2">{item}</p>
                   ))}
+                  </div>
+                  <div className="space-y-2 text-sm text-bda-muted">
+                    <h3 className="font-medium text-bda-text">风险与缓解</h3>
+                    {((plan.dossier_json.risks as Array<Record<string, unknown>>) ?? []).map((item, index) => (
+                      <div key={`${text(item.risk)}-${index}`} className="rounded border border-bda-border p-2">
+                        <strong className="text-bda-text">{text(item.risk)}</strong>
+                        <p>{text(item.severity)} · {text(item.mitigation)}</p>
+                        {item.gate ? <p className="text-bda-cyan">Gate: {text(item.gate)}</p> : null}
+                      </div>
+                    ))}
+                    <h3 className="pt-2 font-medium text-bda-text">成功标准</h3>
+                    {((plan.dossier_json.success_criteria as Array<Record<string, unknown>>) ?? []).map((item, index) => (
+                      <div key={`${text(item.stage)}-${index}`} className="rounded border border-bda-border p-2">
+                        <strong className="text-bda-text">{text(item.stage)}</strong>
+                        <p>{text(item.criterion)}</p>
+                        <p className="text-bda-cyan">{text(item.evidence_required)}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -714,6 +739,9 @@ function SweetProteinBuilder() {
                     <strong className="text-sm">{route.name}</strong>
                     <p className="mt-1 text-xs text-bda-muted">{route.rationale}</p>
                     <p className="mt-2 text-[11px] uppercase text-bda-amber">{route.recommendation}</p>
+                    {route.required_evidence?.length ? (
+                      <p className="mt-2 text-xs text-bda-cyan">Evidence: {route.required_evidence.join(', ')}</p>
+                    ) : null}
                   </button>
                 ))}
               </div>
