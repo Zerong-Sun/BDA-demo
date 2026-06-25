@@ -34,7 +34,9 @@ def get_job(
             ) or job
             if live.status in {"completed", "failed", "cancelled"}:
                 if live.status == "completed":
-                    job_service.collect_job_outputs(connection, job_id)
+                    collected = job_service.collect_job_outputs(connection, job_id)
+                    if not collected.get("contract_valid"):
+                        live.status = "failed"
                     job = job_service.get_job(connection, job_id) or job
                 if job.get("node_run_id"):
                     from ..repositories import catalog
@@ -89,6 +91,43 @@ def cancel_job(
         handle_job_terminal(connection, job=job, status="cancelled")
         return envelope({"job_id": job_id, "status": "cancelled"})
     return envelope({"job_id": job_id, "status": job.get("status"), "cancelled": False})
+
+
+@router.post("/jobs/{job_id}/retry")
+def retry_job(
+    job_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_job_access),
+):
+    job = job_service.get_job(connection, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job_not_found")
+    if job.get("status") not in {"failed", "cancelled"}:
+        raise HTTPException(status_code=409, detail="job_not_retryable")
+    node_run_id = job.get("node_run_id")
+    if not node_run_id:
+        raise HTTPException(status_code=409, detail="job_has_no_workflow_node")
+    from ..repositories import catalog
+
+    node = catalog.get_workflow_node(connection, node_run_id)
+    if node is None:
+        raise HTTPException(status_code=404, detail="node_not_found")
+
+    catalog.update_workflow_node(connection, node_run_id, status="ready")
+    checksum = job_service.parameter_checksum(node.get("parameters_json") or {})
+    try:
+        retried = job_service.submit_node_job(
+            connection,
+            node_run_id,
+            job.get("compute_node_id"),
+            expected_parameter_checksum=checksum,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return envelope({
+        "previous_job_id": job_id,
+        "job": retried,
+    })
 
 
 @router.get("/workflow-runs/{workflow_run_id}/jobs")

@@ -19,7 +19,7 @@ import { useToastStore } from '../../components/ui/toastStore'
 import { listModelPlugins } from '../../lib/api/registry'
 import { ParameterSchemaForm } from '../plugins'
 import {
-  experimentResultTemplateUrl,
+  downloadExperimentResultTemplate,
   getWorkflowExperimentPlan,
   getWorkflowParameterRecommendations,
   updateExperimentPlanStep,
@@ -83,19 +83,11 @@ export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifac
   const updateExperimentStep = useMutation({
     mutationFn: ({
       step,
-      status,
-      notes,
-      resultArtifactId,
+      payload,
     }: {
       step: ExperimentPlanStep
-      status: string
-      notes: string
-      resultArtifactId?: string
-    }) => updateExperimentPlanStep(step.experiment_plan_step_id, {
-      status,
-      notes,
-      result_artifact_id: resultArtifactId,
-    }),
+      payload: Parameters<typeof updateExperimentPlanStep>[1]
+    }) => updateExperimentPlanStep(step.experiment_plan_step_id, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['experiment-plan', workflowRunId] })
       refreshWorkflow()
@@ -390,24 +382,30 @@ export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifac
             {selectedNode.node_type === 'experiment' && experimentPlan ? (
               <InspectorBlock icon={<Network className="h-3.5 w-3.5" />} title="Experiment plan">
                 <p className="mb-2 text-xs text-bda-muted">{experimentPlan.objective}</p>
-                <div className="mb-3 flex gap-2">
-                  <a
+                <div className="mb-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
                     className="inline-flex items-center gap-1 rounded border border-bda-border px-2 py-1 text-xs"
-                    href={experimentResultTemplateUrl(experimentPlan.experiment_plan_id)}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={() => void downloadExperimentResultTemplate(experimentPlan.experiment_plan_id, 'csv')}
                   >
                     <Download className="h-3.5 w-3.5" />
                     CSV result template
-                  </a>
-                  <a
+                  </button>
+                  <button
+                    type="button"
                     className="inline-flex items-center gap-1 rounded border border-bda-border px-2 py-1 text-xs"
-                    href={experimentResultTemplateUrl(experimentPlan.experiment_plan_id, 'json')}
-                    target="_blank"
-                    rel="noreferrer"
+                    onClick={() => void downloadExperimentResultTemplate(experimentPlan.experiment_plan_id, 'xlsx')}
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    XLSX workbook
+                  </button>
+                  <button
+                    type="button"
+                    className="inline-flex items-center gap-1 rounded border border-bda-border px-2 py-1 text-xs"
+                    onClick={() => void downloadExperimentResultTemplate(experimentPlan.experiment_plan_id, 'json')}
                   >
                     JSON schema
-                  </a>
+                  </button>
                 </div>
                 <div className="space-y-2">
                   {experimentPlan.steps.map((step) => (
@@ -416,8 +414,7 @@ export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifac
                       step={step}
                       selectedArtifact={selectedArtifact}
                       saving={updateExperimentStep.isPending}
-                      onSave={(status, notes, resultArtifactId) =>
-                        updateExperimentStep.mutate({ step, status, notes, resultArtifactId })}
+                      onSave={(payload) => updateExperimentStep.mutate({ step, payload })}
                     />
                   ))}
                 </div>
@@ -472,9 +469,31 @@ function ExperimentStepEditor({
   step: ExperimentPlanStep
   selectedArtifact?: Artifact | null
   saving: boolean
-  onSave: (status: string, notes: string, resultArtifactId?: string) => void
+  onSave: (payload: Parameters<typeof updateExperimentPlanStep>[1]) => void
 }) {
+  const listText = (items: unknown[]) => items
+    .map((item) => typeof item === 'string' ? item : JSON.stringify(item))
+    .join('\n')
+  const parseList = (value: string) => value
+    .split('\n')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => {
+      try {
+        return JSON.parse(item) as unknown
+      } catch {
+        return item
+      }
+    })
   const [open, setOpen] = useState(false)
+  const [title, setTitle] = useState(step.title)
+  const [purpose, setPurpose] = useState(step.purpose)
+  const [owner, setOwner] = useState(step.owner ?? '')
+  const [samples, setSamples] = useState(listText(step.samples_json))
+  const [controls, setControls] = useState(listText(step.controls_json))
+  const [readouts, setReadouts] = useState(listText(step.readouts_json))
+  const [criteria, setCriteria] = useState(listText(step.acceptance_criteria_json))
+  const [dependencies, setDependencies] = useState(listText(step.dependencies_json))
   const [status, setStatus] = useState(step.status)
   const [notes, setNotes] = useState(step.notes ?? '')
   return (
@@ -489,9 +508,25 @@ function ExperimentStepEditor({
       </button>
       {open ? (
         <div className="mt-2 space-y-2 text-xs">
-          <p className="text-bda-muted">{step.purpose}</p>
-          <p><span className="text-bda-muted">Readouts:</span> {step.readouts_json.join(', ')}</p>
-          <p><span className="text-bda-muted">Criteria:</span> {step.acceptance_criteria_json.join(', ')}</p>
+          <input className="w-full rounded border border-bda-border bg-bda-panel px-2 py-1" value={title} onChange={(event) => setTitle(event.target.value)} placeholder="Stage title" />
+          <textarea className="min-h-16 w-full rounded border border-bda-border bg-bda-panel p-2" value={purpose} onChange={(event) => setPurpose(event.target.value)} placeholder="Purpose" />
+          <input className="w-full rounded border border-bda-border bg-bda-panel px-2 py-1" value={owner} onChange={(event) => setOwner(event.target.value)} placeholder="Owner" />
+          {[
+            ['Samples — one item or JSON object per line', samples, setSamples],
+            ['Controls — one item or JSON object per line', controls, setControls],
+            ['Readouts — one item or JSON object per line', readouts, setReadouts],
+            ['Acceptance criteria — one item or JSON object per line', criteria, setCriteria],
+            ['Dependencies — stage_key per line', dependencies, setDependencies],
+          ].map(([label, value, setter]) => (
+            <label key={label as string} className="block">
+              <span className="mb-1 block text-bda-muted">{label as string}</span>
+              <textarea
+                className="min-h-16 w-full rounded border border-bda-border bg-bda-panel p-2"
+                value={value as string}
+                onChange={(event) => (setter as (value: string) => void)(event.target.value)}
+              />
+            </label>
+          ))}
           <select
             className="w-full rounded border border-bda-border bg-bda-panel px-2 py-1"
             value={status}
@@ -512,8 +547,20 @@ function ExperimentStepEditor({
           <button
             type="button"
             className="rounded border border-bda-border px-2 py-1 disabled:opacity-40"
-            disabled={saving}
-            onClick={() => onSave(status, notes, selectedArtifact?.artifact_id)}
+            disabled={saving || !title.trim() || !purpose.trim()}
+            onClick={() => onSave({
+              title: title.trim(),
+              purpose: purpose.trim(),
+              owner: owner.trim(),
+              samples: parseList(samples),
+              controls: parseList(controls),
+              readouts: parseList(readouts),
+              acceptance_criteria: parseList(criteria),
+              dependencies: parseList(dependencies),
+              status,
+              notes,
+              result_artifact_id: selectedArtifact?.artifact_id,
+            })}
           >
             Save step{selectedArtifact ? ` + attach ${selectedArtifact.display_name}` : ''}
           </button>

@@ -5,6 +5,8 @@ import { Check, LoaderCircle, Play, Search, X } from 'lucide-react'
 import {
   createResearchBrief,
   createResearchRun,
+  compareResearchSequences,
+  compareResearchStructures,
   createLiteratureSubscription,
   detectLiteratureRelations,
   generateResearchPlan,
@@ -25,8 +27,11 @@ import {
   searchLiteratureLibrary,
   updateLiteratureSubscription,
   type ResearchRun,
+  type SequenceComparison,
+  type StructureComparison,
   type WorkflowPlan,
 } from '../lib/api/copilot'
+import { listProjectArtifacts } from '../lib/api/artifacts'
 import {
   createCampaign,
   evaluateCampaignRound,
@@ -363,7 +368,13 @@ function SweetProteinBuilder() {
   const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [sourceSummary, setSourceSummary] = useState('')
   const [researchRun, setResearchRun] = useState<ResearchRun | null>(null)
-  const [dossierTab, setDossierTab] = useState<'evidence' | 'scaffolds' | 'workflow' | 'risks'>('evidence')
+  const [dossierTab, setDossierTab] = useState<'evidence' | 'scaffolds' | 'comparison' | 'workflow' | 'risks'>('evidence')
+  const [sequenceInput, setSequenceInput] = useState(
+    'reference|ACDEFGHIKLMNPQRSTVWY\ncandidate|ACDEYGHIKLMNPQRSTVWY',
+  )
+  const [sequenceComparison, setSequenceComparison] = useState<SequenceComparison | null>(null)
+  const [structureComparison, setStructureComparison] = useState<StructureComparison | null>(null)
+  const [selectedStructureIds, setSelectedStructureIds] = useState<string[]>([])
   const applyPlan = (generated: WorkflowPlan) => {
     setPlan(generated)
     setSelectedRoute(generated.selected_route ?? 'monellin_redesign')
@@ -378,6 +389,11 @@ function SweetProteinBuilder() {
     queryFn: () => listNotifications(projectId),
     enabled: Boolean(projectId),
     refetchInterval: 5000,
+  })
+  const artifacts = useQuery({
+    queryKey: ['artifacts', projectId],
+    queryFn: () => listProjectArtifacts(projectId),
+    enabled: Boolean(projectId),
   })
   const create = useMutation({
     mutationFn: async () => {
@@ -451,7 +467,27 @@ function SweetProteinBuilder() {
       } : current)
     },
   })
-  const actionError = create.error || materialize.error
+  const compareSequences = useMutation({
+    mutationFn: () => {
+      if (!plan) throw new Error('No research brief')
+      const sequences = sequenceInput.split('\n').map((line) => {
+        const [name, ...sequence] = line.split('|')
+        return { name: name.trim(), sequence: sequence.join('|').trim() }
+      }).filter((item) => item.name && item.sequence)
+      if (sequences.length < 2) throw new Error('至少输入两行 name|SEQUENCE')
+      return compareResearchSequences(plan.research_brief_id, sequences)
+    },
+    onSuccess: setSequenceComparison,
+  })
+  const compareStructures = useMutation({
+    mutationFn: () => {
+      if (!plan) throw new Error('No research brief')
+      if (selectedStructureIds.length < 2) throw new Error('至少选择两个 PDB artifact')
+      return compareResearchStructures(plan.research_brief_id, selectedStructureIds)
+    },
+    onSuccess: setStructureComparison,
+  })
+  const actionError = create.error || materialize.error || compareSequences.error || compareStructures.error
 
   return (
     <div className="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
@@ -533,7 +569,7 @@ function SweetProteinBuilder() {
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
-                {(['evidence', 'scaffolds', 'workflow', 'risks'] as const).map((item) => (
+                {(['evidence', 'scaffolds', 'comparison', 'workflow', 'risks'] as const).map((item) => (
                   <button
                     key={item}
                     className={`rounded px-2 py-1 text-xs ${dossierTab === item ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`}
@@ -575,6 +611,64 @@ function SweetProteinBuilder() {
                       <p className="mt-1 text-xs text-bda-amber">Risks: {Array.isArray(item.risks) ? item.risks.join(', ') : ''}</p>
                     </article>
                   ))}
+                </div>
+              ) : dossierTab === 'comparison' ? (
+                <div className="mt-3 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded border border-bda-border p-3">
+                    <h3 className="text-sm font-medium">序列全局比对</h3>
+                    <p className="mt-1 text-xs text-bda-muted">每行使用 name|SEQUENCE；第一行为参考序列。</p>
+                    <textarea
+                      className="mt-2 min-h-28 w-full rounded border border-bda-border bg-bda-bg p-2 font-mono text-xs"
+                      value={sequenceInput}
+                      onChange={(event) => setSequenceInput(event.target.value)}
+                    />
+                    <button className="mt-2 rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-40" disabled={compareSequences.isPending} onClick={() => compareSequences.mutate()}>
+                      运行序列比对
+                    </button>
+                    {sequenceComparison ? (
+                      <div className="mt-3 space-y-2 text-xs">
+                        {sequenceComparison.alignments.map((item) => (
+                          <div key={item.query} className="rounded bg-bda-bg p-2">
+                            <strong>{item.query}</strong> · identity {(item.identity * 100).toFixed(1)}% · coverage {(item.coverage * 100).toFixed(1)}%
+                            <pre className="mt-1 overflow-auto font-mono text-[10px] text-bda-muted">{item.aligned_reference}{'\n'}{item.aligned_query}</pre>
+                          </div>
+                        ))}
+                        <p className="text-bda-muted">保守参考位点：{sequenceComparison.conserved_reference_positions.join(', ') || '无'}</p>
+                      </div>
+                    ) : null}
+                  </div>
+                  <div className="rounded border border-bda-border p-3">
+                    <h3 className="text-sm font-medium">结构叠合</h3>
+                    <p className="mt-1 text-xs text-bda-muted">选择项目中的 PDB；第一项作为参考，按 CA 文件顺序计算 Kabsch RMSD。</p>
+                    <div className="mt-2 max-h-36 space-y-1 overflow-auto">
+                      {(artifacts.data ?? []).filter((item) => item.format === 'pdb').map((item) => (
+                        <label key={item.artifact_id} className="flex items-center gap-2 text-xs">
+                          <input
+                            type="checkbox"
+                            checked={selectedStructureIds.includes(item.artifact_id)}
+                            onChange={(event) => setSelectedStructureIds((current) =>
+                              event.target.checked
+                                ? [...current, item.artifact_id]
+                                : current.filter((id) => id !== item.artifact_id))}
+                          />
+                          {item.display_name}
+                        </label>
+                      ))}
+                    </div>
+                    <button className="mt-2 rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-40" disabled={compareStructures.isPending || selectedStructureIds.length < 2} onClick={() => compareStructures.mutate()}>
+                      运行结构叠合
+                    </button>
+                    {structureComparison ? (
+                      <div className="mt-3 space-y-2 text-xs">
+                        {structureComparison.comparisons.map((item) => (
+                          <p key={item.query_artifact_id} className="rounded bg-bda-bg p-2">
+                            {item.reference_name} ↔ {item.query_name}: RMSD {item.ca_rmsd.toFixed(3)} Å · coverage {(item.coverage * 100).toFixed(1)}%
+                          </p>
+                        ))}
+                        <p className="text-bda-muted">{structureComparison.note}</p>
+                      </div>
+                    ) : null}
+                  </div>
                 </div>
               ) : dossierTab === 'workflow' ? (
                 <ol className="mt-3 space-y-2 text-sm">

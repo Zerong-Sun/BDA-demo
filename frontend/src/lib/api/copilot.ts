@@ -105,6 +105,8 @@ export interface WorkflowPlan {
   research_brief_id: string
   project_id: string
   name: string
+  version?: number
+  supersedes_workflow_plan_id?: string | null
   selected_route?: string | null
   route_options_json: SweetProteinRoute[]
   dossier_json: Record<string, unknown>
@@ -542,9 +544,79 @@ export function getWorkflowParameterRecommendations(
 
 export function experimentResultTemplateUrl(
   experimentPlanId: string,
-  format: 'csv' | 'json' = 'csv',
+  format: 'csv' | 'xlsx' | 'json' = 'csv',
 ) {
   return `${API_BASE}/copilot/experiment-plans/${experimentPlanId}/result-template?format=${format}`
+}
+
+export async function downloadExperimentResultTemplate(
+  experimentPlanId: string,
+  format: 'csv' | 'xlsx' | 'json',
+) {
+  const token = sessionStorage.getItem('bda_token')
+  const response = await fetch(experimentResultTemplateUrl(experimentPlanId, format), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) throw new Error('Failed to download experiment result template')
+  const blob = await response.blob()
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `${experimentPlanId}-results.${format}`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+export interface SequenceComparison {
+  reference: { name: string; sequence: string }
+  sequences: Array<{ name: string; length: number }>
+  alignments: Array<{
+    reference: string
+    query: string
+    aligned_reference: string
+    aligned_query: string
+    score: number
+    identity: number
+    coverage: number
+  }>
+  conserved_reference_positions: number[]
+  note: string
+}
+
+export interface StructureComparison {
+  reference_artifact_id: string
+  comparisons: Array<{
+    reference_artifact_id: string
+    query_artifact_id: string
+    reference_name: string
+    query_name: string
+    reference_ca_count: number
+    query_ca_count: number
+    paired_ca_count: number
+    ca_rmsd: number
+    coverage: number
+  }>
+  note: string
+}
+
+export function compareResearchSequences(
+  researchBriefId: string,
+  sequences: Array<{ name: string; sequence: string }>,
+) {
+  return apiRequest<SequenceComparison>(
+    `/copilot/research-briefs/${researchBriefId}/sequence-comparison`,
+    { method: 'POST', body: JSON.stringify({ sequences }) },
+  )
+}
+
+export function compareResearchStructures(
+  researchBriefId: string,
+  artifactIds: string[],
+) {
+  return apiRequest<StructureComparison>(
+    `/copilot/research-briefs/${researchBriefId}/structure-comparison`,
+    { method: 'POST', body: JSON.stringify({ artifact_ids: artifactIds }) },
+  )
 }
 
 export function updateExperimentPlanStep(

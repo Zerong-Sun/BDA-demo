@@ -78,6 +78,14 @@ class AutomationPolicyUpdateRequest(BaseModel):
     retry_backoff_seconds: int = Field(default=60, ge=5, le=3600)
 
 
+class SequenceComparisonRequest(BaseModel):
+    sequences: list[dict[str, str]] = Field(min_length=2, max_length=50)
+
+
+class StructureComparisonRequest(BaseModel):
+    artifact_ids: list[str] = Field(min_length=2, max_length=20)
+
+
 class CreateProjectRequest(BaseModel):
     project_name: str = Field(min_length=1, max_length=160)
     project_type: str = Field(default="protein_design", min_length=1, max_length=80)

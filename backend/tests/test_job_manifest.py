@@ -55,10 +55,13 @@ def test_collect_job_outputs_registers_artifacts(db):
     output_dir.mkdir(parents=True, exist_ok=True)
     fasta = output_dir / "designed.fasta"
     fasta.write_text(">design_1\nACDEFGHIKLMNPQRSTVWY\n")
+    scores = output_dir / "scores.csv"
+    scores.write_text("candidate_id,score\ndesign_1,-1.2\n")
     (output_dir / "manifest.json").write_text(json.dumps({
         "status": "completed",
         "outputs": {
             "sequence_set": [{"path": "/output/designed.fasta", "format": "fasta"}],
+            "score_table": [{"path": "/output/scores.csv", "format": "csv"}],
         },
         "metrics": {"designed": 1},
     }))
@@ -73,3 +76,20 @@ def test_collect_job_outputs_registers_artifacts(db):
 
     repeated = job_service.collect_job_outputs(db, job["job_id"])
     assert repeated["artifacts"][0]["artifact_id"] == result["artifacts"][0]["artifact_id"]
+
+
+def test_collect_job_outputs_fails_when_manifest_is_missing(db):
+    job = job_service.create_job(
+        db,
+        workflow_run_id="run_pd1_round1",
+        node_run_id="node_mpnn",
+        plugin_id="plugin_proteinmpnn",
+    )
+
+    result = job_service.collect_job_outputs(db, job["job_id"])
+    refreshed = job_service.get_job(db, job["job_id"])
+
+    assert result["contract_valid"] is False
+    assert result["contract_errors"] == ["missing_output_manifest"]
+    assert refreshed["status"] == "failed"
+    assert refreshed["error_message"] == "output_contract_failed:missing_output_manifest"

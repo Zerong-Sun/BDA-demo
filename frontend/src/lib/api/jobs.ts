@@ -18,3 +18,10 @@ export function getJobLogs(jobId: string, tail = 200): Promise<{ job_id: string;
 export function cancelJob(jobId: string): Promise<{ job_id: string; status: string; cancelled?: boolean }> {
   return apiRequest(`/jobs/${jobId}/cancel`, { method: 'POST' })
 }
+
+export function retryJob(jobId: string): Promise<Job> {
+  return apiRequest<{ previous_job_id: string; job: unknown }>(
+    `/jobs/${jobId}/retry`,
+    { method: 'POST' },
+  ).then((payload) => JobSchema.parse(payload.job))
+}

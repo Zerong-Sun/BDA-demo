@@ -482,6 +482,7 @@ def update_workflow_node(
     output_files_json: str | None = None,
     metrics_json: str | None = None,
     status: str | None = None,
+    error_message: str | None = None,
 ) -> dict | None:
     updates: list[str] = []
     params: list[object] = []
@@ -503,6 +504,9 @@ def update_workflow_node(
     if status is not None:
         updates.append("status = ?")
         params.append(status)
+    if error_message is not None:
+        updates.append("error_message = ?")
+        params.append(error_message)
     if not updates:
         return get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
     params.append(node_run_id)

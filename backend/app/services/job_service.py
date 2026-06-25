@@ -262,8 +262,51 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
         collect_remote(job_id, str(output_dir))
     manifest_path = output_dir / "manifest.json"
     if not manifest_path.exists():
-        return {"manifest_found": False, "artifacts": []}
-    output_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        result = {
+            "manifest_found": False,
+            "contract_valid": False,
+            "contract_errors": ["missing_output_manifest"],
+            "artifacts": [],
+        }
+        update_job_status(
+            connection,
+            job_id,
+            status="failed",
+            output_artifacts=result,
+            error_message="output_contract_failed:missing_output_manifest",
+        )
+        if job.get("node_run_id"):
+            catalog.update_workflow_node(
+                connection,
+                job["node_run_id"],
+                status="failed",
+                error_message="output_contract_failed:missing_output_manifest",
+            )
+        return result
+    try:
+        output_manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as exc:
+        result = {
+            "manifest_found": True,
+            "contract_valid": False,
+            "contract_errors": [f"invalid_output_manifest:{exc.__class__.__name__}"],
+            "artifacts": [],
+        }
+        update_job_status(
+            connection,
+            job_id,
+            status="failed",
+            output_artifacts=result,
+            error_message="output_contract_failed:invalid_output_manifest",
+        )
+        if job.get("node_run_id"):
+            catalog.update_workflow_node(
+                connection,
+                job["node_run_id"],
+                status="failed",
+                error_message="output_contract_failed:invalid_output_manifest",
+            )
+        return result
     project_id = None
     if job.get("workflow_run_id"):
         project_id = catalog.get_workflow_run_project_id(connection, job["workflow_run_id"])
@@ -309,20 +352,60 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
         )
         registered.append(artifact)
 
+    plugin = registry.get_model_plugin(connection, job.get("plugin_id")) if job.get("plugin_id") else None
+    output_schema = (plugin or {}).get("output_schema_json") or {}
+    if isinstance(output_schema.get("ports"), list):
+        required_ports = {
+            port["name"]
+            for port in output_schema["ports"]
+            if port.get("required", True) and port.get("name") != "run_manifest"
+        }
+    else:
+        legacy_port_aliases = {
+            "fasta": "sequence_set",
+            "backbone_pdbs": "backbone_set",
+            "structure": "predicted_structure",
+            "relaxed_pdb": "relaxed_structure",
+        }
+        required_ports = {
+            legacy_port_aliases.get(name, name)
+            for name in output_schema
+            if name not in {"manifest", "run_manifest"}
+        }
+    produced_ports = {
+        (artifact.get("metadata_json") or {}).get("source_port")
+        for artifact in registered
+    }
+    missing_ports = sorted(required_ports - produced_ports)
     result = {
         "manifest_found": True,
         "manifest": output_manifest,
         "artifacts": registered,
         "metrics": output_manifest.get("metrics") or {},
+        "contract_valid": not missing_ports,
+        "contract_errors": [f"missing_required_output:{port}" for port in missing_ports],
     }
-    update_job_status(connection, job_id, status="completed", output_artifacts=result)
+    terminal_status = "completed" if result["contract_valid"] else "failed"
+    error_message = (
+        None
+        if result["contract_valid"]
+        else f"output_contract_failed:{','.join(missing_ports)}"
+    )
+    update_job_status(
+        connection,
+        job_id,
+        status=terminal_status,
+        output_artifacts=result,
+        error_message=error_message,
+    )
     if job.get("node_run_id"):
         catalog.update_workflow_node(
             connection,
             job["node_run_id"],
-            status="completed",
+            status=terminal_status,
             metrics_json=json.dumps(result["metrics"]),
             output_files_json=json.dumps([artifact["artifact_id"] for artifact in registered]),
+            error_message=error_message,
         )
     return result
 
@@ -625,19 +708,21 @@ def submit_node_job(
         external_id=handle.external_id,
     )
     if st.status in ("completed", "failed", "cancelled"):
+        terminal_status = st.status
         if st.status == "completed":
-            collect_job_outputs(connection, job["job_id"])
+            collected = collect_job_outputs(connection, job["job_id"])
+            terminal_status = "completed" if collected.get("contract_valid") else "failed"
         catalog.update_workflow_node(
             connection,
             node_run_id,
-            status="completed" if st.status == "completed" else st.status,
+            status="completed" if terminal_status == "completed" else terminal_status,
         )
         from .run_coordinator import handle_job_terminal
 
         handle_job_terminal(
             connection,
             job=get_job(connection, job["job_id"]) or job,
-            status=st.status,
+            status=terminal_status,
         )
     if st.status in ("queued", "running"):
         catalog.update_workflow_node(connection, node_run_id, status="queued")

@@ -311,6 +311,8 @@ CREATE TABLE IF NOT EXISTS workflow_plans (
   dossier_json TEXT NOT NULL DEFAULT '{}',
   nodes_json TEXT NOT NULL DEFAULT '[]',
   edges_json TEXT NOT NULL DEFAULT '[]',
+  version INTEGER NOT NULL DEFAULT 1,
+  supersedes_workflow_plan_id TEXT,
   status TEXT NOT NULL DEFAULT 'draft',
   materialized_workflow_run_id TEXT,
   created_by TEXT,
@@ -318,6 +320,7 @@ CREATE TABLE IF NOT EXISTS workflow_plans (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (research_brief_id) REFERENCES research_briefs(research_brief_id) ON DELETE CASCADE,
   FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE,
+  FOREIGN KEY (supersedes_workflow_plan_id) REFERENCES workflow_plans(workflow_plan_id) ON DELETE SET NULL,
   FOREIGN KEY (materialized_workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE SET NULL
 );
 

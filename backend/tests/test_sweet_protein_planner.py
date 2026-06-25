@@ -94,6 +94,28 @@ def test_sweet_protein_brief_plan_and_materialize(
     assert any(node.get("model_name") == "RFdiffusion" for node in plan["nodes_json"])
     assert "scaffolds" in plan["dossier_json"]
     assert "https://example.org/revised" in plan["dossier_json"]["source_reference_queue"]
+    assert plan["version"] == 1
+
+    revised_plan_response = client.post(
+        f"{API}/copilot/research-briefs/{brief['research_brief_id']}/plan",
+        headers=auth_headers,
+        json={"selected_route": "brazzein_redesign"},
+    )
+    assert revised_plan_response.status_code == 200
+    revised_plan = revised_plan_response.json()["data"]
+    assert revised_plan["version"] == 2
+    assert revised_plan["supersedes_workflow_plan_id"] == plan["workflow_plan_id"]
+
+    sequence_comparison = client.post(
+        f"{API}/copilot/research-briefs/{brief['research_brief_id']}/sequence-comparison",
+        headers=auth_headers,
+        json={"sequences": [
+            {"name": "reference", "sequence": "ACDEFGHIK"},
+            {"name": "candidate", "sequence": "ACDEYGHIK"},
+        ]},
+    )
+    assert sequence_comparison.status_code == 200
+    assert sequence_comparison.json()["data"]["alignments"][0]["identity"] < 1
 
     detail_response = client.get(
         f"{API}/copilot/research-briefs/{brief['research_brief_id']}",
@@ -260,6 +282,14 @@ def test_sweet_protein_brief_plan_and_materialize(
     )
     assert template_response.status_code == 200
     assert "candidate_id,stage_key,metric" in template_response.text
+    workbook_response = client.get(
+        f"{API}/copilot/experiment-plans/{experiment_plan['experiment_plan_id']}/result-template?format=xlsx",
+        headers=auth_headers,
+    )
+    assert workbook_response.status_code == 200
+    assert workbook_response.headers["content-type"].startswith(
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
     sensory_step = next(
         step for step in experiment_plan["steps"] if step["stage_key"] == "sensory"
     )

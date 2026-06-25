@@ -3,9 +3,11 @@ import io
 import json
 import sqlite3
 import uuid
+from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
+from openpyxl import Workbook
 from sse_starlette.sse import EventSourceResponse
 
 from ..auth.deps import get_current_user, require_role
@@ -45,6 +47,8 @@ from ..schemas import (
     ResearchBriefCreateRequest,
     ResearchPlanRequest,
     RoutePlanRequest,
+    SequenceComparisonRequest,
+    StructureComparisonRequest,
     WorkflowPlanMaterializeRequest,
 )
 from ..settings import get_settings
@@ -759,6 +763,50 @@ def create_research_run(
     return envelope(run)
 
 
+@router.post("/research-briefs/{research_brief_id}/sequence-comparison")
+def compare_research_sequences(
+    research_brief_id: str,
+    payload: SequenceComparisonRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    from ..services.protein_comparison_service import compare_sequences
+
+    try:
+        return envelope(compare_sequences(payload.sequences))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/research-briefs/{research_brief_id}/structure-comparison")
+def compare_research_structures(
+    research_brief_id: str,
+    payload: StructureComparisonRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    brief = research_planner.get_brief(connection, research_brief_id)
+    if brief is None:
+        raise HTTPException(status_code=404, detail="research_brief_not_found")
+    _ensure_project_access(connection, user, brief["project_id"])
+    from ..services.protein_comparison_service import compare_structures
+
+    try:
+        return envelope(compare_structures(
+            connection,
+            project_id=brief["project_id"],
+            artifact_ids=payload.artifact_ids,
+        ))
+    except ValueError as exc:
+        detail = str(exc)
+        status = 403 if detail == "artifact_project_mismatch" else 400
+        raise HTTPException(status_code=status, detail=detail) from exc
+
+
 @router.post("/research-runs/{research_run_id}/start")
 def start_research_run(
     research_run_id: str,
@@ -868,12 +916,31 @@ def export_research_dossier(
     if brief is None:
         raise HTTPException(status_code=404, detail="research_brief_not_found")
     _ensure_project_access(connection, user, brief["project_id"])
+    runs = [
+        research_execution.get_run(connection, item["research_run_id"])
+        for item in research_execution.list_runs(connection, research_brief_id)
+    ]
     payload = {
         "brief": brief,
         "questions": research_execution.list_questions(connection, research_brief_id),
         "findings": research_planner.list_findings(connection, research_brief_id),
         "hypotheses": research_execution.list_hypotheses(connection, research_brief_id),
-        "runs": research_execution.list_runs(connection, research_brief_id),
+        "runs": [item for item in runs if item is not None],
+        "workflow_plans": research_planner.list_plans(connection, research_brief_id),
+        "reproducibility": {
+            "exported_at": datetime.now(timezone.utc).isoformat(),
+            "includes": [
+                "brief_constraints",
+                "source_material",
+                "questions",
+                "findings",
+                "evidence",
+                "hypotheses",
+                "workflow_plan_versions",
+                "workflow_parameters",
+                "decision_gates",
+            ],
+        },
     }
     if format == "json":
         return Response(
@@ -899,6 +966,13 @@ def export_research_dossier(
         *[
             f"- **{item['hypothesis']}** — {item.get('rationale') or ''}"
             for item in payload["hypotheses"]
+        ],
+        "",
+        "## Workflow plan versions",
+        *[
+            f"- v{item.get('version', 1)} `{item['workflow_plan_id']}` · "
+            f"{item.get('selected_route') or 'route not selected'} · {item.get('status')}"
+            for item in payload["workflow_plans"]
         ],
     ]
     return Response(
@@ -992,7 +1066,7 @@ def get_workflow_parameter_recommendations(
 @router.get("/experiment-plans/{experiment_plan_id}/result-template")
 def download_experiment_result_template(
     experiment_plan_id: str,
-    format: str = Query(default="csv", pattern="^(csv|json)$"),
+    format: str = Query(default="csv", pattern="^(csv|xlsx|json)$"),
     connection: sqlite3.Connection = Depends(get_connection),
     user: dict = Depends(get_current_user),
 ):
@@ -1016,6 +1090,34 @@ def download_experiment_result_template(
             ),
             media_type="application/json",
             headers={"Content-Disposition": f'attachment; filename="{experiment_plan_id}-results.json"'},
+        )
+    if format == "xlsx":
+        workbook = Workbook()
+        sheet = workbook.active
+        sheet.title = "results"
+        sheet.append(columns)
+        for step in item["steps"]:
+            row = {column: "" for column in columns}
+            row["stage_key"] = step["stage_key"]
+            sheet.append([row[column] for column in columns])
+        instructions = workbook.create_sheet("instructions")
+        instructions.append(["experiment_plan_id", experiment_plan_id])
+        instructions.append(["status", item["status"]])
+        instructions.append([])
+        instructions.append(["stage_key", "title", "safety_level", "dependencies"])
+        for step in item["steps"]:
+            instructions.append([
+                step["stage_key"],
+                step["title"],
+                step["safety_level"],
+                ", ".join(step["dependencies_json"]),
+            ])
+        stream = io.BytesIO()
+        workbook.save(stream)
+        return Response(
+            content=stream.getvalue(),
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            headers={"Content-Disposition": f'attachment; filename="{experiment_plan_id}-results.xlsx"'},
         )
     stream = io.StringIO()
     writer = csv.writer(stream)

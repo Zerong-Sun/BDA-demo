@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CircleStop, RotateCw, Terminal } from 'lucide-react'
-import { cancelJob, getJobLogs, listWorkflowJobs } from '../../lib/api/jobs'
+import { CircleStop, RefreshCcw, RotateCw, Terminal } from 'lucide-react'
+import { cancelJob, getJobLogs, listWorkflowJobs, retryJob } from '../../lib/api/jobs'
 import type { Job } from '../../lib/schemas/job'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { statusTone } from '../../components/ui/statusTone'
@@ -48,6 +48,15 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
       queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
     },
     onError: () => showToast('Failed to cancel job', 'error'),
+  })
+  const retry = useMutation({
+    mutationFn: (job: Job) => retryJob(job.job_id),
+    onSuccess: (job) => {
+      setSelectedJobId(job.job_id)
+      showToast('Job retry submitted', 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
+    },
+    onError: () => showToast('Failed to retry job', 'error'),
   })
 
   return (
@@ -108,6 +117,17 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
               >
                 <CircleStop className="h-3.5 w-3.5" />
                 Cancel
+              </button>
+            ) : null}
+            {['failed', 'cancelled'].includes(selectedJob.status) ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded border border-bda-border px-2 py-1 text-xs text-bda-muted hover:text-bda-text disabled:opacity-40"
+                disabled={retry.isPending}
+                onClick={() => retry.mutate(selectedJob)}
+              >
+                <RefreshCcw className="h-3.5 w-3.5" />
+                Retry
               </button>
             ) : null}
           </div>

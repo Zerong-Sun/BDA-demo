@@ -511,13 +511,24 @@ Research Dossier 用 tab 展示：
 - RFdiffusion → ProteinMPNN → 结构预测 → Rosetta → filters → selection → review gate → Experiment Plan 的真实 DAG。
 - RFdiffusion 参数白名单、范围校验、推荐来源/范围/当前值 diff、确定性脚本预览、checksum 确认和集群提交。
 - artifact 项目隔离、上游 gate、输出 lineage、自动推进策略、站内通知和失败重试建议。
-- 可展开的八阶段 Experiment Plan、依赖 gate、结果 artifact、CSV/JSON 结果模板和完成后的 workflow/Campaign 同步。
+- 模型输出 manifest 与必需端口 contract 校验；缺失产物会阻止自动推进并保留失败原因。
+- Job Drawer 中的失败/取消任务显式重试，新 job 保留旧 job 历史和参数 checksum。
+- Research Dossier 中的 FASTA 全局比对、保守参考位点，以及项目 PDB 的 CA/Kabsch 结构叠合。
+- 可展开的八阶段 Experiment Plan，完整编辑样品、对照、读数、判定标准、依赖、负责人和备注。
+- 实验结果 artifact、CSV/JSON/XLSX 结果模板，以及完成后的 workflow/Campaign 同步。
+- Workflow Plan v1/v2 版本链、supersedes 关系，以及包含证据、参数建议和 decision gate 的可复现 dossier 导出。
 - 甜味蛋白 scaffold、受体区域、法规先例、assay 和食品基质领域目录初始化。
 
 安全边界保持不变：预测结合不等于甜味；人体感官、动物研究和安全研究不会自动执行，必须经过独立伦理、法规和专业审核。
 
 验收结果：
 
-- 后端：99 tests passed，coverage 74.89%。
+- 后端：103 tests passed，coverage 73.86%。
 - 前端：16 tests passed。
-- Ruff、ESLint、TypeScript production build 和 `git diff --check` 均通过。
+- 全新数据库 Alembic `upgrade head`、TypeScript production build 和 `git diff --check` 均通过。
+
+实现边界：
+
+- 结构叠合当前按 PDB 中 CA 原子的文件顺序配对，界面明确提示正式设计 gate 前必须复核 chain/residue mapping。
+- 人体感官、动物研究、安全研究和法规提交只生成计划与审批要求，不由系统自动执行。
+- 邮件/企业消息通知、外部 ELN/LIMS 和真实机构伦理审批仍属于部署集成项，不影响本地闭环验收。

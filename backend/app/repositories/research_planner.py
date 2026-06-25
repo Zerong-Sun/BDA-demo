@@ -141,12 +141,24 @@ def create_plan(
     edges: list[dict[str, Any]],
     created_by: str,
 ) -> dict[str, Any]:
+    previous = connection.execute(
+        """
+        SELECT workflow_plan_id, version FROM workflow_plans
+        WHERE research_brief_id = ?
+        ORDER BY version DESC, created_at DESC
+        LIMIT 1
+        """,
+        (research_brief_id,),
+    ).fetchone()
+    version = int(previous["version"]) + 1 if previous else 1
+    supersedes = previous["workflow_plan_id"] if previous else None
     connection.execute(
         """
         INSERT INTO workflow_plans (
             workflow_plan_id, research_brief_id, project_id, name, selected_route,
-            route_options_json, dossier_json, nodes_json, edges_json, created_by
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            route_options_json, dossier_json, nodes_json, edges_json,
+            version, supersedes_workflow_plan_id, created_by
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (
             workflow_plan_id,
@@ -158,6 +170,8 @@ def create_plan(
             json.dumps(dossier, ensure_ascii=False),
             json.dumps(nodes, ensure_ascii=False),
             json.dumps(edges, ensure_ascii=False),
+            version,
+            supersedes,
             created_by,
         ),
     )
@@ -166,6 +180,21 @@ def create_plan(
         (research_brief_id,),
     )
     return get_plan(connection, workflow_plan_id) or {}
+
+
+def list_plans(connection: sqlite3.Connection, research_brief_id: str) -> list[dict[str, Any]]:
+    rows = decode_rows(connection.execute(
+        """
+        SELECT * FROM workflow_plans
+        WHERE research_brief_id = ?
+        ORDER BY version DESC, created_at DESC
+        """,
+        (research_brief_id,),
+    ).fetchall())
+    return [
+        get_plan(connection, item["workflow_plan_id"]) or item
+        for item in rows
+    ]
 
 
 def get_plan(connection: sqlite3.Connection, workflow_plan_id: str) -> dict[str, Any] | None:
