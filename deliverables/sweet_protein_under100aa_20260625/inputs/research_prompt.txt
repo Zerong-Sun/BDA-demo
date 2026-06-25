@@ -1,0 +1,14 @@
+开发一个长度严格小于100 aa、结构简单、尽量为单链、适合饮料应用的AI甜味蛋白。
+
+必须检索、下载并比较：
+- monellin（优先 single-chain monellin / MNEI）
+- brazzein
+- mabinlin
+- pentadin
+- curculin
+
+记录每个候选的链组成、成熟肽长度、二硫键、结构证据、受体机制、表达与稳定性风险。
+优先天然骨架定向改造，不把预测结合当作甜味或安全证据。
+
+输出可编辑的 RFdiffusion、ProteinMPNN、结构预测、Rosetta 流程，以及表达纯化、
+人源 TAS1R2/TAS1R3 功能、感官、食品基质和安全法规实验计划。

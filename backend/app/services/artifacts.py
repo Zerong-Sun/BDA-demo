@@ -2,17 +2,11 @@ import csv
 import hashlib
 import io
 import json
-import re
 from pathlib import Path
 
 from fastapi import HTTPException
 
 from ..config import ARTIFACTS_ROOT, STRUCTURES_ROOT, UPLOADS_ROOT
-
-PDB_ATOM_RE = re.compile(
-    r"^ATOM\s+\d+\s+\S+\s+(\S+)\s+(\d+)",
-    re.MULTILINE,
-)
 
 SUPPORTED_ARTIFACT_FORMATS = {
     ".pdb": "pdb",
@@ -46,17 +40,19 @@ def ensure_artifact_dirs() -> None:
 
 def parse_pdb_metadata(content: str) -> dict:
     chains: set[str] = set()
-    residues: set[tuple[str, str]] = set()
+    residues: set[tuple[str, str, str]] = set()
     atom_count = 0
     for line in content.splitlines():
         if line.startswith("ATOM") or line.startswith("HETATM"):
             atom_count += 1
-            match = PDB_ATOM_RE.match(line)
-            if match:
-                chain = match.group(1)
-                res_seq = match.group(2)
+            if line.startswith("ATOM") and len(line) >= 27:
+                chain = line[21].strip() or "_"
+                res_seq = line[22:26].strip()
+                insertion_code = line[26].strip()
+                if not res_seq:
+                    continue
                 chains.add(chain)
-                residues.add((chain, res_seq))
+                residues.add((chain, res_seq, insertion_code))
     return {
         "atom_count": atom_count,
         "chain_count": len(chains) or 1,

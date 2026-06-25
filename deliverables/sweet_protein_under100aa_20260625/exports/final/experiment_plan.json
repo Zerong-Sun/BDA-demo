@@ -1,0 +1,335 @@
+{
+  "experiment_plan_id": "experiment_plan_85ab9d661a53",
+  "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+  "workflow_plan_id": "plan_436ab13250bb",
+  "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+  "node_run_id": "node_0ddfbb0370",
+  "title": "AI sweet-protein experimental validation plan",
+  "objective": "Progress candidates through expression, quality, receptor function, approved sensory, food-matrix, process, and safety/regulatory gates.",
+  "status": "draft",
+  "ethics_requirements_json": [
+    {
+      "stage": "sensory",
+      "requirement": "Independent ethics and informed-consent approval before human participation."
+    },
+    {
+      "stage": "animal_or_human_safety",
+      "requirement": "Need determined by regulatory pathway and qualified experts; not auto-scheduled."
+    }
+  ],
+  "regulatory_questions_json": [
+    {
+      "question": "What jurisdiction and intended conditions of use apply?"
+    },
+    {
+      "question": "Which safety studies are required after exposure assessment and precedent review?"
+    },
+    {
+      "question": "How do sequence changes affect allergenicity and substantial-equivalence arguments?"
+    }
+  ],
+  "result_template_json": {
+    "required_columns": [
+      "candidate_id",
+      "stage_key",
+      "metric",
+      "value",
+      "unit",
+      "pass_status",
+      "notes"
+    ],
+    "accepted_formats": [
+      "csv",
+      "xlsx",
+      "json"
+    ]
+  },
+  "version": 1,
+  "created_by": "user_22892b7c8f",
+  "created_at": "2026-06-25 12:53:18",
+  "updated_at": "2026-06-25 12:53:18",
+  "steps": [
+    {
+      "experiment_plan_step_id": "experiment_step_87ea79e7c3c6",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "expression_and_folding",
+      "stage_order": 1,
+      "title": "Expression and correct folding",
+      "purpose": "Confirm that selected sequences can be produced as correctly folded proteins before functional claims.",
+      "samples_json": [
+        "designed candidates",
+        "natural scaffold baseline"
+      ],
+      "controls_json": [
+        "process blank",
+        "negative protein control"
+      ],
+      "readouts_json": [
+        "expression yield",
+        "intact mass",
+        "SEC monomer fraction",
+        "folding/disulfide evidence"
+      ],
+      "acceptance_criteria_json": [
+        "predefined expression threshold",
+        "identity confirmed",
+        "acceptable monomer fraction"
+      ],
+      "dependencies_json": [],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_ab9e4f3400b0",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "purification_quality",
+      "stage_order": 2,
+      "title": "Purification and quality",
+      "purpose": "Establish purity, recovery, aggregation state, and a food-compatible downstream process concept.",
+      "samples_json": [
+        "expressed candidates"
+      ],
+      "controls_json": [
+        "reference purification lot"
+      ],
+      "readouts_json": [
+        "purity",
+        "total recovery",
+        "host-cell protein",
+        "residual DNA",
+        "aggregation"
+      ],
+      "acceptance_criteria_json": [
+        "project-specific specification approved before execution"
+      ],
+      "dependencies_json": [
+        "expression_and_folding"
+      ],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_d622b710f71c",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "stability",
+      "stage_order": 3,
+      "title": "Stability and formulation window",
+      "purpose": "Measure thermal, pH, storage, solubility, and freeze-thaw behavior.",
+      "samples_json": [
+        "purified candidates"
+      ],
+      "controls_json": [
+        "natural sweet-protein baseline"
+      ],
+      "readouts_json": [
+        "Tm",
+        "monomer retention",
+        "activity retention",
+        "pH window"
+      ],
+      "acceptance_criteria_json": [
+        "application-specific stability window"
+      ],
+      "dependencies_json": [
+        "purification_quality"
+      ],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_947ec97485a9",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "receptor_function",
+      "stage_order": 4,
+      "title": "Human sweet-receptor functional assay",
+      "purpose": "Distinguish receptor activation from predicted or measured binding.",
+      "samples_json": [
+        "qualified candidates"
+      ],
+      "controls_json": [
+        "empty-vector cells",
+        "single-subunit controls",
+        "human TAS1R2/TAS1R3",
+        "known sweet-protein positive control",
+        "small-molecule positive control"
+      ],
+      "readouts_json": [
+        "EC50",
+        "Emax",
+        "Hill coefficient",
+        "pH dependence",
+        "inhibitor sensitivity"
+      ],
+      "acceptance_criteria_json": [
+        "reproducible dose response",
+        "receptor-dependent activation"
+      ],
+      "dependencies_json": [
+        "purification_quality"
+      ],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_0e74db2512f3",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "sensory",
+      "stage_order": 5,
+      "title": "Approved human sensory evaluation",
+      "purpose": "Evaluate sweetness intensity, time-intensity, aftertaste, and off-notes only after safety and ethics review.",
+      "samples_json": [
+        "ethics-approved candidate formulations"
+      ],
+      "controls_json": [
+        "defined sucrose equivalents",
+        "approved comparator sweeteners"
+      ],
+      "readouts_json": [
+        "recognition threshold",
+        "equivalent sweetness",
+        "time-intensity",
+        "aftertaste",
+        "off-notes"
+      ],
+      "acceptance_criteria_json": [
+        "protocol-defined sensory target"
+      ],
+      "dependencies_json": [
+        "receptor_function",
+        "safety_regulatory"
+      ],
+      "owner": null,
+      "safety_level": "requires_ethics_and_safety_approval",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_0926509b406e",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "food_matrix",
+      "stage_order": 6,
+      "title": "Food-matrix validation",
+      "purpose": "Measure performance in the intended beverage or food matrix.",
+      "samples_json": [
+        "candidate formulations"
+      ],
+      "controls_json": [
+        "matrix without candidate",
+        "current sweetener system"
+      ],
+      "readouts_json": [
+        "activity retention",
+        "precipitation",
+        "clarity",
+        "sensory compatibility",
+        "shelf stability"
+      ],
+      "acceptance_criteria_json": [
+        "matrix-specific specification"
+      ],
+      "dependencies_json": [
+        "stability",
+        "receptor_function"
+      ],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_d6cce3df7eb0",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "process",
+      "stage_order": 7,
+      "title": "Fermentation and downstream economics",
+      "purpose": "Co-optimize production, correct folding, recovery, and effective sweetness titer.",
+      "samples_json": [
+        "lead production strains/lots"
+      ],
+      "controls_json": [
+        "baseline host/process"
+      ],
+      "readouts_json": [
+        "protein titer",
+        "correct folding fraction",
+        "relative sweetness",
+        "effective sweetness titer",
+        "cost"
+      ],
+      "acceptance_criteria_json": [
+        "business-approved cost and process window"
+      ],
+      "dependencies_json": [
+        "expression_and_folding",
+        "receptor_function"
+      ],
+      "owner": null,
+      "safety_level": "high_level_plan",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "experiment_plan_step_id": "experiment_step_0bea2139057f",
+      "experiment_plan_id": "experiment_plan_85ab9d661a53",
+      "stage_key": "safety_regulatory",
+      "stage_order": 8,
+      "title": "Safety and regulatory evidence",
+      "purpose": "Build a staged safety and regulatory evidence package without assuming animal or human studies are automatically required.",
+      "samples_json": [
+        "finalized candidate and production material"
+      ],
+      "controls_json": [
+        "method-specific controls"
+      ],
+      "readouts_json": [
+        "allergen/toxin screening",
+        "digestibility",
+        "genotoxicity package",
+        "exposure assessment",
+        "regulatory gap list"
+      ],
+      "acceptance_criteria_json": [
+        "regulatory and ethics experts approve next-stage evidence plan"
+      ],
+      "dependencies_json": [
+        "purification_quality"
+      ],
+      "owner": null,
+      "safety_level": "requires_regulatory_review",
+      "status": "planned",
+      "result_artifact_id": null,
+      "notes": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    }
+  ]
+}

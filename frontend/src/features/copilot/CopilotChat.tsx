@@ -6,7 +6,7 @@ import { useProjectContext } from '../../lib/hooks/useProjectContext'
 export function CopilotChat({ pageContext }: { pageContext?: string }) {
   const { projectId } = useProjectContext()
   const { messages, loading, error, send } = useCopilotChat(projectId, pageContext)
-  const [input, setInput] = useState('Explain why c4361 should anchor round two')
+  const [input, setInput] = useState('')
 
   const handleSend = async () => {
     const trimmed = input.trim()

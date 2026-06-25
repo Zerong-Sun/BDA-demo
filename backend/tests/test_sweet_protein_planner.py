@@ -457,7 +457,7 @@ def test_rfdiffusion_parameters_are_validated_and_allowlisted():
         "diffuser.T": 50,
         "denoiser.noise_scale_ca": 0.5,
         "denoiser.noise_scale_frame": 0.5,
-        "contigmap.contigs": "[A1-90]",
+        "contigmap.contigs": "[A1-96]",
         "contigmap.inpaint_seq": "[A20-25]",
         "potentials.guiding_potentials": ["type:monomer_ROG,weight:1"],
         "untrusted.command": "rm -rf /",

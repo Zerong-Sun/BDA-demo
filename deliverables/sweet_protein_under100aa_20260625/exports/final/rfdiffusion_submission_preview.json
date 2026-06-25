@@ -1,0 +1,65 @@
+{
+  "node_run_id": "node_f1ba985523",
+  "ready": true,
+  "blockers": [],
+  "parameter_checksum": "b669989219a605125cca4b6ce519dbd87abcff07a31770cde465c13e38aff7d7",
+  "model_name": "RFdiffusion",
+  "plugin_id": "plugin_rfdiffusion",
+  "container_image": "bda/rfdiffusion:1.1.0",
+  "resources": {
+    "gpu_count": 1,
+    "min_vram_gb": 24,
+    "cpu_count": 8,
+    "memory_gb": 32,
+    "runtime_env": {
+      "BDA_GPU": "1"
+    }
+  },
+  "command": "python run.py",
+  "model_command_preview": "python /opt/RFdiffusion/scripts/run_inference.py 'inference.input_pdb=/input/<staged-target-structure>' 'contigmap.contigs=[A1-96]' denoiser.noise_scale_ca=0.5 denoiser.noise_scale_frame=0.5 diffuser.T=50 diffuser.partial_T=10 inference.num_designs=300 inference.output_prefix=output/design",
+  "inputs": {
+    "target_structure": [
+      {
+        "port": "target_structure",
+        "artifact_id": "art_b7df775ee2c54186"
+      }
+    ]
+  },
+  "expected_outputs": {
+    "ports": [
+      {
+        "name": "backbone_set",
+        "artifact_types": [
+          "backbone_set"
+        ],
+        "required": true,
+        "many": true,
+        "help": "Generated backbone structures."
+      },
+      {
+        "name": "score_table",
+        "artifact_types": [
+          "score_table"
+        ],
+        "required": false,
+        "many": false,
+        "help": "Sampling scores and metadata."
+      },
+      {
+        "name": "run_manifest",
+        "artifact_types": [
+          "manifest"
+        ],
+        "required": true,
+        "many": false,
+        "help": "Machine-readable output manifest."
+      }
+    ]
+  },
+  "requires_confirmation": true,
+  "validation": {
+    "valid": true,
+    "errors": [],
+    "warnings": []
+  }
+}

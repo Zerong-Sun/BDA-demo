@@ -527,9 +527,13 @@ Research Dossier 用 tab 展示：
 
 验收结果：
 
-- 后端：105 tests passed，coverage 73.91%。
+- 后端：106 tests passed，coverage 74.14%。
 - 前端：16 tests passed。
 - 全新数据库 Alembic `upgrade head`、TypeScript production build 和 `git diff --check` 均通过。
+- 测试数据库已与开发数据库隔离，避免验收测试清空浏览器项目状态。
+- 已通过网站完成 `<100 aa` 甜味蛋白实例验收，并将官方序列/结构、研究 dossier、
+  比较结果、实验模板、清洗脚本和 RFdiffusion 提交预览归档到
+  `deliverables/sweet_protein_under100aa_20260625/`。
 
 实现边界：
 

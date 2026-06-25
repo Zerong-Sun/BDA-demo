@@ -59,6 +59,7 @@ def synthesize_sweet_protein_plan(
     *,
     brief: dict[str, Any],
     canonical_routes: list[dict[str, Any]],
+    canonical_scaffolds: list[dict[str, Any]],
     canonical_nodes: list[dict[str, Any]],
 ) -> dict[str, Any] | None:
     settings = get_settings()
@@ -78,6 +79,12 @@ receptor activation, safety, or experimental results. Distinguish reviewed
 evidence from hypotheses. You may rank only the supplied route IDs and may
 recommend parameter values only for keys already present in allowed_node_parameters.
 Do not output shell commands, executable code, paths, credentials, or new model names.
+Treat canonical_scaffolds as authoritative for sequence length, modeled residues,
+chain architecture, UniProt accessions, and PDB IDs. Do not propose shortening a
+scaffold that already satisfies the user's length constraint unless evidence
+supports a specific truncation. Do not invent numerical EC50, sensory potency,
+stability, expression, or safety thresholds. If the user did not supply a
+threshold and the evidence payload does not contain one, state "to be defined".
 
 Required object:
 {
@@ -110,6 +117,7 @@ Required object:
             },
             "allowed_route_ids": route_ids,
             "canonical_routes": canonical_routes,
+            "canonical_scaffolds": canonical_scaffolds,
             "allowed_node_parameters": node_parameters,
             **context,
         },
@@ -125,6 +133,9 @@ ALLOWED_RESEARCH_KINDS = {
     "pdb_and_literature",
     "literature",
 }
+SWEET_PROTEIN_QUERY_CONTEXT = (
+    "sweet protein monellin brazzein mabinlin pentadin curculin TAS1R2 TAS1R3"
+)
 
 
 def decompose_research_questions(brief: dict[str, Any]) -> list[dict[str, Any]] | None:
@@ -163,6 +174,22 @@ RCSB PDB, or UniProt. Do not assert findings.
             continue
         if query["kind"] in {"pdb_and_literature", "literature"} and not query.get("term"):
             continue
+        if query["kind"] in {"pdb_and_literature", "literature"}:
+            term = str(query["term"]).strip()
+            if not any(
+                keyword in term.lower()
+                for keyword in (
+                    "sweet protein",
+                    "monellin",
+                    "brazzein",
+                    "mabinlin",
+                    "pentadin",
+                    "curculin",
+                    "tas1r",
+                )
+            ):
+                term = f"{SWEET_PROTEIN_QUERY_CONTEXT} {term}"
+            query = {**query, "term": term[:500]}
         question = str(raw.get("question") or "").strip()
         track = str(raw.get("track") or "").strip()
         if not question or not track:

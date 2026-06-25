@@ -1,0 +1,2726 @@
+{
+  "research_run_id": "research_run_4be71ea4a580",
+  "research_brief_id": "brief_9ba546e05d26",
+  "status": "partial",
+  "progress_json": {
+    "completed": 18,
+    "total": 18,
+    "current_track": null
+  },
+  "result_summary_json": {
+    "evidence_count": 77,
+    "source_types": [
+      "Europe_PMC",
+      "FDA_GRAS",
+      "RCSB_PDB",
+      "UniProtKB"
+    ],
+    "failures": [
+      {
+        "track": "sequence/structure comparison",
+        "error": "Expecting value: line 1 column 1 (char 0)"
+      }
+    ],
+    "hypothesis_count": 1,
+    "synthesis_mode": "llm_validated",
+    "conflicts": [
+      {
+        "topic": "pentadin evidence",
+        "description": "The objective requires comparison of pentadin, but no evidence was supplied for pentadin. According to evidence policy, we cannot invent sequence or structure.",
+        "evidence_link_ids": []
+      }
+    ],
+    "unresolved_questions": [
+      "What is the exact sequence and structure of mature monellin single-chain MNEI mutants, and what are their lengths?",
+      "What are the disulfide bond patterns and folding of mabinlin isoforms?",
+      "How do sweet proteins interact with the extracellular domain versus the transmembrane domain of TAS1R2/TAS1R3, and what are the binding affinities?",
+      "What are the sensory profiles (onset, linger, off-tastes) of MNEI and brazzein in an acidic beverage matrix?",
+      "What is the regulatory status of engineered sweet proteins in major markets beyond the US (EFSA novel food approval)?"
+    ]
+  },
+  "error_message": "Expecting value: line 1 column 1 (char 0)",
+  "started_at": "2026-06-25 12:50:23",
+  "completed_at": "2026-06-25 12:51:50",
+  "created_by": "user_22892b7c8f",
+  "created_at": "2026-06-25 12:50:23",
+  "updated_at": "2026-06-25 12:51:50",
+  "questions": [
+    {
+      "research_question_id": "question_47612d3a0b96",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "sequence/structure comparison",
+      "question": "Perform a multiple sequence alignment of mature monellin A chain, MNEI, brazzein, mabinlin chains, and curculin chains (and pentadin if sequence available). Identify any conserved sequence motifs. Use UniProt canonical sequences.",
+      "query_json": {
+        "kind": "uniprot",
+        "term": "",
+        "terms": [
+          "monellin A chain",
+          "MNEI",
+          "brazzein",
+          "mabinlin",
+          "curculin",
+          "pentadin",
+          "sweet protein",
+          "alignment",
+          "conserved motif"
+        ],
+        "identifiers": [
+          "UniProtKB:P02881",
+          "UniProtKB:P56552",
+          "UniProtKB:P80351",
+          "UniProtKB:P80352",
+          "UniProtKB:P19667",
+          "UniProtKB:P19668"
+        ]
+      },
+      "priority": 8,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:36"
+    },
+    {
+      "research_question_id": "question_efad4f6c25d1",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "safety translation",
+      "question": "What in vitro toxicological assays (e.g., Ames test, chromosomal aberration, cytotoxicity in human cell lines) have been applied to assess the safety of recombinant sweet proteins? Retrieve any published toxicology data on brazzein or monellin.",
+      "query_json": {
+        "kind": "literature",
+        "term": "brazzein monellin toxicology Ames test cytotoxicity safety",
+        "terms": [
+          "brazzein",
+          "monellin",
+          "toxicology",
+          "Ames test",
+          "cytotoxicity",
+          "safety",
+          "recombinant protein"
+        ],
+        "identifiers": []
+      },
+      "priority": 8,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:38"
+    },
+    {
+      "research_question_id": "question_f31ac1f60b76",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "sensory/food matrix",
+      "question": "How does the sweetness potency of monellin and brazzein change in the presence of common beverage ingredients (acids, sugars, polyols, flavors, salts)? Retrieve quantitative data on matrix effects, synergy, and suppression.",
+      "query_json": {
+        "kind": "literature",
+        "term": "monellin brazzein sweetness matrix effect acid sugar flavor beverage",
+        "terms": [
+          "monellin",
+          "brazzein",
+          "sweetness",
+          "matrix effect",
+          "acid",
+          "sugar",
+          "flavor",
+          "beverage"
+        ],
+        "identifiers": []
+      },
+      "priority": 8,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:39"
+    },
+    {
+      "research_question_id": "question_02fc904c938f",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "sequence/structure comparison",
+      "question": "Compare the amino acid sequences and 3D structures of single-chain monellin (MNEI) and brazzein. Identify sequence identities, conserved surface patches, and structural motifs. Use PDB entries 2O9U (MNEI) and 2KGQ (brazzein NMR) or equivalent. What are the RMSD values if any structural similarity exists?",
+      "query_json": {
+        "kind": "pdb_and_literature",
+        "term": "MNEI brazzein structure comparison PDB 2O9U 2KGQ RMSD",
+        "terms": [
+          "MNEI",
+          "brazzein",
+          "structure comparison",
+          "PDB 2O9U",
+          "PDB 2KGQ",
+          "RMSD"
+        ],
+        "identifiers": [
+          "PDB:2O9U",
+          "PDB:2KGQ"
+        ]
+      },
+      "priority": 9,
+      "status": "failed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:40"
+    },
+    {
+      "research_question_id": "question_1ea995254bea",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "regulation/safety",
+      "question": "What specific data packages (e.g., identity, purity, allergenicity, digestibility, toxicology, dietary exposure) have been submitted in successful US GRAS notices for recombinant sweet or taste-modifying proteins (e.g., brazzein, thaumatin, miraculin)? Fetch official decision letters where available.",
+      "query_json": {
+        "kind": "regulatory",
+        "term": "GRAS notice recombinant sweet protein brazzein thaumatin miraculin",
+        "terms": [
+          "GRAS notice",
+          "recombinant",
+          "sweet protein",
+          "brazzein",
+          "thaumatin",
+          "miraculin",
+          "food ingredient"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:40"
+    },
+    {
+      "research_question_id": "question_5013ed20f61d",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "sensory/food matrix",
+      "question": "What sensory evaluation protocols (e.g., trained panels, magnitude estimation, time-intensity) are used to quantify sweet taste intensity, temporal profile, and off-tastes of sweet proteins in solution and in a model acidic beverage (e.g., citrate buffer, carbonated water)? Retrieve standard methods for sweet proteins.",
+      "query_json": {
+        "kind": "literature",
+        "term": "sensory evaluation sweet protein time-intensity trained panel beverage matrix",
+        "terms": [
+          "sensory evaluation",
+          "sweet protein",
+          "time-intensity",
+          "trained panel",
+          "magnitude estimation",
+          "beverage",
+          "off-taste"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:42"
+    },
+    {
+      "research_question_id": "question_764a9812c44d",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "natural scaffolds",
+      "question": "Specifically for pentadin, search for any sequence or structural data in literature beyond the 1994 initial report. Evaluate claims of pentadin sequence/structure and distinguish between precursor, mature chains, and homology-modeled residues. If no verified sequence exists, state that explicitly.",
+      "query_json": {
+        "kind": "literature",
+        "term": "pentadin sequence structure sweet protein Pentadiplandra brazzeana",
+        "terms": [
+          "pentadin",
+          "sequence",
+          "structure",
+          "sweet protein",
+          "Pentadiplandra brazzeana",
+          "purification",
+          "cloning"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:44"
+    },
+    {
+      "research_question_id": "question_aa8854d1b7c6",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "computational methods",
+      "question": "How can AlphaFold2 or other structure prediction methods (e.g., ESMFold, Boltz-1) be used to evaluate the fold stability and disulfide bond formation of redesigned MNEI or brazzein variants? Retrieve best practices for predicting single-chain, disulfide-rich proteins.",
+      "query_json": {
+        "kind": "literature",
+        "term": "AlphaFold2 disulfide bond prediction small protein stability MNEI brazzein",
+        "terms": [
+          "AlphaFold2",
+          "protein structure prediction",
+          "disulfide bond",
+          "small protein",
+          "MNEI",
+          "brazzein",
+          "stability"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:45"
+    },
+    {
+      "research_question_id": "question_bad6ea47c432",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "expression/manufacturing",
+      "question": "What are the key stability challenges (pH, temperature, aggregation) for MNEI and brazzein during production and storage, especially under acidic beverage conditions (pH 2.5–3.5)? Retrieve experimental stability data and methods to enhance stability through formulation or mutation.",
+      "query_json": {
+        "kind": "literature",
+        "term": "MNEI brazzein stability pH acidic beverage temperature aggregation",
+        "terms": [
+          "MNEI",
+          "brazzein",
+          "stability",
+          "pH",
+          "acidic",
+          "beverage",
+          "temperature",
+          "aggregation",
+          "formulation",
+          "mutation"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:47"
+    },
+    {
+      "research_question_id": "question_ea1a95289a0b",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "functional assays",
+      "question": "Are there any reported potent monellin or brazzein single-point mutants that exhibit significantly enhanced sweetness or stability? Retrieve mutational scanning data from literature and patents for MNEI and brazzein.",
+      "query_json": {
+        "kind": "literature",
+        "term": "MNEI brazzein mutant sweetness enhanced stability alanine scanning",
+        "terms": [
+          "MNEI",
+          "brazzein",
+          "mutant",
+          "sweetness",
+          "enhanced",
+          "stability",
+          "alanine scanning",
+          "point mutation"
+        ],
+        "identifiers": []
+      },
+      "priority": 9,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:48"
+    },
+    {
+      "research_question_id": "question_38948e996b48",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "functional assays",
+      "question": "What are the established cell-based functional assays (e.g., calcium mobilization, cAMP, electrophysiology) using HEK293 cells heterologously expressing human TAS1R2/TAS1R3 to measure the potency (EC50) and efficacy of sweet proteins? Retrieve standard protocols and key papers establishing dose-response curves for monellin and brazzein.",
+      "query_json": {
+        "kind": "literature",
+        "term": "TAS1R2 TAS1R3 sweet protein calcium assay EC50 monellin brazzein HEK293",
+        "terms": [
+          "TAS1R2",
+          "TAS1R3",
+          "sweet protein",
+          "calcium assay",
+          "EC50",
+          "monellin",
+          "brazzein",
+          "HEK293",
+          "functional assay"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:50"
+    },
+    {
+      "research_question_id": "question_4eab7e09e891",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "natural scaffolds",
+      "question": "Retrieve the canonical mature peptide sequences, chain composition, and disulfide bond connectivities for monellin, brazzein, mabinlin, pentadin, and curculin from UniProt. For each, identify the UniProt entry, the number of chains, the mature peptide length (after signal/propeptide cleavage), and any reported post-translational modifications, especially disulfide bonds.",
+      "query_json": {
+        "kind": "uniprot",
+        "term": "",
+        "terms": [
+          "monellin",
+          "brazzein",
+          "mabinlin",
+          "pentadin",
+          "curculin",
+          "sweet protein"
+        ],
+        "identifiers": [
+          "UniProtKB: P02881",
+          "UniProtKB: P02882",
+          "UniProtKB: P56552",
+          "UniProtKB: P80351",
+          "UniProtKB: P80352",
+          "UniProtKB: P19667",
+          "UniProtKB: P19668"
+        ]
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:50:58"
+    },
+    {
+      "research_question_id": "question_5892d881cf83",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "safety translation",
+      "question": "Based on the homology of sweet proteins to known allergens (e.g., thaumatin-like proteins, profilin), what in silico and in vitro allergenicity assessments (e.g., bioinformatics allergen databases, serum IgE binding, digestibility in simulated gastric fluid) are recommended for redesigned variants? Retrieve EFSA and Codex guidelines for recombinant protein allergenicity testing.",
+      "query_json": {
+        "kind": "literature",
+        "term": "sweet protein allergenicity IgE binding digestibility EFSA Codex guidelines",
+        "terms": [
+          "sweet protein",
+          "allergenicity",
+          "bioinformatics",
+          "IgE binding",
+          "digestibility",
+          "EFSA",
+          "Codex",
+          "recombinant protein"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:00"
+    },
+    {
+      "research_question_id": "question_817b7eba1317",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "expression/manufacturing",
+      "question": "What are the most efficient recombinant expression systems for producing soluble, correctly folded single-chain monellin (MNEI) and brazzein? Compare yields, purification methods, and disulfide bond formation in E. coli, Pichia pastoris, and K. phaffii. Retrieve recent (2020–2026) high-yield protocols.",
+      "query_json": {
+        "kind": "literature",
+        "term": "recombinant expression MNEI brazzein E. coli Pichia pastoris high yield",
+        "terms": [
+          "recombinant expression",
+          "MNEI",
+          "brazzein",
+          "E. coli",
+          "Pichia pastoris",
+          "Komagataella phaffii",
+          "high yield",
+          "soluble",
+          "disulfide bond"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:01"
+    },
+    {
+      "research_question_id": "question_a16e90153e31",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "receptor structure/mechanism",
+      "question": "What are the current experimentally determined structures (cryo-EM, X-ray) of the human sweet taste receptor heterodimer TAS1R2/TAS1R3 in complex with small-molecule sweeteners or sweet proteins? Retrieve all PDB entries for the human receptor, noting resolution, ligands, and conformational states.",
+      "query_json": {
+        "kind": "pdb_and_literature",
+        "term": "TAS1R2 TAS1R3 human sweet taste receptor structure",
+        "terms": [
+          "TAS1R2",
+          "TAS1R3",
+          "human sweet taste receptor",
+          "cryo-EM",
+          "X-ray crystallography",
+          "structure"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:08"
+    },
+    {
+      "research_question_id": "question_afb237f90ba0",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "receptor structure/mechanism",
+      "question": "Which residues or regions on human TAS1R2 and TAS1R3 have been experimentally implicated in the binding of natural sweet proteins (monellin, brazzein, thaumatin) through mutagenesis, cross-linking, or computational docking? Retrieve key studies mapping binding epitopes.",
+      "query_json": {
+        "kind": "literature",
+        "term": "TAS1R2 TAS1R3 sweet protein binding site mutagenesis monellin brazzein",
+        "terms": [
+          "TAS1R2",
+          "TAS1R3",
+          "sweet protein",
+          "binding site",
+          "mutagenesis",
+          "monellin",
+          "brazzein",
+          "chimeric receptor",
+          "epitope"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:10"
+    },
+    {
+      "research_question_id": "question_c64a99b17675",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "regulation/safety",
+      "question": "What are the current regulatory requirements and safety evaluation guidelines in the US (FDA GRAS) and EU (EFSA novel food) for sweet proteins intended as food ingredients, including any specific guidance for recombinant proteins expressed in microorganisms?",
+      "query_json": {
+        "kind": "regulatory",
+        "term": "sweet protein GRAS novel food EFSA",
+        "terms": [
+          "sweet protein",
+          "GRAS",
+          "novel food",
+          "EFSA",
+          "FDA",
+          "food ingredient",
+          "recombinant protein",
+          "safety evaluation"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:10"
+    },
+    {
+      "research_question_id": "question_eec10d73b651",
+      "research_brief_id": "brief_9ba546e05d26",
+      "track": "computational methods",
+      "question": "What are the latest deep learning-based protein design methods (e.g., RFdiffusion, ProteinMPNN) in 2025–2026 for precisely redesigning protein surfaces to introduce new binding functions while maintaining stability? Retrieve methods and protocols applicable to small (<100 aa), disulfide-rich scaffolds.",
+      "query_json": {
+        "kind": "literature",
+        "term": "sweet protein monellin brazzein mabinlin pentadin curculin TAS1R2 TAS1R3 RFdiffusion ProteinMPNN small disulfide-rich protein design sweet taste receptor",
+        "terms": [
+          "RFdiffusion",
+          "ProteinMPNN",
+          "protein design",
+          "small protein",
+          "disulfide",
+          "sweet taste receptor",
+          "surface redesign"
+        ],
+        "identifiers": []
+      },
+      "priority": 10,
+      "status": "completed",
+      "created_at": "2026-06-25 12:50:23",
+      "updated_at": "2026-06-25 12:51:11"
+    }
+  ],
+  "evidence": [
+    {
+      "evidence_link_id": "evidence_0899361f7a31",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods15111842",
+      "title": "Valorization of Acorns Through the Development of Novel Plant-Based Products: Formulation and Shelf-Life Assessment.",
+      "uri": "https://europepmc.org/article/MED/42279629",
+      "evidence_excerpt": "Acorns (<i>Quercus</i> spp.) are an underutilized forest resource with recognized nutritional and bioactive potential, making them promising candidates for the development of sustainable plant-based functional foods. This study aimed to valorize acorns through the formulation of two novel acorn-based products, a plant-based beverage, and a pudding, and to assess their nutritional properties, sensory acceptability, and, for the beverage, refrigerated shelf-life stability. The beverage was optimized as a neutral-flavored milk alternative, using sodium alginate as a natural clean-label stabilizer to enhance emulsion stability and physicochemical properties. The final formulation exhibited low energy density and a lipid profile rich in monounsaturated fatty acids, contributing to its nutritional and functional value. Throughout 63 days of storage at 4 °C, sodium alginate effectively prevented phase separation and supported the retention of antioxidant capacity, as evidenced by stable ferric reducing antioxidant power (FRAP) and total phenolic content, although ABTS radical scavenging activity declined over time. No microbial growth was detected during storage, confirming the adequacy of the applied thermal treatment and aseptic filling procedures applied. The acorn-based pudding, developed by adapting a traditional egg-based recipe, functioned as a proof of concept illustrating the technological versatility of acorns across distinct plant-based matrices, exhibiting a nutritional profile comparable to commercial counterparts and high consumer acceptability. Overall, this work demonstrates the technological feasibility and versatility of incorporating acorns into plant-based food matrices, supporting their potential as sustainable ingredients for the development of innovative value-added foods and contributing to the valorization of forest resources.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/foods15111842",
+        "pmid": "42279629",
+        "pmcid": "PMC13256956",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_129e7cd17afc",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_817b7eba1317",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1186/s13568-025-01864-y",
+      "title": "Biosynthesis and metabolic engineering of natural sweeteners.",
+      "uri": "https://europepmc.org/article/MED/40100508",
+      "evidence_excerpt": "Natural sweeteners have attracted widespread attention because they are eco-friendly, healthy, low in calories, and tasty. The demand for natural sweeteners is increasing together with the popularity of green, low-carbon, sustainable development. With the development of synthetic biology, microbial cell factories have emerged as an effective method to produce large amounts of natural sweeteners. This technology has significantly progressed in recent years. This review summarizes the pathways and the enzymes related to the biosynthesis of natural sweeteners, such as mogrosides, steviol glycosides, glycyrrhizin, glycyrrhetinic acid, phlorizin, trilobatin, erythritol, sorbitol, mannitol, thaumatin, monellin, and brazzein. Moreover, it focuses on the research about the microbial production of these natural sweeteners using synthetic biology methods, aiming to provide a reference for future research on the production of natural sweeteners.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.1186/s13568-025-01864-y",
+        "pmid": "40100508",
+        "pmcid": "PMC11920521",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_14e2041efe03",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3389/fnut.2021.691368",
+      "title": "New Insight Into the Structure-Activity Relationship of Sweet-Tasting Proteins: Protein Sector and Its Role for Sweet Properties.",
+      "uri": "https://europepmc.org/article/MED/34222309",
+      "evidence_excerpt": "Sweet-tasting protein is a kind of biomacromolecule that has remarkable sweetening power and is regarded as the promising sugar replacer in the future. Some sweet-tasting proteins has been used in foods and beverages. However, the structure and function relationship of these proteins is still elusive, and guidelines for their protein engineering is limited. It is well-known that the sweet-tasting proteins bind to and activate the sweet taste receptor T1R2/T1R3, thus eliciting their sweetness. The \"wedge-model\" for describing the interaction between sweet-tasting proteins and sweet taste receptor to elucidate their sweetness has been reported. In this perspective article, we revealed that the intramolecular interaction forces in sweet-tasting proteins is directly correlated to their properties (sweetness and stability). This intramolecular interaction pattern, named as \"protein sector,\" refers to a small subset of residues forming physically connections, which cooperatively affect the function of the proteins. Based on the analysis of previous experimental data, we suggest that \"protein sector\" of sweet-tasting proteins is pivotal for their sweet properties, which are meaningful guidelines for the future protein engineering.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2021",
+        "doi": "10.3389/fnut.2021.691368",
+        "pmid": "34222309",
+        "pmcid": "PMC8249704",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_165e00d3f96a",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_f31ac1f60b76",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods12101943",
+      "title": "Brazzein and Monellin: Chemical Analysis, Food Industry Applications, Safety and Quality Control, Nutritional Profile and Health Impacts.",
+      "uri": "https://europepmc.org/article/MED/37238762",
+      "evidence_excerpt": "Recently, customers have been keener to buy products manufactured using all-natural ingredients with positive health properties, but without losing flavor. In this regard, the objective of the current study is to review the consumption of brazzein and monellin, their nutritional profiles and health effects, and their potential applications in the food industry. This poses challenges with sustainability and important quality and safety indicators, as well as the chemical processes used to determine them. To better understand the utilization of brazzein and monellin, the chemical analysis of these two natural sweet proteins was also reviewed by placing particular emphasis on their extraction methods, purification and structural characterization. Protein engineering is considered a means to improve the thermal stability of brazzein and monellin to enhance their application in food processing, especially where high temperatures are applied. When the quality and safety of these sweet proteins are well-investigated and the approval from safety authorities is secured, the market for brazzein and monellin as food ingredient substitutes for free sugar will be guaranteed in the future. Ultimately, the review on these two natural peptide sweeteners increases the body of knowledge on alleviating problems of obesity, diabetes and other non-communicable diseases.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2023",
+        "doi": "10.3390/foods12101943",
+        "pmid": "37238762",
+        "pmcid": "PMC10217172",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_16ec3482710f",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods14183182",
+      "title": "Beyond Sugar: A Holistic Review of Sweeteners and Their Role in Modern Nutrition.",
+      "uri": "https://europepmc.org/article/MED/41008155",
+      "evidence_excerpt": "This manuscript provides an in-depth review of both artificial and natural sweeteners, including polyols and plant-derived alternatives, examining their sweetening potency, glycemic index, modes of action, and applications in the food sector. The rising demand for sugar substitutes, fueled by health concerns such as obesity and diabetes, has prompted significant research into low-calorie and non-nutritive sweeteners. This work categorizes sweeteners into synthetic options (such as aspartame, sucralose, saccharin) and naturally occurring ones (such as stevia, monk fruit, and polyols like sorbitol, xylitol, erythritol), focusing on physico-chemical characteristics, relative sweetness (ranging from 100 to 220,0000 times sweeter than sucrose), and glycemic index, important for their use in diabetes-friendly food products. The current manuscript examines how these sweeteners interact with taste receptors to induce sweetness perception without contributing significant calories. It also discusses their health implications and controversies and limitations regarding healthy and safety data, process feasibility, market application trends, environmental stability, and commercialization challenges. The review also addresses challenges in scaling production and ensuring the economic viability of plant-based sweeteners, offering a forward-looking perspective on their commercialization in the food industry.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3390/foods14183182",
+        "pmid": "41008155",
+        "pmcid": "PMC12470175",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_18d16e8d84f3",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1186/s12983-014-0079-4",
+      "title": "Differentiated adaptive evolution, episodic relaxation of selective constraints, and pseudogenization of umami and sweet taste genes TAS1Rs in catarrhine primates.",
+      "uri": "https://europepmc.org/article/MED/25389445",
+      "evidence_excerpt": "<h4>Background</h4>Umami and sweet tastes are two important basic taste perceptions that allow animals to recognize diets with nutritious carbohydrates and proteins, respectively. Until recently, analyses of umami and sweet taste were performed on various domestic and wild animals. While most of these studies focused on the pseudogenization of taste genes, which occur mostly in carnivores and species with absolute feeding specialization, omnivores and herbivores were more or less neglected. Catarrhine primates are a group of herbivorous animals (feeding mostly on plants) with significant divergence in dietary preference, especially the specialized folivorous Colobinae. Here, we conducted the most comprehensive investigation to date of selection pressure on sweet and umami taste genes (TAS1Rs) in catarrhine primates to test whether specific adaptive evolution occurred during their diversification, in association with particular plant diets.<h4>Results</h4>We documented significant relaxation of selective constraints on sweet taste gene TAS1R2 in the ancestral branch of Colobinae, which might correlate with their unique ingestion and digestion of leaves. Additionally, we identified positive selection acting on Cercopithecidae lineages for the umami taste gene TAS1R1, on the Cercopithecinae and extant Colobinae and Hylobatidae lineages for TAS1R2, and on Macaca lineages for TAS1R3. Our research further identified several site mutations in Cercopithecidae, Colobinae and Pygathrix, which were detected by previous studies altering the sensitivity of receptors. The positively selected sites were located mostly on the extra-cellular region of TAS1Rs. Among these positively selected sites, two vital sites for TAS1R1 and four vital sites for TAS1R2 in extra-cellular region were identified as being responsible for the binding of certain sweet and umami taste molecules through molecular modelling and docking.<h4>Conclusions</h4>Our results suggest that episodic and differentiated adaptive evolution of TAS1Rs pervasively occurred in catarrhine primates, most concentrated upon the extra-cellular region of TAS1Rs.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2014",
+        "doi": "10.1186/s12983-014-0079-4",
+        "pmid": "25389445",
+        "pmcid": "PMC4226867",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_1eeecdf7f85d",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_efad4f6c25d1",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "PMC7148975",
+      "title": "Cumulative general subject index volumes 1-30",
+      "uri": "https://europepmc.org/article/PMC/PMC7148975",
+      "evidence_excerpt": "Publisher Summary This chapter lists the important subjects that are discussed in the publication Studies in Natural Products Chemistry, Volumes 1–30, such as abdominal pain, acaricidal activities, acanthenes, gibberellins, glucoamylases, macarpine, and quercetin. The terms are mentioned along with the page numbers in which they are discussed in the publication.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2005",
+        "doi": null,
+        "pmid": null,
+        "pmcid": "PMC7148975",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_212a96708c2b",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1038/s41422-025-01156-x",
+      "title": "Structure and activation mechanism of human sweet taste receptor.",
+      "uri": "https://europepmc.org/article/MED/40754567",
+      "evidence_excerpt": null,
+      "evidence_level": "metadata",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.1038/s41422-025-01156-x",
+        "pmid": "40754567",
+        "pmcid": "PMC12484785",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_28d8688ce19b",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods15030458",
+      "title": "Chemical Drivers of Flavor Variation Across Cultivars and Grades of Fujian White Tea Revealed by Integrated Volatile and Non-Volatile Metabolomics.",
+      "uri": "https://europepmc.org/article/MED/41683046",
+      "evidence_excerpt": "Grade and cultivar are the important factors influencing white tea quality, but their relative metabolic contributions are not fully understood. Twelve white tea samples representing four major Fujian cultivars across three grades were analyzed using UHPLC-MS-based non-volatile metabolomics, HS-SPME-GC-MS volatile profiling, and sensory correlation analysis. In total, 47 non-volatile and 21 volatile markers were associated with grade differences, while 44 non-volatile and 26 volatile markers were linked to cultivar differences. Catechins and amino acids declined as grade decreased, whereas flavonol glycosides and gallic acid increased, accompanied by stronger astringency and reduced umami and sweetness. Aroma profiles showed a similar trend, with higher-grade teas dominated by floral notes and lower-grade teas exhibiting more herbal characteristics. Dimeric catechins, oxylipins, and aroma glycosides varied among cultivars. Volatile profiles separated the cultivars into two aroma groups: Fuding Dabai and Fuding Dahao showed more floral-fruity aromas, whereas Fuan Dabai and Zhenghe Dabai exhibited stronger herbal and aged aromas. Odor activity value analysis showed that linalool, geraniol, and (<i>E</i>,<i>Z</i>)-3,6-nonadien-1-ol were among the most abundant aroma-active compounds across white tea samples. These results provide chemical evidence for distinguishing white tea by grade and cultivar, with potential relevance to quality evaluation.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/foods15030458",
+        "pmid": "41683046",
+        "pmcid": "PMC12896726",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_324ab777e3ab",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_f31ac1f60b76",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods14132397",
+      "title": "Comprehensive New Insights into Sweet Taste Transmission Mechanisms and Detection Methods.",
+      "uri": "https://europepmc.org/article/MED/40647149",
+      "evidence_excerpt": "Sweet taste plays a pivotal role in human dietary behavior and metabolic regulation. With the increasing incidence of metabolic disorders linked to excessive sugar intake, the development and accurate evaluation of new sweeteners have become critical topics in food science and public health. However, the structural diversity of sweeteners and their complex interactions with sweet taste receptors present major challenges for standardized sweetness detection. This review offers a comprehensive and up-to-date overview of sweet taste transmission mechanisms and current detection methods. It outlines the classification and sensory characteristics of both conventional and emerging sweeteners, and explains the multi-level signaling pathway from receptor binding to neural encoding. Key detection techniques, including sensory evaluation, electronic tongues, and biosensors, are systematically compared in terms of their working principles, application scope, and limitations. Special emphasis is placed on advanced biosensing technologies utilizing receptor-ligand interactions and nanomaterials for highly sensitive and specific detection. Furthermore, an intelligent detection framework integrating molecular recognition, multi-source data fusion, and artificial intelligence is proposed. This interdisciplinary approach provides new insights and technical solutions to support precise sweetness evaluation and the future development of healthier food systems.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3390/foods14132397",
+        "pmid": "40647149",
+        "pmcid": "PMC12248591",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_37bd47339be5",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_bad6ea47c432",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1371/journal.pone.0158372",
+      "title": "Molecular Dynamics Driven Design of pH-Stabilized Mutants of MNEI, a Sweet Protein.",
+      "uri": "https://europepmc.org/article/MED/27340829",
+      "evidence_excerpt": "MNEI is a single chain derivative of monellin, a plant protein that can interact with the human sweet taste receptor, being therefore perceived as sweet. This unusual physiological activity makes MNEI a potential template for the design of new sugar replacers for the food and beverage industry. Unfortunately, applications of MNEI have been so far limited by its intrinsic sensitivity to some pH and temperature conditions, which could occur in industrial processes. Changes in physical parameters can, in fact, lead to irreversible protein denaturation, as well as aggregation and precipitation. It has been previously shown that the correlation between pH and stability in MNEI derives from the presence of a single glutamic residue in a hydrophobic pocket of the protein. We have used molecular dynamics to study the consequences, at the atomic level, of the protonation state of such residue and have identified the network of intramolecular interactions responsible for MNEI stability at acidic pH. Based on this information, we have designed a pH-independent, stabilized mutant of MNEI and confirmed its increased stability by both molecular modeling and experimental techniques.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2016",
+        "doi": "10.1371/journal.pone.0158372",
+        "pmid": "27340829",
+        "pmcid": "PMC4920389",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_3c1865487ef4",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods15101671",
+      "title": "Mining and Validation of Novel Umami Peptides in Non-Alcoholic Beer by Integrating Machine Learning Prediction, Molecular Docking, and Sensory Validation, and Their Multidimensional Sensory Impacts on Beer Body.",
+      "uri": "https://europepmc.org/article/MED/42195875",
+      "evidence_excerpt": "This study aimed to identify umami peptides in non-alcoholic beer and clarify their potential contribution to taste reconstruction and aftertaste improvement. Peptides were profiled by RPLC-Q-TOF-MS and screened using machine learning prediction, molecular docking, MM-GBSA analysis, and sensory validation. Under the criteria of -10logP ≥ 15 and ALC ≥ 90.00%, 2081 peptides were identified. Among them, 122 potential umami peptides were predicted, and 117 peptides were successfully docked with the T1R1/T1R3 umami receptor. The docked peptides were mainly short to medium oligopeptides, especially tetrapeptides and pentapeptides, which accounted for 40.17% and 35.90%, respectively. Based on docking score, structural diversity, and peptide length distribution, CTGAA, IDQILG, KDTHP, QRQ, and EITGR were selected as representative candidates. These peptides showed favorable receptor binding, mainly supported by hydrogen bonding, electrostatic interactions, and local hydrophobic contacts. Sensory validation further showed that the 5 peptides improved umami and aftertaste cleanliness to different degrees. Umami intensity increased by 7.58% to 22.73%, while aftertaste cleanliness increased by 5.80% to 17.39%. Among them, CTGAA showed the strongest umami enhancement, and QRQ produced the greatest improvement in aftertaste cleanliness. These results suggest that selected umami peptides may contribute to flavor reconstruction in non-alcoholic beer by enhancing umami perception and improving aftertaste quality.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/foods15101671",
+        "pmid": "42195875",
+        "pmcid": "PMC13205247",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_4148f8f022df",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1093/chemse/bjag010",
+      "title": "Sweet and umami TAS1R receptors: from molecular recognition to physiological function.",
+      "uri": "https://europepmc.org/article/MED/41857668",
+      "evidence_excerpt": "The detection of sweet and umami tastants is mediated by 2 heterodimeric G protein-coupled receptors, TAS1R2/TAS1R3 and TAS1R1/TAS1R3, respectively. Sweet taste provides input related to the carbohydrate-derived energy content of ingested food, whereas the physiological role of umami taste by detecting free L-amino acids is to signal the presence of protein-rich foods. In addition to being expressed in the oral cavity, TAS1R receptors are expressed in numerous extraoral tissues and organs, including the gut, where their physiological roles are not yet fully understood. In this review, we present an overview of the current knowledge on these taste receptors since their discovery in the early 2000s. We summarize the structure-function analyses, evolution, and expression of TAS1R genes and describe the molecular basis for the recognition of sweet and umami tastants. Together, these insights provide a comprehensive understanding of how TAS1R receptors contribute to nutrient detection and metabolic regulation both in taste perception and beyond.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1093/chemse/bjag010",
+        "pmid": "41857668",
+        "pmcid": "PMC13034538",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_522cdc68cd70",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1038/s41368-026-00436-5",
+      "title": "The structure and function of taste G protein-coupled receptors and their implications in diseases.",
+      "uri": "https://europepmc.org/article/MED/41963306",
+      "evidence_excerpt": "Taste G protein-coupled receptors (GPCRs), including sweet (TAS1Rs) and bitter (TAS2Rs) taste receptors, are essential for detecting nutrients and avoiding toxins, influencing dietary behavior, metabolism, and overall health. Beyond their role in taste perception, these receptors are widely expressed in extra-gustatory tissues, including the respiratory and gastrointestinal systems, where they regulate innate immune responses, hormone secretion, and energy balance. Dysfunctions or polymorphisms in TAS1Rs and TAS2Rs have been linked to various diseases such as asthma, type 2 diabetes, obesity, dental caries, periodontitis, and certain cancers. The structural features of these receptors, including their ligand-binding domains and signaling pathways, are central to their diverse functions. Recent studies also highlight their potential as therapeutic targets for managing conditions like metabolic syndrome and immune-related disorders. This review provides a detailed examination of the structural and functional dynamics of TAS1Rs and TAS2Rs, emphasizing their roles in disease mechanisms and exploring therapeutic strategies. While challenges remain in structural resolution and functional characterization, advancements in molecular modeling and pharmacological approaches shed light on their clinical potential. Understanding the tissue-specific roles and molecular mechanisms of taste GPCRs can pave the way for innovative treatments targeting these receptors, offering significant promise in addressing a range of health conditions.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1038/s41368-026-00436-5",
+        "pmid": "41963306",
+        "pmcid": "PMC13069099",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_55246d8851c2",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/molecules31091424",
+      "title": "Allergenicity Assessment of Plant-Derived Sweet Proteins-In Silico, In Vitro, In Vivo, and Clinical Approach: A Systematic Review.",
+      "uri": "https://europepmc.org/article/MED/42123790",
+      "evidence_excerpt": "Plant-derived sweet proteins are promising low-calorie natural sweeteners that may reduce dietary sugar intake and prevent non-communicable diseases. Although seven have been identified-thaumatin, miraculin, monellin, mabinlin, brazzein, pentadin, and curculin (neoculin)-only thaumatin is currently approved as a food additive. The development of others requires comprehensive safety assessments, particularly regarding allergenicity. This systematic review aims to investigate and synthesize allergenicity assessment methods (in silico, in vitro, in vivo, and clinical) applied to these seven sweet proteins. The literature searches were conducted following PRISMA guidelines across Scopus, PubMed, and Wiley Online Library databases, up to 30 November 2025, with no time restrictions. The risk of bias in selected studies was evaluated using GRADE. After the selection process, 14 out of 2634 studies met the inclusion criteria. Thaumatin, miraculin, monellin, and brazzein emerged as the most extensively studied proteins. In silico approaches (sequence and structural homology) and in vitro assays (digestibility and cell-based methods) were the most commonly employed methods. In contrast, in vivo studies (animal models) and clinical evaluations (skin prick tests, oral food challenges) were rarely reported. Allergenicity studies on pentadin, mabinlin, and curculin (neoculin) are limited, indicating a research gap that requires further study to support regulatory approval and consumer acceptance.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/molecules31091424",
+        "pmid": "42123790",
+        "pmcid": "PMC13164861",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_56d438b27f92",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3389/fbioe.2025.1688495",
+      "title": "Label-free analytical characterization of brazzein produced with the filamentous fungus &lt;i&gt;Trichoderma reesei&lt;/i&gt;.",
+      "uri": "https://europepmc.org/article/MED/41459251",
+      "evidence_excerpt": "Brazzein, a small, pH-stable, and heat-stable sweet protein, is a promising alternative to sucrose because of its extreme sweetness and stability. However, large-scale production through traditional extraction methods from plant sources is not economically feasible. To this end, the current study explores the production of recombinant brazzein in the filamentous fungus <i>Trichoderma reesei</i> using a synthetic expression system (SES) and the native fungal <i>cbh1</i> promoter. Both methods successfully expressed brazzein in 24-well liquid cultures, with the SES-system achieving a production level of ∼1.3 g/L in bioreactor cultures. The protein was purified and characterized using SDS-PAGE, liquid chromatography high-content mass spectroscopy (LC-HCMS), Timegated™ Raman spectroscopy, dynamic light scattering (DLS), and nanoscale differential scanning fluorimetry (nanoDSF). The results confirmed that the correct folding and stability of brazzein attributed to its robust internal structure, demonstrating the potential of <i>T. reesei</i> as an efficient host for producing this sweet protein.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3389/fbioe.2025.1688495",
+        "pmid": "41459251",
+        "pmcid": "PMC12741742",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5a8d3ea3ca26",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3389/fphar.2020.587664",
+      "title": "G Protein-Coupled Receptors in Taste Physiology and Pharmacology.",
+      "uri": "https://europepmc.org/article/MED/33390961",
+      "evidence_excerpt": "Heterotrimeric G protein-coupled receptors (GPCRs) comprise the largest receptor family in mammals and are responsible for the regulation of most physiological functions. Besides mediating the sensory modalities of olfaction and vision, GPCRs also transduce signals for three basic taste qualities of sweet, umami (savory taste), and bitter, as well as the flavor sensation kokumi. Taste GPCRs reside in specialised taste receptor cells (TRCs) within taste buds. Type I taste GPCRs (TAS1R) form heterodimeric complexes that function as sweet (TAS1R2/TAS1R3) or umami (TAS1R1/TAS1R3) taste receptors, whereas Type II are monomeric bitter taste receptors or kokumi/calcium-sensing receptors. Sweet, umami and kokumi receptors share structural similarities in containing multiple agonist binding sites with pronounced selectivity while most bitter receptors contain a single binding site that is broadly tuned to a diverse array of bitter ligands in a non-selective manner. Tastant binding to the receptor activates downstream secondary messenger pathways leading to depolarization and increased intracellular calcium in TRCs, that in turn innervate the gustatory cortex in the brain. Despite recent advances in our understanding of the relationship between agonist binding and the conformational changes required for receptor activation, several major challenges and questions remain in taste GPCR biology that are discussed in the present review. In recent years, intensive integrative approaches combining heterologous expression, mutagenesis and homology modeling have together provided insight regarding agonist binding site locations and molecular mechanisms of orthosteric and allosteric modulation. In addition, studies based on transgenic mice, utilizing either global or conditional knock out strategies have provided insights to taste receptor signal transduction mechanisms and their roles in physiology. However, the need for more functional studies in a physiological context is apparent and would be enhanced by a crystallized structure of taste receptors for a more complete picture of their pharmacological mechanisms.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2020",
+        "doi": "10.3389/fphar.2020.587664",
+        "pmid": "33390961",
+        "pmcid": "PMC7774309",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5e82cee1430d",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/nu17213417",
+      "title": "Natural Sweetness and Bioactivity: The Cardiovascular Promise of Fruits.",
+      "uri": "https://europepmc.org/article/MED/41228490",
+      "evidence_excerpt": "Cardiovascular diseases (CVDs) remain the leading cause of mortality worldwide. Their prevalence is expected to rise with demographic shifts and increasing obesity rates. Excessive sugar consumption, especially from added sugars and sugar-sweetened beverages (SSBs), is a major modifiable risk factor of CVDs. It contributes to obesity, metabolic disorders, type 2 diabetes, and cardiovascular disease. High-sugar diets affect metabolic and cardiovascular health. They also contribute to neurobehavioral dysfunction by influencing the brain's reward pathways, promoting hedonic eating, and reinforcing dependence on sweet taste. Fruits, a natural source of sweet-tasting compounds, are widely considered healthier than processed sweets. Epidemiological evidence shows a protective link between fruit consumption and lower risk of acute cardiovascular events like stroke and coronary heart disease. This benefit is largely due to bioactive compounds in fruits, such as fiber, polyphenols, and micronutrients. Based on current evidence, fruits can satisfy sweet cravings. In this paper, we will discuss the potential of fruits as an alternative to added sugars, emphasizing their beneficial effects on metabolic and cardiovascular health.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3390/nu17213417",
+        "pmid": "41228490",
+        "pmcid": "PMC12609324",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5fd6d4deb337",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1016/j.crfs.2026.101377",
+      "title": "An integrated approach to smoky food flavor: Decoding key odorants, sensory contributions, and olfactory recognition mechanisms.",
+      "uri": "https://europepmc.org/article/MED/41868604",
+      "evidence_excerpt": "Smoky aroma, a culturally significant and globally appreciated flavor, is a key sensory attribute in a wide range of products, from traditional smoked foods to modern beverages and e-cigarettes. A precise understanding of its chemical composition and perceptual mechanisms is essential for quality control and flavor innovation. This study established an integrated analytical framework to address this need. By quantifying 38 key odorants in smoked meats, whiskies, and e-cigarette oils, and determining their odor activity values (OAVs) in product-specific matrices, we identified guaiacol as the indispensable aroma driver across all traditional smoked products. Molecular docking simulations further revealed that guaiacol interacts with human olfactory receptors (OR1G1, OR2T1, OR10G4) through specific hydrogen-bonding and π-π interactions, providing mechanistic insights into its potent sensory impact. This work bridges the gap between flavor chemistry and sensory biology, offering a scientific foundation for the characterization, quality control, and rational design of smoky flavors in the food and beverage industry.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1016/j.crfs.2026.101377",
+        "pmid": "41868604",
+        "pmcid": "PMC13000552",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_60870e8aa635",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.2903/j.efsa.2021.6779",
+      "title": "Safety of frozen and dried formulations from whole house crickets (Acheta domesticus) as a Novel food pursuant to Regulation (EU) 2015/2283.",
+      "uri": "https://europepmc.org/article/MED/34429777",
+      "evidence_excerpt": "Following a request from the European Commission, the EFSA Panel on Nutrition, Novel Food and Food Allergens (NDA) was asked to deliver an opinion on the safety of frozen and dried formulations from house crickets (Acheta domesticus) as a novel food pursuant to Regulation (EU) 2015/2283. The NF is proposed in three formulations: (i) frozen, (ii) dried, (iii) ground. The main components of the NF are protein, fat and fibre (chitin) in the dried form of the NF, and water, protein, fat and fibre (chitin) in the frozen form of the NF. The Panel notes that the concentrations of contaminants in the NF depend on the occurrence levels of these substances in the insect feed. The Panel further notes that there are no safety concerns regarding the stability of the NF if the NF complies with the proposed specification limits during its entire shelf-life. The NF has a high-protein content, although the true protein levels in the NF are overestimated when using the nitrogen-to-protein conversion factor of 6.25, due to the presence of non-protein nitrogen from chitin. The applicant proposed to use the NF in the form of a snack, and as a food ingredient in a number of food products. The target population proposed by the applicant is the general population. The Panel notes that, considering the composition of the NF and the proposed conditions of use, the consumption of the NF is not nutritionally disadvantageous. The Panel notes that no genotoxicity and no subchronic toxicity studies with the NF were provided by the applicant. Considering that no safety concerns arise from the history of use of A. domesticus or from the compositional data of the NF, the Panel identified no other safety concerns than allergenicity. The Panel considers that the consumption of the NF might trigger primary sensitisation to A. domesticus proteins and may cause allergic reactions in subjects allergic to crustaceans, mites and molluscs. Additionally, allergens from the feed may end up in the NF. The Panel concludes that the NF is safe under the proposed uses and use levels.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2021",
+        "doi": "10.2903/j.efsa.2021.6779",
+        "pmid": "34429777",
+        "pmcid": "PMC8369844",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_638fb0ca0e0f",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_f31ac1f60b76",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods13010129",
+      "title": "Approaches to Enhance Sugar Content in Foods: Is the Date Palm Fruit a Natural Alternative to Sweeteners?",
+      "uri": "https://europepmc.org/article/MED/38201157",
+      "evidence_excerpt": "The current levels of added sugars in processed foods impact dental health and contribute to a range of chronic non-communicable diseases, such as overweight, obesity, metabolic syndrome, type 2 diabetes, and cardiovascular diseases. This review presents sugars and sweeteners used in food processing, the current possibility to replace added sugars, and highlights the benefits of using dates as a new natural, nutritious and healthy alternative to synthetic and non-nutritive sweeteners. In the context of environmental sustainability, palm groves afford a propitious habitat for a diverse array of animal species and assume a pivotal social role by contributing to the provisioning of sustenance and livelihoods for local communities. The available literature shows the date as an alternative to added sugars due to its composition in macro and micronutrients, especially in bioactive components (fiber, polyphenols and minerals). Therefore, dates are presented as a health promoter and a preventative for certain diseases with the consequent added value. The use of damaged or unmarketable dates, due to its limited shelf life, can reduce losses and improve the sustainability of date palm cultivation. This review shows the potential use dates, date by-products and second quality dates as sugar substitutes in the production of sweet and healthier foods, in line with broader sustainability objectives and circular economy principles.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2023",
+        "doi": "10.3390/foods13010129",
+        "pmid": "38201157",
+        "pmcid": "PMC10778573",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_6f1552f13ec8",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1021/acs.jmedchem.5c02915",
+      "title": "Characterization of the Sweet Taste Properties of Cyclodextrins and Their Derivatives and Their Underlying Molecular Mechanisms.",
+      "uri": "https://europepmc.org/article/MED/41623249",
+      "evidence_excerpt": "Cyclodextrins (CDs) are cyclic oligosaccharides with versatile functions and applications. However, knowledge about their taste properties and underlying molecular mechanisms is still quite limited. In this research, the sweet tastes of α-, β-, and γ-CDs were re-evaluated by a sensory test, and their efficacy to activate the human sweet taste receptor Tas1R2/Tas1R3 was examined with a cell-based assay. The results indicate that CDs are orthodox sweet taste ligands that activate human Tas1R2/Tas1R3. Furthermore, the sweet taste properties of the five derivatives of CDs were also clarified. Moreover, CDs could be classified as a primitive group of sweeteners based on the species-dependent sweet taste. Lastly, it is suggested that the organization of AH, B, and X glucophores in CDs is responsible for their interaction with human Tas1R2/Tas1R3, while the molecular compatibility of the integral configuration is essential for their sweetening power. Our findings provide novel insights for a deeper understanding of the structure-activity relationships of these important biomolecules.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1021/acs.jmedchem.5c02915",
+        "pmid": "41623249",
+        "pmcid": null,
+        "is_open_access": false
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_74ca5c4f2020",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods14193427",
+      "title": "Advancements in Microbial Applications for Sustainable Food Production.",
+      "uri": "https://europepmc.org/article/MED/41097595",
+      "evidence_excerpt": "This review consolidates recent advancements in microbial biotechnology for sustainable food systems. It focuses on the fermentation processes used in this sector, emphasizing precision fermentation as a source of innovation for alternative proteins, fermented foods, and applications of microorganisms and microbial bioproducts in the food industry. Additionally, it explores food preservation strategies and methods for controlling microbial contamination. These biotechnological approaches are increasingly replacing synthetic additives, contributing to enhanced food safety, nutritional functionality, and product shelf stability. Examples include bacteriocins from lactic acid bacteria, biodegradable microbial pigments, and exopolysaccharide-based biopolymers, such as pullulan and xanthan gum, which are used in edible coatings and films. A comprehensive literature search was conducted across Scopus, PubMed, ScienceDirect, and Google Scholar, covering publications from 2014 to 2025. A structured Boolean search strategy was applied, targeting core concepts in microbial fermentation, bio-based food additives, and contamination control. The initial search retrieved 5677 articles, from which 370 studies were ultimately selected after applying criteria such as duplication removal, relevance to food systems, full-text accessibility, and scientific quality. This review highlights microbial biotransformation as a route to minimize reliance on synthetic inputs, valorize agri-food byproducts, and support circular bioeconomy principles. It also discusses emerging antimicrobial delivery systems and regulatory challenges. Overall, microbial innovations offer viable and scalable pathways for enhancing food system resilience, functionality, and environmental stewardship.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3390/foods14193427",
+        "pmid": "41097595",
+        "pmcid": "PMC12523703",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_79a05fba7d2a",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1111/1541-4337.70534",
+      "title": "Increasing the Acceptability of Insect-Based Foods as Future Foods: A Comprehensive Review of Barriers, Strategies, and Pathways to Mainstream Adoption.",
+      "uri": "https://europepmc.org/article/MED/42316578",
+      "evidence_excerpt": "Edible insects are increasingly recognized for their high nutritional value and favorable environmental profile, yet their acceptance (defined as the continuum from willingness to try and purchase to repeated consumption) in Western and globalized food systems remains limited by cultural, sensory, regulatory, and economic barriers. This narrative review critically synthesizes recent advances in understanding the multidimensional determinants of consumer acceptance of insect-based foods and evaluates the technological, cultural, and policy-driven strategies proposed to overcome them, drawing on interdisciplinary evidence from food science, consumer behavior, and sustainability research. Evidence indicates that processing approaches such as protein hydrolysis, extrusion, fermentation, and encapsulation can significantly improve sensory quality, functionality, and product integration into familiar food matrices. In parallel, targeted marketing, consumer education, and transparent regulatory frameworks emerge as essential to building trust and reducing neophobia. This narrative synthesis provides a comprehensive conceptual framework for advancing the mainstream adoption of insect-based foods. The analysis highlights research gaps related to sensory optimization, traceability, sustainability assessment, and cross-cultural consumer studies, offering evidence-based directions to support the development of safe, acceptable, and nutritionally valuable insect-derived products within contemporary food systems.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1111/1541-4337.70534",
+        "pmid": "42316578",
+        "pmcid": "PMC13279856",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_7a3d40a36c94",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1155/ijfo/2345722",
+      "title": "From Sweetness to Mouthfeel: A Review on Overcoming Sensory Barriers in Sugar-Free Beverages.",
+      "uri": "https://europepmc.org/article/MED/41282403",
+      "evidence_excerpt": "<h4>Background</h4>Over recent decades, considerable research has focused on understanding sweet taste mechanisms and developing new noncarbohydrate sweeteners due to rising noncommunicable diseases. New regulations limiting high sugar levels in food and beverages have driven innovation towards reduced-sugar and sugar-free products, often using noncarbohydrate sweeteners. Extensive research was aimed at improving their physical and sensorial properties. However, to the authors' knowledge no publication has taken a holistic approach by integrating all major sensory and functional challenges of sugar reduction in beverages in one structured framework.<h4>Scope and approach</h4>This review addressed these challenges, which included (i) sweetness, (ii) temporal profile in relation to sweetness onset and linger, (iii) masking, (iv) flavour intensity and delivery and (v) mouthfeel enhancement. It firstly discussed the strategy of replacing the sweetness of sugar by utilizing different sweeteners, investigating mechanisms behind the sensory characteristics and solutions and exploring artificial and natural sweeteners and positive allosteric modulators for sweetness. For the temporal profile, methods to measure sweetness onset and linger were investigated. Solutions for masking off-tastes and flavours were discussed, including bitter-blockers, blending of sweeteners, production technologies and flavours with modifying properties. Changes in flavour intensity and delivery were discussed. In the last section, strategies for addressing mouthfeel reduction were summarised including the usage of hydrocolloids, sugar alcohols, fibre syrups and mineral salts.<h4>Key findings and conclusions</h4>Overall, the need for clearer guidelines and fewer restrictions was debated, highlighting conflicting consumer perspectives on the need for healthy, natural and more sustainable products and regulatory barriers around novel solutions. The advancement of scientific knowledge is emphasised, and collaboration between cross-functional teams is discussed as essential to move sugar-free products closer to their sugar-containing counterparts.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.1155/ijfo/2345722",
+        "pmid": "41282403",
+        "pmcid": "PMC12639530",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_84e4219babcc",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods15101826",
+      "title": "Comprehensive Taste Profile Assessment of Underexplored Amino Acids and Protein Derivatives in Umami and Koku.",
+      "uri": "https://europepmc.org/article/MED/42196028",
+      "evidence_excerpt": "Taste strongly influences food acceptance and purchase intention. Beyond the five basic tastes, oral sensations such as astringency or koku modulate overall taste perception. Both umami and koku act as taste enhancers, increasing mouthfeel and savoriness. While the taste of most proteogenic amino acids is well established, non-proteogenic amino acids and related protein derivatives remain insufficiently characterized. This study analyzes the taste profile of seventeen underexplored amino acids and protein derivatives using the PredMol in silico tool and quantitative descriptive analysis (QDA), with particular emphasis on their umami and koku potential. In silico evaluation identified bitterness and sweetness as the predominant tastes and predicted carnosine, theanine, citrulline, and ornithine to have koku potential with values higher than 0.44. Principal Component Analysis of the QDA revealed that sweetness, bitterness, and sourness were the main drivers of sample differentiation. Ornithine, glutamine, citrulline, pyroglutamic acid, and theanine exhibited a positive dose-response in umami perception, with potential synergistic effects observed in the presence of 0.5 mmol/L IMP. Additionally, theanine, citrulline, and ornithine enhanced koku-related attributes, particularly aftertaste and continuity, in aqueous model solutions. Overall, these findings suggest that these compounds can have a taste influence in food products and potential to be used as taste enhancers.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/foods15101826",
+        "pmid": "42196028",
+        "pmcid": "PMC13205270",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_8ce2a9da9bb4",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1186/1471-2202-6-22",
+      "title": "Valine 738 and lysine 735 in the fifth transmembrane domain of rTas1r3 mediate insensitivity towards lactisole of the rat sweet taste receptor.",
+      "uri": "https://europepmc.org/article/MED/15817126",
+      "evidence_excerpt": "<h4>Background</h4>The sweet taste inhibitor lactisole acts on the human sweet taste receptor heteromer TAS1R2-TAS1R3 but not on its rodent counterpart. Recently, it was shown that the lactisole sensitivity of the human sweet taste receptor involves the part of TAS1R3 encompassing the seven transmembrane regions but not the huge N-terminal domain. Using mutational analysis we investigated which amino acid residues distinguish lactisole insensitive rat from sensitive human T1R3 receptors.<h4>Results</h4>The functional analysis of specific receptor mutants in HEK293T cells revealed that the exchange of valine 738 in the fifth transmembrane domain of rTas1r3 by an alanine is sufficient to confer lactisole sensitivity to the rat sweet taste receptor. The sensitivity of this receptor mutant is approximately 2 fold lower than the sensitivity of the human sweet taste receptor. Additional substitution of lysine 735 by phenylalanine in rTas1r3 results in a rat sweet taste receptor that is as sensitive to lactisole as its human counterpart. The exchange of valine 738 to alanine was accompanied by a approximately 50% reduction in receptor efficacy. This effect was seen with all six different sweet compounds examined.<h4>Conclusion</h4>The lactisole insensitivity of rat sweet taste receptor is caused by only two amino acids in transmembrane region five, which is critical for the interaction of lactisole with the sweet taste receptor. The observation that the mutant receptor simultaneously displays a generally reduced sensitivity towards all agonists suggests that the lactisole insensitivity of the rodent receptor might be more likely caused by the inaccessibility of the lactisole binding site rather then by its direct disruption.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2005",
+        "doi": "10.1186/1471-2202-6-22",
+        "pmid": "15817126",
+        "pmcid": "PMC1084349",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_93b3a5b305e7",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_f31ac1f60b76",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/nu17050793",
+      "title": "Dietary Guidance, Sensory, Health and Safety Considerations When Choosing Low and No-Calorie Sweeteners.",
+      "uri": "https://europepmc.org/article/MED/40077663",
+      "evidence_excerpt": "The growing global focus on the adverse health conditions associated with excessive sugar consumption has prompted health and policy organizations as well as the public to take a more mindful approach to health and wellness. In response, food and beverage companies have proactively innovated and reformulated their product portfolios to incorporate low and no-calorie sweeteners (LNCSs) as viable alternatives to sugar. LNCSs offer an effective and safe approach to delivering sweetness to foods and beverages and reducing calories and sugar intake while contributing to the enjoyment of eating. The objective of this paper is to enhance the understanding of LNCSs segmentation and definitions, dietary consumption and reduction guidance, front-of-package labeling, taste and sensory perception and physiology, metabolic efficacy and impact, as well as the overall safety of LNCSs and sugar.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.3390/nu17050793",
+        "pmid": "40077663",
+        "pmcid": "PMC11902030",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_95342d7ad0be",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_764a9812c44d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3389/fpls.2026.1797768",
+      "title": "A review on the structure and function of plant thaumatin-like proteins.",
+      "uri": "https://europepmc.org/article/MED/42111738",
+      "evidence_excerpt": "Thaumatin-like proteins (TLPs), a subclass of pathogenesis-related proteins (PR5) distinguished by the unique and stable \"TLP-fold\" structure, are ubiquitously found across plants, animals, and fungi. TLPs play a pivotal role as effector molecules in plant antimicrobial defense, while their structural flexibility and involvement in complex regulatory networks allow them to integrate multiple phytohormone signals, including salicylic acid, jasmonic acid, ethylene, and abscisic acid. This enables a coordinated response to both biotic and abiotic stresses, positioning TLPs as an \"integrative hub\" in plant stress adaptation. This review synthesizes the current literature on gene functional validation, providing a systematic overview of the structural characteristics, evolutionary features, and regulatory mechanisms of the TLP family. It emphasizes the multifunctionality and molecular mechanisms of TLPs in disease resistance, stress tolerance, growth regulation, and their role as allergens. Additionally, it discusses the central role of TLPs in integrating stress responses and their potential applications in crop resistance breeding, offering valuable insights for future research.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3389/fpls.2026.1797768",
+        "pmid": "42111738",
+        "pmcid": "PMC13148976",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_9d8f1f164e74",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_bad6ea47c432",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/life11030236",
+      "title": "A Super Stable Mutant of the Plant Protein Monellin Endowed with Enhanced Sweetness.",
+      "uri": "https://europepmc.org/article/MED/33809397",
+      "evidence_excerpt": "Sweet proteins are a class of proteins with the ability to elicit a sweet sensation in humans upon interaction with sweet taste receptor T1R2/T1R3. Single-chain Monellin, MNEI, is among the sweetest proteins known and it could replace sugar in many food and beverage recipes. Nonetheless, its use is limited by low stability and high aggregation propensity at neutral pH. To solve this inconvenience, we designed a new construct of MNEI, dubbed Mut9, which led to gains in both sweetness and stability. Mut9 showed an extraordinary stability in acidic and neutral environments, where we observed a melting temperature over 20 °C higher than that of MNEI. In addition, Mut9 resulted twice as sweet than MNEI. Both proteins were extensively characterized by biophysical and sensory analyses. Notably, Mut9 preserved its structure and function even after 10 min boiling, with the greatest differences being observed at pH 6.8, where it remained folded and sweet, whereas MNEI lost its structure and function. Finally, we performed a 6-month shelf-life assessment, and the data confirmed the greater stability of the new construct in a wide range of conditions. These data prove that Mut9 has an even greater potential for food and beverage applications than MNEI.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2021",
+        "doi": "10.3390/life11030236",
+        "pmid": "33809397",
+        "pmcid": "PMC7999979",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_9db46f025c7c",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_efad4f6c25d1",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1002/jat.4781",
+      "title": "Safety Evaluation of Serendipity Berry Sweet Protein From Komagataella phaffii.",
+      "uri": "https://europepmc.org/article/MED/40159929",
+      "evidence_excerpt": "Serendipity Berry Sweet Protein (sweelin) is a novel hyper-sweet thermophilic protein designed using Artificial Intelligence Computational Protein Design (AI-CPD) to improve the stability and sensory profile of the protein found in serendipity berry (Dioscoreophyllum cumminsii). sweelin is produced through precision fermentation by expression in Komagataella phaffii. The safety of sweelin was investigated through an evaluation of its genotoxicity, mutagenicity, systemic toxicity and digestibility potential in in vitro and in vivo models. sweelin was not genotoxic in in vitro reverse mutation and mammalian micronucleus assays and was not associated with systemic toxicity in a 90-day dietary toxicity study in rats. The no-observed-adverse-effect level for sweelin in Sprague Dawley rats was established as 14,300 ppm, the highest dose tested. This dose level corresponds to dietary intakes of 838.3 and 946.0 mg/kg body weight/day in male and female rats, respectively. sweelin was demonstrated to be readily digestible in an in vitro semi-dynamic model of the gastrointestinal tract. The results support the safety of sweelin as a food ingredient for sweetening purposes.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.1002/jat.4781",
+        "pmid": "40159929",
+        "pmcid": "PMC12209738",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_a058ae752b00",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1016/j.crfs.2024.100866",
+      "title": "GastronOmics: Edibility and safety of mycelium of the oyster mushroom <i>Pleurotus</i> <i>ostreatus</i>.",
+      "uri": "https://europepmc.org/article/MED/39429921",
+      "evidence_excerpt": "Food production is one of the most environmentally damaging human activities. In the face of climate change, it is essential to rethink our dietary habits and explore potential alternative foods catering both towards human and planetary needs. Fungal mycelium might be an attractive alternative protein source due to its rapid growth on sustainable substrates as well as promising nutritional and organoleptic properties. The natural biodiversity of filamentous fungi is vast and represents an untapped reservoir for food innovation. However, fungi are known to produce bioactive compounds that may affect human health, both positively and negatively. To narrow the search for safe and culinarily attractive fungal species, mycelia of edible fruiting-body forming fungi provide a promising starting point. Here, we explore whether the culinary attractiveness and safety of the commonly eaten mushroom, <i>Pleurotus ostreatus,</i> can also be translated to its mycelium. Whole-genome sequencing and pan-genome analysis revealed a high degree of genetic variability within the genus <i>Pleurotus</i>, suggesting that gastronomic traits as well as food safety may differ between strains. A representative strain, <i>P. ostreatus</i> M2191, was further analyzed for the food safety, nutritional properties and culinary applicability of its mycelium. No regulated mycotoxins were detected in either the fruiting body nor the mycelium. Yet, <i>P. ostreatus</i> is known to produce four peptide toxins, Ostreatin, Ostreolysin and Pleurotoysin A/B. These were found to be lower in the mycelium compared to fruiting bodies, which are already considered safe for consumption. Instead, a number of secondary metabolites with potential health benefits were detected in the fungal mycelium. <i>In silico</i> analysis of the proteome suggested low allergenicity. In addition, the fruiting body and the mycelium showed similar nutritional value, which was dependent on the growth substrate. To highlight the culinary potential of mycelium, we created a dish served at the two-star restaurant the Alchemist in Copenhagen, Denmark. Sensory analysis of the mycelium dish by an untrained consumer panel indicated consumer liking and openness to fungal mycelia. Based on sustainability, safety, culinary potential, and consumer acceptance, our findings suggest that <i>P. ostreatus</i> mycelium has great potential for use as a novel food source.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2024",
+        "doi": "10.1016/j.crfs.2024.100866",
+        "pmid": "39429921",
+        "pmcid": "PMC11490876",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ab2a17e1a62e",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1111/1750-3841.70925",
+      "title": "Aroma, Flavor, and Textural Drivers of Acceptance in Unflavored Pea Protein Isolates.",
+      "uri": "https://europepmc.org/article/MED/41684289",
+      "evidence_excerpt": "The growing popularity of plant-based proteins, particularly pea protein, is driven by health benefits and sustainability. However, despite the increasing demand, undesirable sensory attributes hinder consumer acceptance. This study aimed to identify the key sensory drivers of acceptance for unflavored pea protein isolates and to compare acceptance ratings between plant-based and animal-based protein consumers. Thirteen pea protein isolates were evaluated through descriptive analysis by a trained panel, assessing 19 sensory attributes including aroma, flavor, taste, and texture. Consumer acceptance ratings were evaluated by 134 participants, divided into plant- and animal-based protein consumers. Results indicated that flavor was the most impactful predictor of overall acceptance, followed by texture and aroma. Notably, no significant differences in acceptance ratings were observed between the two consumer groups, suggesting shared criteria for evaluating pea protein isolates. Internal preference mapping showed that product liking was driven primarily by the avoidance of negative attributes. Indeed, perceived sensations, including bitterness, cereal/grainy flavor, and astringency, adversely affected acceptance, whereas positive attributes included sweet taste and green pea flavor. Overall, these findings highlight the importance of optimizing sensory profiles to enhance consumer acceptance of pea protein as a versatile ingredient in various applications. Future research should focus on strategies to minimize undesirable sensory characteristics to broaden the appeal of pea protein products.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1111/1750-3841.70925",
+        "pmid": "41684289",
+        "pmcid": "PMC12902806",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_afb8ba00fd5d",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.2903/j.efsa.2021.6884",
+      "title": "Re-evaluation of thaumatin (E 957) as food additive.",
+      "uri": "https://europepmc.org/article/MED/34876926",
+      "evidence_excerpt": "The present opinion deals with the re-evaluation of thaumatin (E 957) when used as a food additive. Thaumatin is a natural plant protein, consisting of thaumatin I and thaumatin II proteins together with minor amounts of plant constituents, obtained by acidic aqueous extraction of the arils of the fruit of <i>Thaumatococcus daniellii</i> plant. The Panel followed the conceptual framework for the risk assessment of certain food additives and considered that thaumatin is a digestible protein; adequate exposure estimates were available; there was no concern with respect to the genotoxicity; no conclusion on oral allergenicity could be drawn from the available human data; no adverse effects were observed in sub-chronic toxicity studies in rats and dogs at the highest dose tested of up 5,200 and 1,476 mg/kg bodyweight (bw) per day, respectively, and in a prenatal developmental toxicity study up to 2,000 mg/kg bw per day; moderate confidence in the body of evidence supported the absence of association between exposure to thaumatin and adverse health outcomes. Therefore, the Panel concluded that there is no need for a numerical acceptable daily intake (ADI) for thaumatin (E 957) and, based on a margin of safety (MOS) of 5,417, considered to be an underestimate and derived using the highest 95th percentile (P95) exposure of 0.48 mg/kg bw per day in consumers only, there is no safety concern for thaumatin (E 957) at the regulatory maximum level exposure assessment scenario, which was considered the most appropriate. The Panel recommended that European Commission considers introducing in the EU specifications for thaumatin (E 957) a new specification limit for the minimum combined content of thaumatin I and II proteins in E 957, a specification limit for yeast, mould counts and <i>Salmonella</i> spp and lowering the existing maximum limit for arsenic along with the inclusion of maximum limits for mercury and cadmium.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2021",
+        "doi": "10.2903/j.efsa.2021.6884",
+        "pmid": "34876926",
+        "pmcid": "PMC8630604",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_b9071613af5b",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1016/j.fochx.2026.103900",
+      "title": "A newly-processed Meicha (&lt;i&gt;Ampelopsis grossedentata&lt;/i&gt;) via high-temperature re-roasting and &lt;i&gt;Eurotium cristatum&lt;/i&gt; fermentation: Aroma characteristics and chemical basis.",
+      "uri": "https://europepmc.org/article/MED/42078021",
+      "evidence_excerpt": "Meicha (<i>Ampelopsis grossedentata</i>) is a specialty Chinese herbal tea rich in flavonoids but lacks pleasant aromas. In this study, a novel process combining high-temperature re-roasting with mixed-culture fermentation using <i>Eurotium cristatum</i> produced Meicha with a distinctive composite aroma of \"intense fungal-flowery, mellow-roasted, and harmonious sweet-fruity\" notes, achieving optimal quality. HS-SPME/GC-MS and chemometrics identified 90 volatile compounds; high-temperature treatment introduced key aroma components such as (<i>2E,4E</i>)-2,4-octadienal and <i>β</i>-ionone, among which 21 compounds had odor activity values (OAV) ≥ 1. Dihydroactinidiolide reached 406.97 ng/g in the RMF sample, while <i>β</i>-ionone exhibited an OAV of 35,455.72 in RL1, confirming both as core aroma contributors. Molecular docking revealed that OR1A1 is the primary receptor for these odorants, with binding energies ranging from -8.0 to -4.8 kcal/mol, stabilized by hydrogen bonds with ASN155/HIS159 and hydrophobic interactions with TYR258/PHE206. This study is the first to demonstrate synergistic aroma improvement, offering a pathway for high-aroma Meicha products.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1016/j.fochx.2026.103900",
+        "pmid": "42078021",
+        "pmcid": "PMC13134028",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_c5e917aa7d7a",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.2903/j.efsa.2017.4862",
+      "title": "Guidance on allergenicity assessment of genetically modified plants.",
+      "uri": "https://europepmc.org/article/MED/32728397",
+      "evidence_excerpt": "This document provides supplementary guidance on specific topics for the allergenicity risk assessment of genetically modified plants. In particular, it supplements general recommendations outlined in previous EFSA GMO Panel guidelines and Implementing Regulation (EU) No 503/2013. The topics addressed are non-IgE-mediated adverse immune reactions to foods, <i>in vitro</i> protein digestibility tests and endogenous allergenicity. New scientific and regulatory developments regarding these three topics are described in this document. Considerations on the practical implementation of those developments in the risk assessment of genetically modified plants are discussed and recommended, where appropriate.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2017",
+        "doi": "10.2903/j.efsa.2017.4862",
+        "pmid": "32728397",
+        "pmcid": "PMC7384481",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ce595d78024c",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods13071010",
+      "title": "Dairy, Plant, and Novel Proteins: Scientific and Technological Aspects.",
+      "uri": "https://europepmc.org/article/MED/38611316",
+      "evidence_excerpt": "Alternative proteins have gained popularity as consumers look for foods that are healthy, nutritious, and sustainable. Plant proteins, precision fermentation-derived proteins, cell-cultured proteins, algal proteins, and mycoproteins are the major types of alternative proteins that have emerged in recent years. This review addresses the major alternative-protein categories and reviews their definitions, current market statuses, production methods, and regulations in different countries, safety assessments, nutrition statuses, functionalities and applications, and, finally, sensory properties and consumer perception. Knowledge relative to traditional dairy proteins is also addressed. Opportunities and challenges associated with these proteins are also discussed. Future research directions are proposed to better understand these technologies and to develop consumer-acceptable final products.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2024",
+        "doi": "10.3390/foods13071010",
+        "pmid": "38611316",
+        "pmcid": "PMC11011482",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_d5e89525e4c1",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1186/1472-6807-7-66",
+      "title": "The binding site for neohesperidin dihydrochalcone at the human sweet taste receptor.",
+      "uri": "https://europepmc.org/article/MED/17935609",
+      "evidence_excerpt": "<h4>Background</h4>Differences in sweet taste perception among species depend on structural variations of the sweet taste receptor. The commercially used isovanillyl sweetener neohesperidin dihydrochalcone activates the human but not the rat sweet receptor TAS1R2+TAS1R3. Analysis of interspecies combinations and chimeras of rat and human TAS1R2+TAS1R3 suggested that the heptahelical domain of human TAS1R3 is crucial for the activation of the sweet receptor by neohesperidin dihydrochalcone.<h4>Results</h4>By mutational analysis combined with functional studies and molecular modeling we identified a set of different amino acid residues within the heptahelical domain of human TAS1R3 that forms the neohesperidin dihydrochalcone binding pocket. Sixteen amino acid residues in the transmembrane domains 2 to 7 and one in the extracellular loop 2 of hTAS1R3 influenced the receptor's response to neohesperidin dihydrochalcone. Some of these seventeen residues are also part of the binding sites for the sweetener cyclamate or the sweet taste inhibitor lactisole. In line with this observation, lactisole inhibited activation of the sweet receptor by neohesperidin dihydrochalcone and cyclamate competitively, whereas receptor activation by aspartame, a sweetener known to bind to the N-terminal domain of TAS1R2, was allosterically inhibited. Seven of the amino acid positions crucial for activation of hTAS1R2+hTAS1R3 by neohesperidin dihydrochalcone are thought to play a role in the binding of allosteric modulators of other class C GPCRs, further supporting our model of the neohesperidin dihydrochalcone pharmacophore.<h4>Conclusion</h4>From our data we conclude that we identified the neohesperidin dihydrochalcone binding site at the human sweet taste receptor, which overlaps with those for the sweetener cyclamate and the sweet taste inhibitor lactisole. This readily delivers a molecular explanation of our finding that lactisole is a competitive inhibitor of the receptor activation by neohesperidin dihydrochalcone and cyclamate. Some of the amino acid positions crucial for activation of hTAS1R2+hTAS1R3 by neohesperidin dihydrochalcone are involved in the binding of allosteric modulators in other class C GPCRs, suggesting a general role of these amino acid positions in allosterism and pointing to a common architecture of the heptahelical domains of class C GPCRs.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2007",
+        "doi": "10.1186/1472-6807-7-66",
+        "pmid": "17935609",
+        "pmcid": "PMC2099433",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_d797081a3120",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5013ed20f61d",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.3390/foods15081394",
+      "title": "Optimization of Pectinase-Assisted Extraction from Date Palm and Development of a Quince-Jujube Ready-to-Drink Beverage: A Two-Stage Approach.",
+      "uri": "https://europepmc.org/article/MED/42073282",
+      "evidence_excerpt": "Rising consumer demand for functional beverages has accelerated the development of health-promoting, fruit-based ready-to-drink (RTD) products. This study investigated the effects of incubation temperature (50-80 °C) and time (60-240 min) on pectinase-assisted extraction (0.1% <i>v</i>/<i>v</i>) of date palm (<i>Phoenix dactylifera</i> L., Bahi variety) juice and subsequently formulated antioxidant-rich RTD beverages by blending the optimized extract with quince and jujube juices. The optimal extraction condition (50 °C, 60 min) was selected based on maximizing bioactive compound recovery rather than yield, achieving total phenolic content of 326.33 mg GAE/100 mL, total carotenoid content of 1.08 mg β-carotene equivalents/100 mL, and strong antioxidant activity (DPPH: 514.06; FRAP: 595.38 µmol TE/100 mL). Although maximum yield (81.25%) was obtained at 60 °C for 240 min, functional quality was prioritized. Six RTD formulations were developed using a constrained simplex-lattice mixture design. All blends exhibited significantly enhanced phenolic content, carotenoids, and antioxidant capacity compared to the control, while pH and acidity remained stable (<i>p</i> > 0.05). Sensory evaluation indicated that the formulation containing 70% date palm, 15% quince, and 15% jujube achieved the highest acceptability (6.50). These findings highlight the potential of this tri-fruit blend as a functional RTD beverage, warranting further studies on shelf-life stability.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.3390/foods15081394",
+        "pmid": "42073282",
+        "pmcid": "PMC13115344",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_e45c6add27bf",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_f31ac1f60b76",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1007/s10068-025-01823-0",
+      "title": "Optimization, validation, and measurement uncertainty of HPLC-UVD method for quantification of thaumatin in food.",
+      "uri": "https://europepmc.org/article/MED/40196329",
+      "evidence_excerpt": "Thaumatin is a low-calorie protein sweetener extracted from <i>Thaumatococcus daniellii</i> Benth. Its ADI (Acceptable Daily Intake) was concluded as \"not specified\" by the EFSA (European Food Safety Authority). This study was conducted to select a sample preparation method and validate the proposed method by applying a matrix-matched calibration curve using HPLC-UVD. In the results, the calibration curve (5-200 mg/L) represented good linearity (<i>r</i> <sup>2</sup> ≥ 0.9995). LOD and LOQ ranged from 1.28 to 2.00 mg/L and from 3.89 to 6.07 mg/L, respectively. The intra- and inter-day accuracies and precisions ranged from 91.5 to 103.0%RSD and from 0.50 to 3.42%RSD, respectively. Furthermore, the relative expanded uncertainty was evaluated and the result satisfied the CODEX guideline (≤ 16%). Additionally, the application of the validated method was confirmed by using thaumatin-containing foods distributed in Korea. Thaumatin intake and exposure assessments for consumers can be conducted based on this study.<h4>Supplementary information</h4>The online version contains supplementary material available at 10.1007/s10068-025-01823-0.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2025",
+        "doi": "10.1007/s10068-025-01823-0",
+        "pmid": "40196329",
+        "pmcid": "PMC11972248",
+        "is_open_access": false
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ed21817b0a4f",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_5892d881cf83",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1016/j.fochx.2026.103528",
+      "title": "The rise of plant-based milk alternatives: exploring nutritional, health, and sustainability impacts.",
+      "uri": "https://europepmc.org/article/MED/41630881",
+      "evidence_excerpt": "The rising demand for plant-based milk alternatives (PBMAs) reflects growing consumer interest in sustainable nutrition and healthier diets. This review provides a comprehensive examination of the nutritional quality, health impacts, and sustainability of PBMAs derived from cereals, legumes, nuts, and seeds. It analyzes their physicochemical characteristics, fortification strategies, and advancement in processing technologies, including high-pressure homogenization, ultrasonication, and enzymatic treatments, which enhance shelf life, sensory quality, and bioavailability. This review also explores allergenicity and antinutritional factors associated with PBMAs, highlighting the role of formulation and processing in addressing these limitations. In addition, it discusses global market trends, consumer perceptions, and regulatory considerations, underscoring the role of PBMAs in shaping sustainable and resilient food systems. By addressing knowledge gaps across nutrition, processing, and sustainability, this review provides valuable insights for researchers, industry professionals, and policymakers seeking to optimize PBMAs for a growing, health-conscious, and eco-aware global population.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2026",
+        "doi": "10.1016/j.fochx.2026.103528",
+        "pmid": "41630881",
+        "pmcid": "PMC12861291",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_f20d323b64c8",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1093/chemse/bjx083",
+      "title": "Structure-Function Relationships of Olfactory and Taste Receptors.",
+      "uri": "https://europepmc.org/article/MED/29342245",
+      "evidence_excerpt": "The field of chemical senses has made major progress in understanding the cellular mechanisms of olfaction and taste in the past 2 decades. However, the molecular understanding of odor and taste recognition is still lagging far behind and will require solving multiple structures of the relevant full-length receptors in complex with native ligands to achieve this goal. However, the development of multiple complimentary strategies for the structure determination of G protein-coupled receptors (GPCRs) makes this goal realistic. The common conundrum of how multi-specific receptors that recognize a large number of different ligands results in a sensory perception in the brain will only be fully understood by a combination of high-resolution receptor structures and functional studies. This review discusses the first steps on this pathway, including biochemical and physiological assays, forward genetics approaches, molecular modeling, and the first steps towards the structural biology of olfactory and taste receptors.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2018",
+        "doi": "10.1093/chemse/bjx083",
+        "pmid": "29342245",
+        "pmcid": "PMC6276892",
+        "is_open_access": false
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_f65606c5179c",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_afb237f90ba0",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1111/1750-3841.16101",
+      "title": "Molecular insights into human taste perception and umami tastants: A review.",
+      "uri": "https://europepmc.org/article/MED/35301715",
+      "evidence_excerpt": "Understanding taste is key for optimizing the palatability of seaweeds and other non-animal-based foods rich in protein. The lingual papillae in the mouth hold taste buds with taste receptors for the five gustatory taste qualities. Each taste bud contains three distinct cell types, of which Type II cells carry various G protein-coupled receptors that can detect sweet, bitter, or umami tastants, while type III cells detect sour, and likely salty stimuli. Upon ligand binding, receptor-linked intracellular heterotrimeric G proteins initiate a cascade of downstream events which activate the afferent nerve fibers for taste perception in the brain. The taste of amino acids depends on the hydrophobicity, size, charge, isoelectric point, chirality of the alpha carbon, and the functional groups on their side chains. The principal umami ingredient monosodium l-glutamate, broadly known as MSG, loses umami taste upon acetylation, esterification, or methylation, but is able to form flat configurations that bind well to the umami taste receptor. Ribonucleotides such as guanosine monophosphate and inosine monophosphate strongly enhance umami taste when l-glutamate is present. Ribonucleotides bind to the outer section of the venus flytrap domain of the receptor dimer and stabilize the closed conformation. Concentrations of glutamate, aspartate, arginate, and other compounds in food products may enhance saltiness and overall flavor. Umami ingredients may help to reduce the consumption of salts and fats in the general population and increase food consumption in the elderly.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2022",
+        "doi": "10.1111/1750-3841.16101",
+        "pmid": "35301715",
+        "pmcid": "PMC9314127",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_f8acbc3b4870",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_817b7eba1317",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1021/acssynbio.3c00743",
+      "title": "A Yeast Modular Cloning (MoClo) Toolkit Expansion for Optimization of Heterologous Protein Secretion and Surface Display in &lt;i&gt;Saccharomyces cerevisiae&lt;/i&gt;.",
+      "uri": "https://europepmc.org/article/MED/38483353",
+      "evidence_excerpt": "<i>Saccharomyces cerevisiae</i> is an attractive host for the expression of secreted proteins in a biotechnology context. Unfortunately, many heterologous proteins fail to enter, or efficiently progress through, the secretory pathway, resulting in poor yields. Similarly, yeast surface display has become a widely used technique in protein engineering but achieving sufficient levels of surface expression of recombinant proteins is often challenging. Signal peptides (SPs) and translational fusion partners (TFPs) can be used to direct heterologous proteins through the yeast secretory pathway, however, selection of the optimal secretion promoting sequence is largely a process of trial and error. The yeast modular cloning (MoClo) toolkit utilizes type IIS restriction enzymes to facilitate an efficient assembly of expression vectors from standardized parts. We have expanded this toolkit to enable the efficient incorporation of a panel of 16 well-characterized SPs and TFPs and five surface display anchor proteins into <i>S. cerevisiae</i> expression cassettes. The secretion promoting signals are validated by using five different proteins of interest. Comparison of intracellular and secreted protein levels reveals the optimal secretion promoting sequence for each individual protein. Large, protein of interest-specific variations in secretion efficiency are observed. SP sequences are also used with the five surface display anchors, and the combination of SP and anchor protein proves critical for efficient surface display. These observations highlight the value of the described panel of MoClo compatible parts to allow facile screening of SPs and TFPs and anchor proteins for optimal secretion and/or surface display of a given protein of interest in <i>S. cerevisiae</i>.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2024",
+        "doi": "10.1021/acssynbio.3c00743",
+        "pmid": "38483353",
+        "pmcid": "PMC11036508",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ff46afdeac08",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_bad6ea47c432",
+      "research_finding_id": null,
+      "source_type": "Europe_PMC",
+      "source_identifier": "10.1155/2016/3647173",
+      "title": "Modification of the Sweetness and Stability of Sweet-Tasting Protein Monellin by Gene Mutation and Protein Engineering.",
+      "uri": "https://europepmc.org/article/MED/26881217",
+      "evidence_excerpt": "Natural sweet protein monellin has a high sweetness and low calorie, suggesting its potential in food applications. However, due to its low heat and acid resistance, the application of monellin is limited. In this study, we show that the thermostability of monellin can be improved with no sweetness decrease by means of sequence, structure analysis, and site-directed mutagenesis. We analyzed residues located in the α-helix as well as an ionizable residue C41. Of the mutants investigated, the effects of E23A and C41A mutants were most remarkable. The former displayed significantly improved thermal stability, while its sweetness was not changed. The mutated protein was stable after 30 min incubation at 85°C. The latter showed increased sweetness and slight improvement of thermostability. Furthermore, we found that most mutants enhancing the thermostability of the protein were distributed at the two ends of α-helix. Molecular biophysics analysis revealed that the state of buried ionizable residues may account for the modulated properties of mutated proteins. Our results prove that the properties of sweet protein monellin can be modified by means of bioinformatics analysis, gene manipulation, and protein modification, highlighting the possibility of designing novel effective sweet proteins based on structure-function relationships.",
+      "evidence_level": "abstract",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "year": "2016",
+        "doi": "10.1155/2016/3647173",
+        "pmid": "26881217",
+        "pmcid": "PMC4736911",
+        "is_open_access": true
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_397610102182",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_1ea995254bea",
+      "research_finding_id": null,
+      "source_type": "FDA_GRAS",
+      "source_identifier": "GRN 1269",
+      "title": "Modified monellin sweet protein",
+      "uri": "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1269&set=GRASNotices",
+      "evidence_excerpt": "Official FDA GRAS notice record; status and conditions require review of the record.",
+      "evidence_level": "official_record",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {},
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_4f7d5d93a97e",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_1ea995254bea",
+      "research_finding_id": null,
+      "source_type": "FDA_GRAS",
+      "source_identifier": "GRN 1183",
+      "title": "Modified monellin produced by Komagataella phaffii",
+      "uri": "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1183&set=GRASNotices",
+      "evidence_excerpt": "Official FDA GRAS notice record; status and conditions require review of the record.",
+      "evidence_level": "official_record",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {},
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5014898362d3",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_1ea995254bea",
+      "research_finding_id": null,
+      "source_type": "FDA_GRAS",
+      "source_identifier": "GRN 1142",
+      "title": "Brazzein produced by Komagataella phaffii",
+      "uri": "https://www.cfsanappsexternal.fda.gov/scripts/fdcc/?id=1142&set=GRASNotices",
+      "evidence_excerpt": "Official FDA GRAS notice record; status and conditions require review of the record.",
+      "evidence_level": "official_record",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {},
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_9a8f869ba651",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_1ea995254bea",
+      "research_finding_id": null,
+      "source_type": "FDA_GRAS",
+      "source_identifier": "GRN 1207",
+      "title": "Brazzein preparation produced by Aspergillus oryzae",
+      "uri": "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1207&set=grasnotices",
+      "evidence_excerpt": "Official FDA GRAS notice record; status and conditions require review of the record.",
+      "evidence_level": "official_record",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {},
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_34893b816aae",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "RCSB_PDB",
+      "source_identifier": "9UTA",
+      "title": "The transmembrane domains of human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+      "uri": "https://www.rcsb.org/structure/9UTA",
+      "evidence_excerpt": "EM",
+      "evidence_level": "experimental_structure",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "pdb_id": "9UTA",
+        "title": "The transmembrane domains of human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+        "experimental_method": "EM",
+        "resolution": [
+          3.77
+        ],
+        "polymer_entity_count": 2,
+        "nonpolymer_entity_count": 0,
+        "release_date": "2025-07-16T00:00:00.000+00:00",
+        "citation_title": "Structural and functional characterization of human sweet taste receptor.",
+        "citation_doi": "10.1038/s41586-025-09302-6",
+        "citation_pubmed_id": 40555359,
+        "url": "https://www.rcsb.org/structure/9UTA",
+        "download_url": "https://files.rcsb.org/download/9UTA.cif"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_904e1684bc56",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "RCSB_PDB",
+      "source_identifier": "9NOY",
+      "title": "Human TAS1R2 transmembrane domains from the TAS1R2-TM-G protein complex",
+      "uri": "https://www.rcsb.org/structure/9NOY",
+      "evidence_excerpt": "EM",
+      "evidence_level": "experimental_structure",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "pdb_id": "9NOY",
+        "title": "Human TAS1R2 transmembrane domains from the TAS1R2-TM-G protein complex",
+        "experimental_method": "EM",
+        "resolution": [
+          3.7
+        ],
+        "polymer_entity_count": 1,
+        "nonpolymer_entity_count": 0,
+        "release_date": "2025-05-21T00:00:00.000+00:00",
+        "citation_title": "The structure of human sweetness.",
+        "citation_doi": "10.1016/j.cell.2025.04.021",
+        "citation_pubmed_id": 40339580,
+        "url": "https://www.rcsb.org/structure/9NOY",
+        "download_url": "https://files.rcsb.org/download/9NOY.cif"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_9786fef7c344",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "RCSB_PDB",
+      "source_identifier": "9UT9",
+      "title": "The VFT domains of human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+      "uri": "https://www.rcsb.org/structure/9UT9",
+      "evidence_excerpt": "EM",
+      "evidence_level": "experimental_structure",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "pdb_id": "9UT9",
+        "title": "The VFT domains of human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+        "experimental_method": "EM",
+        "resolution": [
+          3.18
+        ],
+        "polymer_entity_count": 2,
+        "nonpolymer_entity_count": 0,
+        "release_date": "2025-07-16T00:00:00.000+00:00",
+        "citation_title": "Structural and functional characterization of human sweet taste receptor.",
+        "citation_doi": "10.1038/s41586-025-09302-6",
+        "citation_pubmed_id": 40555359,
+        "url": "https://www.rcsb.org/structure/9UT9",
+        "download_url": "https://files.rcsb.org/download/9UT9.cif"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ad780a582be2",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "RCSB_PDB",
+      "source_identifier": "9UT8",
+      "title": "The full-length human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+      "uri": "https://www.rcsb.org/structure/9UT8",
+      "evidence_excerpt": "EM",
+      "evidence_level": "experimental_structure",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "pdb_id": "9UT8",
+        "title": "The full-length human sweet taste receptor TAS1R2 and TAS1R3 in the apo state",
+        "experimental_method": "EM",
+        "resolution": [
+          3.41
+        ],
+        "polymer_entity_count": 2,
+        "nonpolymer_entity_count": 0,
+        "release_date": "2025-07-16T00:00:00.000+00:00",
+        "citation_title": "Structural and functional characterization of human sweet taste receptor.",
+        "citation_doi": "10.1038/s41586-025-09302-6",
+        "citation_pubmed_id": 40555359,
+        "url": "https://www.rcsb.org/structure/9UT8",
+        "download_url": "https://files.rcsb.org/download/9UT8.cif"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_e288e7118c72",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_a16e90153e31",
+      "research_finding_id": null,
+      "source_type": "RCSB_PDB",
+      "source_identifier": "9NOR",
+      "title": "Human sweet taste receptor composed of TAS1R2 and TAS1R3 GPCRs from the combined datasets",
+      "uri": "https://www.rcsb.org/structure/9NOR",
+      "evidence_excerpt": "EM",
+      "evidence_level": "experimental_structure",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "pdb_id": "9NOR",
+        "title": "Human sweet taste receptor composed of TAS1R2 and TAS1R3 GPCRs from the combined datasets",
+        "experimental_method": "EM",
+        "resolution": [
+          3.4
+        ],
+        "polymer_entity_count": 2,
+        "nonpolymer_entity_count": 1,
+        "release_date": "2025-05-14T00:00:00.000+00:00",
+        "citation_title": "The structure of human sweetness.",
+        "citation_doi": "10.1016/j.cell.2025.04.021",
+        "citation_pubmed_id": 40339580,
+        "url": "https://www.rcsb.org/structure/9NOR",
+        "download_url": "https://files.rcsb.org/download/9NOR.cif"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_0d987ccd38ba",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_4eab7e09e891",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q9H112",
+      "title": "Cystatin-11",
+      "uri": "https://www.uniprot.org/uniprotkb/Q9H112/entry",
+      "evidence_excerpt": "Has antibacterial activity against the Gram-negative bacteria E.coli. May play a role in sperm maturation and fertilization",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q9H112",
+        "entry_name": "CST11_HUMAN",
+        "protein_name": "Cystatin-11",
+        "genes": [
+          "CST11"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 138,
+        "reviewed": true,
+        "function_comments": [
+          "Has antibacterial activity against the Gram-negative bacteria E.coli. May play a role in sperm maturation and fertilization"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q9H112/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_1f57a8072974",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P80352",
+      "title": "Sweet protein mabinlin-3",
+      "uri": "https://www.uniprot.org/uniprotkb/P80352/entry",
+      "evidence_excerpt": "Heat stable 2S seed storage protein having sweetness-inducing activity",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P80352",
+        "entry_name": "2SS3_CAPMA",
+        "protein_name": "Sweet protein mabinlin-3",
+        "genes": [],
+        "organism": "Capparis masaikai",
+        "sequence_length": 104,
+        "reviewed": true,
+        "function_comments": [
+          "Heat stable 2S seed storage protein having sweetness-inducing activity"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P80352/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_451a9cafb7f8",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q9D154",
+      "title": "Leukocyte elastase inhibitor A",
+      "uri": "https://www.uniprot.org/uniprotkb/Q9D154/entry",
+      "evidence_excerpt": "Neutrophil serine protease inhibitor that plays an essential role in the regulation of the innate immune response, inflammation and cellular homeostasis (PubMed:17664292, PubMed:21248149, PubMed:21683252, PubMed:30692621). Acts primarily to protect the cell from proteases released in the cytoplasm during stress or infection (PubMed:17664292). These proteases are important in killing microbes but when released from granules, these potent enzymes also destroy host proteins and contribute to mortality. Regulates the activity of the neutrophil proteases elastase, cathepsin G, proteinase-3, chymase, chymotrypsin, and kallikrein-3. Also acts as a potent intracellular inhibitor of granzyme H (PubMed:12189154). During inflammation, limits the activity of inflammatory caspases CASP1 and CASP4 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621). In addition, promotes the proliferation of beta-cells when secreted (PubMed:26701651)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q9D154",
+        "entry_name": "ILEUA_MOUSE",
+        "protein_name": "Leukocyte elastase inhibitor A",
+        "genes": [
+          "Serpinb1a"
+        ],
+        "organism": "Mus musculus",
+        "sequence_length": 379,
+        "reviewed": true,
+        "function_comments": [
+          "Neutrophil serine protease inhibitor that plays an essential role in the regulation of the innate immune response, inflammation and cellular homeostasis (PubMed:17664292, PubMed:21248149, PubMed:21683252, PubMed:30692621). Acts primarily to protect the cell from proteases released in the cytoplasm during stress or infection (PubMed:17664292). These proteases are important in killing microbes but when released from granules, these potent enzymes also destroy host proteins and contribute to mortality. Regulates the activity of the neutrophil proteases elastase, cathepsin G, proteinase-3, chymase, chymotrypsin, and kallikrein-3. Also acts as a potent intracellular inhibitor of granzyme H (PubMed:12189154). During inflammation, limits the activity of inflammatory caspases CASP1 and CASP4 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621). In addition, promotes the proliferation of beta-cells when secreted (PubMed:26701651)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q9D154/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_463ba6f7af30",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P02765",
+      "title": "Alpha-2-HS-glycoprotein",
+      "uri": "https://www.uniprot.org/uniprotkb/P02765/entry",
+      "evidence_excerpt": "Promotes endocytosis, possesses opsonic properties and influences the mineral phase of bone. Shows affinity for calcium and barium ions",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P02765",
+        "entry_name": "FETUA_HUMAN",
+        "protein_name": "Alpha-2-HS-glycoprotein",
+        "genes": [
+          "AHSG"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 367,
+        "reviewed": true,
+        "function_comments": [
+          "Promotes endocytosis, possesses opsonic properties and influences the mineral phase of bone. Shows affinity for calcium and barium ions"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P02765/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_49fbd92578aa",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q6F495",
+      "title": "Curculin-2",
+      "uri": "https://www.uniprot.org/uniprotkb/Q6F495/entry",
+      "evidence_excerpt": "Taste-modifying protein; sweet-tasting. After curculin, water elicits a sweet taste, and sour substances induce a stronger sense of sweetness",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q6F495",
+        "entry_name": "CURC2_MOLLA",
+        "protein_name": "Curculin-2",
+        "genes": [],
+        "organism": "Molineria latifolia",
+        "sequence_length": 158,
+        "reviewed": true,
+        "function_comments": [
+          "Taste-modifying protein; sweet-tasting. After curculin, water elicits a sweet taste, and sour substances induce a stronger sense of sweetness"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q6F495/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_529fc042924f",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P12763",
+      "title": "Alpha-2-HS-glycoprotein",
+      "uri": "https://www.uniprot.org/uniprotkb/P12763/entry",
+      "evidence_excerpt": "Promotes endocytosis, possesses opsonic properties and influences the mineral phase of bone. Suggested to have lymphocyte stimulating properties, lipid binding capability and to bind thyroid hormone",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P12763",
+        "entry_name": "FETUA_BOVIN",
+        "protein_name": "Alpha-2-HS-glycoprotein",
+        "genes": [
+          "AHSG"
+        ],
+        "organism": "Bos taurus",
+        "sequence_length": 359,
+        "reviewed": true,
+        "function_comments": [
+          "Promotes endocytosis, possesses opsonic properties and influences the mineral phase of bone. Suggested to have lymphocyte stimulating properties, lipid binding capability and to bind thyroid hormone"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P12763/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5601a1e0946d",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P30233",
+      "title": "Sweet protein mabinlin-2",
+      "uri": "https://www.uniprot.org/uniprotkb/P30233/entry",
+      "evidence_excerpt": "Heat stable 2S seed storage protein having sweetness-inducing activity",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P30233",
+        "entry_name": "2SS2_CAPMA",
+        "protein_name": "Sweet protein mabinlin-2",
+        "genes": [],
+        "organism": "Capparis masaikai",
+        "sequence_length": 155,
+        "reviewed": true,
+        "function_comments": [
+          "Heat stable 2S seed storage protein having sweetness-inducing activity"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P30233/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5b4f29ae9d4e",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P56552",
+      "title": "Defensin-like protein",
+      "uri": "https://www.uniprot.org/uniprotkb/P56552/entry",
+      "evidence_excerpt": "Taste-modifying protein; sweet-tasting. It is 2000 sweeter than sucrose on a molar basis",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P56552",
+        "entry_name": "DEF_PENBA",
+        "protein_name": "Defensin-like protein",
+        "genes": [],
+        "organism": "Pentadiplandra brazzeana",
+        "sequence_length": 54,
+        "reviewed": true,
+        "function_comments": [
+          "Taste-modifying protein; sweet-tasting. It is 2000 sweeter than sucrose on a molar basis",
+          "Has a pH-specific antimicrobial activity against bacteria (B.subtilis, E.coli and S.aureus) and the fungus C.albicans"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P56552/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_5ef90b69f928",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q9ZVA2",
+      "title": "EP1-like glycoprotein 2",
+      "uri": "https://www.uniprot.org/uniprotkb/Q9ZVA2/entry",
+      "evidence_excerpt": null,
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q9ZVA2",
+        "entry_name": "EP1L2_ARATH",
+        "protein_name": "EP1-like glycoprotein 2",
+        "genes": [],
+        "organism": "Arabidopsis thaliana",
+        "sequence_length": 455,
+        "reviewed": true,
+        "function_comments": [],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q9ZVA2/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_72b40f639c44",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P19667",
+      "title": "Curculin-1",
+      "uri": "https://www.uniprot.org/uniprotkb/P19667/entry",
+      "evidence_excerpt": "Taste-modifying protein; sweet-tasting. After curculin, water elicits a sweet taste, and sour substances induce a stronger sense of sweetness",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P19667",
+        "entry_name": "CURC1_MOLLA",
+        "protein_name": "Curculin-1",
+        "genes": [
+          "CUR09"
+        ],
+        "organism": "Molineria latifolia",
+        "sequence_length": 158,
+        "reviewed": true,
+        "function_comments": [
+          "Taste-modifying protein; sweet-tasting. After curculin, water elicits a sweet taste, and sour substances induce a stronger sense of sweetness"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P19667/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_780c85c9cb72",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q925D8",
+      "title": "Taste receptor type 1 member 3",
+      "uri": "https://www.uniprot.org/uniprotkb/Q925D8/entry",
+      "evidence_excerpt": "Putative taste receptor. TAS1R1/TAS1R3 responds to the umami taste stimulus (the taste of monosodium glutamate) and also to most of the 20 standard L-amino acids, but not to their D-enantiomers or other compounds. TAS1R2/TAS1R3 recognizes diverse natural and synthetic sweeteners. TAS1R3 is essential for the recognition and response to the disaccharide trehalose. Sequence differences within and between species can significantly influence the selectivity and specificity of taste responses",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q925D8",
+        "entry_name": "TS1R3_MOUSE",
+        "protein_name": "Taste receptor type 1 member 3",
+        "genes": [
+          "Tas1r3"
+        ],
+        "organism": "Mus musculus",
+        "sequence_length": 858,
+        "reviewed": true,
+        "function_comments": [
+          "Putative taste receptor. TAS1R1/TAS1R3 responds to the umami taste stimulus (the taste of monosodium glutamate) and also to most of the 20 standard L-amino acids, but not to their D-enantiomers or other compounds. TAS1R2/TAS1R3 recognizes diverse natural and synthetic sweeteners. TAS1R3 is essential for the recognition and response to the disaccharide trehalose. Sequence differences within and between species can significantly influence the selectivity and specificity of taste responses"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q925D8/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_82eda5539783",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q96C01",
+      "title": "TIM double twin CX3C motif protein",
+      "uri": "https://www.uniprot.org/uniprotkb/Q96C01/entry",
+      "evidence_excerpt": "Plays a role in proteostasis of the mitochondrion intermembrane space and counteracts aggregation of certain proteins (PubMed:40714634, PubMed:41109133). Required for mitochondrial oxidative phosphorylation (PubMed:40714634)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q96C01",
+        "entry_name": "TIMCC_HUMAN",
+        "protein_name": "TIM double twin CX3C motif protein",
+        "genes": [
+          "TIMCC"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 138,
+        "reviewed": true,
+        "function_comments": [
+          "Plays a role in proteostasis of the mitochondrion intermembrane space and counteracts aggregation of certain proteins (PubMed:40714634, PubMed:41109133). Required for mitochondrial oxidative phosphorylation (PubMed:40714634)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q96C01/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_8e6d182abeeb",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P02882",
+      "title": "Monellin chain B",
+      "uri": "https://www.uniprot.org/uniprotkb/P02882/entry",
+      "evidence_excerpt": "Taste-modifying protein; intensely sweet-tasting protein",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P02882",
+        "entry_name": "MONB_DIOCU",
+        "protein_name": "Monellin chain B",
+        "genes": [],
+        "organism": "Dioscoreophyllum cumminsii",
+        "sequence_length": 50,
+        "reviewed": true,
+        "function_comments": [
+          "Taste-modifying protein; intensely sweet-tasting protein"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P02882/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_9fd5da5d5fd1",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q8K327",
+      "title": "Chromosome alignment-maintaining phosphoprotein 1",
+      "uri": "https://www.uniprot.org/uniprotkb/Q8K327/entry",
+      "evidence_excerpt": "Required for proper alignment of chromosomes at metaphase and their accurate segregation during mitosis. Involved in the maintenance of spindle microtubules attachment to the kinetochore during sister chromatid biorientation. May recruit CENPE and CENPF to the kinetochore (By similarity)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q8K327",
+        "entry_name": "CHAP1_MOUSE",
+        "protein_name": "Chromosome alignment-maintaining phosphoprotein 1",
+        "genes": [
+          "Champ1"
+        ],
+        "organism": "Mus musculus",
+        "sequence_length": 802,
+        "reviewed": true,
+        "function_comments": [
+          "Required for proper alignment of chromosomes at metaphase and their accurate segregation during mitosis. Involved in the maintenance of spindle microtubules attachment to the kinetochore during sister chromatid biorientation. May recruit CENPE and CENPF to the kinetochore (By similarity)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q8K327/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_a1f72e4d8111",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q7RTX0",
+      "title": "Taste receptor type 1 member 3",
+      "uri": "https://www.uniprot.org/uniprotkb/Q7RTX0/entry",
+      "evidence_excerpt": "Putative taste receptor. TAS1R1/TAS1R3 responds to the umami taste stimulus (the taste of monosodium glutamate). TAS1R2/TAS1R3 recognizes diverse natural and synthetic sweeteners. TAS1R3 is essential for the recognition and response to the disaccharide trehalose (By similarity). Sequence differences within and between species can significantly influence the selectivity and specificity of taste responses",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q7RTX0",
+        "entry_name": "TS1R3_HUMAN",
+        "protein_name": "Taste receptor type 1 member 3",
+        "genes": [
+          "TAS1R3"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 852,
+        "reviewed": true,
+        "function_comments": [
+          "Putative taste receptor. TAS1R1/TAS1R3 responds to the umami taste stimulus (the taste of monosodium glutamate). TAS1R2/TAS1R3 recognizes diverse natural and synthetic sweeteners. TAS1R3 is essential for the recognition and response to the disaccharide trehalose (By similarity). Sequence differences within and between species can significantly influence the selectivity and specificity of taste responses"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q7RTX0/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_a4d92c5dbce8",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q96JM3",
+      "title": "Chromosome alignment-maintaining phosphoprotein 1",
+      "uri": "https://www.uniprot.org/uniprotkb/Q96JM3/entry",
+      "evidence_excerpt": "Required for proper alignment of chromosomes at metaphase and their accurate segregation during mitosis. Involved in the maintenance of spindle microtubules attachment to the kinetochore during sister chromatid biorientation. May recruit CENPE and CENPF to the kinetochore",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q96JM3",
+        "entry_name": "CHAP1_HUMAN",
+        "protein_name": "Chromosome alignment-maintaining phosphoprotein 1",
+        "genes": [
+          "CHAMP1"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 812,
+        "reviewed": true,
+        "function_comments": [
+          "Required for proper alignment of chromosomes at metaphase and their accurate segregation during mitosis. Involved in the maintenance of spindle microtubules attachment to the kinetochore during sister chromatid biorientation. May recruit CENPE and CENPF to the kinetochore"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q96JM3/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_c0198b22aa51",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P30740",
+      "title": "Leukocyte elastase inhibitor",
+      "uri": "https://www.uniprot.org/uniprotkb/P30740/entry",
+      "evidence_excerpt": "Neutrophil serine protease inhibitor that plays an essential role in the regulation of the innate immune response, inflammation and cellular homeostasis (PubMed:30692621). Acts primarily to protect the cell from proteases released in the cytoplasm during stress or infection. These proteases are important in killing microbes but when released from granules, these potent enzymes also destroy host proteins and contribute to mortality. Regulates the activity of the neutrophil proteases elastase, cathepsin G, proteinase-3, chymase, chymotrypsin, and kallikrein-3 (PubMed:11747453, PubMed:30692621). Also acts as a potent intracellular inhibitor of GZMH by directly blocking its proteolytic activity (PubMed:23269243). During inflammation, limits the activity of inflammatory caspases CASP1, CASP4 and CASP5 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621). When secreted, promotes the proliferation of beta-cells via its protease inhibitory function (PubMed:26701651)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P30740",
+        "entry_name": "ILEU_HUMAN",
+        "protein_name": "Leukocyte elastase inhibitor",
+        "genes": [
+          "SERPINB1"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 379,
+        "reviewed": true,
+        "function_comments": [
+          "Neutrophil serine protease inhibitor that plays an essential role in the regulation of the innate immune response, inflammation and cellular homeostasis (PubMed:30692621). Acts primarily to protect the cell from proteases released in the cytoplasm during stress or infection. These proteases are important in killing microbes but when released from granules, these potent enzymes also destroy host proteins and contribute to mortality. Regulates the activity of the neutrophil proteases elastase, cathepsin G, proteinase-3, chymase, chymotrypsin, and kallikrein-3 (PubMed:11747453, PubMed:30692621). Also acts as a potent intracellular inhibitor of GZMH by directly blocking its proteolytic activity (PubMed:23269243). During inflammation, limits the activity of inflammatory caspases CASP1, CASP4 and CASP5 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621). When secreted, promotes the proliferation of beta-cells via its protease inhibitory function (PubMed:26701651)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P30740/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_c30adf2a9483",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "B0SR19",
+      "title": "Sugar transporter SemiSWEET",
+      "uri": "https://www.uniprot.org/uniprotkb/B0SR19/entry",
+      "evidence_excerpt": "The homodimer mediates transmembrane sugar transport down a concentration gradient. Transport is probably effected by rocking-type movements, where a cargo-binding cavity opens first on one and then on the other side of the membrane",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "B0SR19",
+        "entry_name": "SWEET_LEPBP",
+        "protein_name": "Sugar transporter SemiSWEET",
+        "genes": [],
+        "organism": "Leptospira biflexa serovar Patoc (strain Patoc 1 / ATCC 23582 / Paris)",
+        "sequence_length": 85,
+        "reviewed": true,
+        "function_comments": [
+          "The homodimer mediates transmembrane sugar transport down a concentration gradient. Transport is probably effected by rocking-type movements, where a cargo-binding cavity opens first on one and then on the other side of the membrane"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/B0SR19/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_e6abf5b4f6dc",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "P80351",
+      "title": "Sweet protein mabinlin-1",
+      "uri": "https://www.uniprot.org/uniprotkb/P80351/entry",
+      "evidence_excerpt": "2S seed storage protein having sweetness-inducing activity. This form is not heat stable",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "P80351",
+        "entry_name": "2SS1_CAPMA",
+        "protein_name": "Sweet protein mabinlin-1",
+        "genes": [],
+        "organism": "Capparis masaikai",
+        "sequence_length": 104,
+        "reviewed": true,
+        "function_comments": [
+          "2S seed storage protein having sweetness-inducing activity. This form is not heat stable"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/P80351/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_e857eef9fd04",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q9V3V7",
+      "title": "Kinetochore protein Spc25",
+      "uri": "https://www.uniprot.org/uniprotkb/Q9V3V7/entry",
+      "evidence_excerpt": "Acts as a component of the essential kinetochore-associated Ndc80 complex, which is required for chromosome segregation and spindle checkpoint activity during meiosis and mitosis (PubMed:17333235, PubMed:17895365). Required for kinetochore integrity and the organization of stable microtubule binding sites in the outer plate of the kinetochore (PubMed:17333235, PubMed:17895365). Participates in SAC signaling that responds specifically to disruptions in spindle microtubule dynamics (PubMed:17333235). The NDC80 complex synergistically enhances the affinity of the SKA1 complex for microtubules and may allow the NDC80 complex to track depolymerizing microtubules (By similarity)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q9V3V7",
+        "entry_name": "SPC25_DROME",
+        "protein_name": "Kinetochore protein Spc25",
+        "genes": [
+          "Spc25"
+        ],
+        "organism": "Drosophila melanogaster",
+        "sequence_length": 222,
+        "reviewed": true,
+        "function_comments": [
+          "Acts as a component of the essential kinetochore-associated Ndc80 complex, which is required for chromosome segregation and spindle checkpoint activity during meiosis and mitosis (PubMed:17333235, PubMed:17895365). Required for kinetochore integrity and the organization of stable microtubule binding sites in the outer plate of the kinetochore (PubMed:17333235, PubMed:17895365). Participates in SAC signaling that responds specifically to disruptions in spindle microtubule dynamics (PubMed:17333235). The NDC80 complex synergistically enhances the affinity of the SKA1 complex for microtubules and may allow the NDC80 complex to track depolymerizing microtubules (By similarity)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q9V3V7/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ece74636d1cf",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q924W6",
+      "title": "Tripartite motif-containing protein 66",
+      "uri": "https://www.uniprot.org/uniprotkb/Q924W6/entry",
+      "evidence_excerpt": "May function as transcription repressor; The repressive effects are mediated, at least in part, by recruitment of deacetylase activity. May play a role as negative regulator of postmeiotic genes acting through CBX3 complex formation and centromere association",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q924W6",
+        "entry_name": "TRI66_MOUSE",
+        "protein_name": "Tripartite motif-containing protein 66",
+        "genes": [
+          "Trim66"
+        ],
+        "organism": "Mus musculus",
+        "sequence_length": 1344,
+        "reviewed": true,
+        "function_comments": [
+          "May function as transcription repressor; The repressive effects are mediated, at least in part, by recruitment of deacetylase activity. May play a role as negative regulator of postmeiotic genes acting through CBX3 complex formation and centromere association"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q924W6/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_ee84d90f47c9",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q5SV42",
+      "title": "Leukocyte elastase inhibitor C",
+      "uri": "https://www.uniprot.org/uniprotkb/Q5SV42/entry",
+      "evidence_excerpt": "Regulates the activity of the neutrophil proteases. Forms only a stable complex with CTSG/Cathepsin G (By similarity). During inflammation, limits the activity of inflammatory caspases CASP1 and CASP4 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621)",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q5SV42",
+        "entry_name": "ILEUC_MOUSE",
+        "protein_name": "Leukocyte elastase inhibitor C",
+        "genes": [
+          "Serpinb1c"
+        ],
+        "organism": "Mus musculus",
+        "sequence_length": 375,
+        "reviewed": true,
+        "function_comments": [
+          "Regulates the activity of the neutrophil proteases. Forms only a stable complex with CTSG/Cathepsin G (By similarity). During inflammation, limits the activity of inflammatory caspases CASP1 and CASP4 by suppressing their caspase-recruitment domain (CARD) oligomerization and enzymatic activation (PubMed:30692621)"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q5SV42/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    },
+    {
+      "evidence_link_id": "evidence_f5ffd411419f",
+      "research_run_id": "research_run_4be71ea4a580",
+      "research_question_id": "question_47612d3a0b96",
+      "research_finding_id": null,
+      "source_type": "UniProtKB",
+      "source_identifier": "Q9BWF3",
+      "title": "RNA-binding protein 4",
+      "uri": "https://www.uniprot.org/uniprotkb/Q9BWF3/entry",
+      "evidence_excerpt": "RNA-binding factor involved in multiple aspects of cellular processes like alternative splicing of pre-mRNA and translation regulation. Modulates alternative 5'-splice site and exon selection. Acts as a muscle cell differentiation-promoting factor. Activates exon skipping of the PTB pre-mRNA during muscle cell differentiation. Antagonizes the activity of the splicing factor PTBP1 to modulate muscle cell-specific exon selection of alpha tropomyosin. Binds to intronic pyrimidine-rich sequence of the TPM1 and MAPT pre-mRNAs. Required for the translational activation of PER1 mRNA in response to circadian clock. Binds directly to the 3'-UTR of the PER1 mRNA. Exerts a suppressive activity on Cap-dependent translation via binding to CU-rich responsive elements within the 3'UTR of mRNAs, a process increased under stress conditions or during myocytes differentiation. Recruits EIF4A1 to stimulate IRES-dependent translation initiation in respons to cellular stress. Associates to internal ribosome entry segment (IRES) in target mRNA species under stress conditions. Plays a role for miRNA-guided RNA cleavage and translation suppression by promoting association of AGO2-containing miRNPs with their cognate target mRNAs. Associates with miRNAs during muscle cell differentiation. Binds preferentially to 5'-CGCGCG[GCA]-3' motif in vitro",
+      "evidence_level": "curated_database",
+      "applicability_json": {
+        "requires_human_review": true
+      },
+      "metadata_json": {
+        "accession": "Q9BWF3",
+        "entry_name": "RBM4_HUMAN",
+        "protein_name": "RNA-binding protein 4",
+        "genes": [
+          "RBM4"
+        ],
+        "organism": "Homo sapiens",
+        "sequence_length": 364,
+        "reviewed": true,
+        "function_comments": [
+          "RNA-binding factor involved in multiple aspects of cellular processes like alternative splicing of pre-mRNA and translation regulation. Modulates alternative 5'-splice site and exon selection. Acts as a muscle cell differentiation-promoting factor. Activates exon skipping of the PTB pre-mRNA during muscle cell differentiation. Antagonizes the activity of the splicing factor PTBP1 to modulate muscle cell-specific exon selection of alpha tropomyosin. Binds to intronic pyrimidine-rich sequence of the TPM1 and MAPT pre-mRNAs. Required for the translational activation of PER1 mRNA in response to circadian clock. Binds directly to the 3'-UTR of the PER1 mRNA. Exerts a suppressive activity on Cap-dependent translation via binding to CU-rich responsive elements within the 3'UTR of mRNAs, a process increased under stress conditions or during myocytes differentiation. Recruits EIF4A1 to stimulate IRES-dependent translation initiation in respons to cellular stress. Associates to internal ribosome entry segment (IRES) in target mRNA species under stress conditions. Plays a role for miRNA-guided RNA cleavage and translation suppression by promoting association of AGO2-containing miRNPs with their cognate target mRNAs. Associates with miRNAs during muscle cell differentiation. Binds preferentially to 5'-CGCGCG[GCA]-3' motif in vitro"
+        ],
+        "pathway_comments": [],
+        "url": "https://www.uniprot.org/uniprotkb/Q9BWF3/entry"
+      },
+      "review_status": "pending_review",
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:51:11"
+    }
+  ]
+}

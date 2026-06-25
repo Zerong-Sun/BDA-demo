@@ -1,0 +1,9 @@
+candidate_id,stage_key,metric,value,unit,pass_status,notes
+,expression_and_folding,,,,,
+,purification_quality,,,,,
+,stability,,,,,
+,receptor_function,,,,,
+,sensory,,,,,
+,food_matrix,,,,,
+,process,,,,,
+,safety_regulatory,,,,,

@@ -9,13 +9,8 @@ interface ChatMessage {
 
 const seedMessages: ChatMessage[] = [
   {
-    role: 'user',
-    content: 'Based on current scores, which candidates should enter the experimental queue?',
-  },
-  {
     role: 'assistant',
-    content:
-      'Prioritize PD1Binder_c4361, PD1Binder_a0172, and PD1Binder_b1923. They balance interface score, pLDDT, and lower aggregation risk.',
+    content: 'Describe the current project goal, evidence question, workflow decision, or experimental result you want to review.',
   },
 ]
 

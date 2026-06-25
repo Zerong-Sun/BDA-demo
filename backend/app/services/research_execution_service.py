@@ -205,6 +205,19 @@ def execute_research_run(
                 "current_track": question["track"],
             },
         )
+    deduplicated_evidence: list[dict[str, Any]] = []
+    seen_evidence: set[tuple[str, str, str]] = set()
+    for item in evidence:
+        identity = (
+            str(item.get("source_type") or ""),
+            str(item.get("source_identifier") or ""),
+            str(item.get("title") or ""),
+        )
+        if identity in seen_evidence:
+            continue
+        seen_evidence.add(identity)
+        deduplicated_evidence.append(item)
+    evidence = deduplicated_evidence
     research_execution.replace_evidence(connection, research_run_id, evidence)
     hypotheses = _hypotheses(run["research_brief_id"], evidence)
     synthesis = None

@@ -1,0 +1,17 @@
+{
+  "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+  "research_brief_id": "brief_9ba546e05d26",
+  "research_run_id": "research_run_4be71ea4a580",
+  "workflow_plan_id": "plan_436ab13250bb",
+  "selected_route": "monellin_redesign",
+  "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+  "experiment_plan_id": "experiment_plan_85ab9d661a53",
+  "rfdiffusion_node_run_id": "node_f1ba985523",
+  "artifacts": {
+    "2O9U": "art_773887adb59f41d7",
+    "4HE7": "art_ef06a6dd66d7495b",
+    "2DS2": "art_509963755a94408c",
+    "2DPF": "art_d68b0a1f101b407d",
+    "2O9U_clean": "art_b7df775ee2c54186"
+  }
+}

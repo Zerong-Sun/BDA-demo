@@ -1,14 +1,18 @@
+import os
 from pathlib import Path
+import tempfile
 
 import pytest
-from fastapi.testclient import TestClient
-
-from backend.app.db.pool import reset_pool
-from backend.app.main import app
-from backend.app.settings import get_settings
 
 ROOT = Path(__file__).resolve().parents[1]
-DB_PATH = ROOT / "db" / "bda.sqlite3"
+TEST_DB_PATH = Path(tempfile.gettempdir()) / f"bda-tests-{os.getpid()}.sqlite3"
+os.environ["BDA_DB_PATH"] = str(TEST_DB_PATH)
+
+from fastapi.testclient import TestClient  # noqa: E402
+
+from backend.app.db.pool import reset_pool  # noqa: E402
+from backend.app.main import app  # noqa: E402
+from backend.app.settings import get_settings  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -24,10 +28,15 @@ def disable_live_llm_calls():
 
 @pytest.fixture(scope="module", autouse=True)
 def ensure_db():
-    from backend.scripts.init_db import init_db
+    from backend.scripts import init_db
 
+    init_db.DB_PATH = TEST_DB_PATH
+    TEST_DB_PATH.unlink(missing_ok=True)
     reset_pool()
-    init_db(seed=True)
+    init_db.init_db(seed=True)
+    yield
+    reset_pool()
+    TEST_DB_PATH.unlink(missing_ok=True)
 
 
 @pytest.fixture(scope="module")

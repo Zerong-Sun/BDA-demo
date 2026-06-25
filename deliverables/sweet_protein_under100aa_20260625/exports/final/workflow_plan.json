@@ -1,0 +1,1216 @@
+{
+  "workflow_plan_id": "plan_436ab13250bb",
+  "research_brief_id": "brief_9ba546e05d26",
+  "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+  "name": "AI甜味蛋白（<100 aa、简单、优先单链）研发与验证 · sweet protein workflow",
+  "selected_route": "monellin_redesign",
+  "route_options_json": [
+    {
+      "route_id": "monellin_redesign",
+      "name": "Single-chain monellin 定向改造",
+      "recommendation": "recommended",
+      "generation": "first_generation",
+      "rationale": "Single-chain monellin (MNEI) offers potent sweetness, a single-chain scaffold under 100 aa, engineering precedents (e.g., Mut9 with enhanced stability and sweetness), and GRAS notices (GRN 1183, 1269). Aligns with acidic beverage application via pH-stabilized mutants. Risks in thermal/process stability can be addressed by established mutations and design focus.",
+      "key_risks": [
+        "Thermal/process stability at beverage pH",
+        "Aftertaste and off-flavors",
+        "Freedom-to-operate (FTO) concerns"
+      ],
+      "required_evidence": [
+        "Verified MNEI mutant length (<99 aa)",
+        "Detailed stability data in acidic conditions",
+        "Validated TAS1R2/TAS1R3 activation assay",
+        "Sensory profile in target beverage matrix"
+      ],
+      "expected_benefits": [
+        "High sweetness potency",
+        "Single-chain simplicity with engineering precedent",
+        "Regulatory path via existing GRAS notices",
+        "Computationally tractable scaffold (PDB 2O9U)"
+      ]
+    },
+    {
+      "route_id": "brazzein_redesign",
+      "name": "Brazzein-53/54 定向改造",
+      "recommendation": "recommended_parallel",
+      "generation": "first_generation",
+      "rationale": "Brazzein (54 aa) is inherently small, heat/acid stable, and has GRAS notices (GRN 1142, 1207). Its simple fold and known surface residues for sweetness make it ideal for acidic beverages. However, correct folding of four disulfide bonds and patent crowding need mitigation. Parallel exploration reduces risk.",
+      "key_risks": [
+        "Correct oxidative formation of four disulfide bonds",
+        "Crowded patent landscape",
+        "Expression host compatibility"
+      ],
+      "required_evidence": [
+        "Confirm brazzein-53/54 sequence and structure",
+        "Disulfide mapping and folding efficiency",
+        "Patent landscape analysis",
+        "Stability and sweetness in acidic beverage model"
+      ],
+      "expected_benefits": [
+        "Minimal size (<100 aa) and thermal/acid stability",
+        "Established receptor mutagenesis data",
+        "Alternative GRAS route"
+      ]
+    },
+    {
+      "route_id": "ph_responsive_research",
+      "name": "pH-responsive 味觉修饰蛋白",
+      "recommendation": "research_track",
+      "generation": "second_generation",
+      "rationale": "Curculin's taste-modifying, pH-responsive activity offers differentiation for acidic beverages but its chains exceed 100 aa, requires dimerization, and has no regulatory precedent. Not suitable for first-generation simple single-chain design.",
+      "key_risks": [
+        "Exceeds 100 aa length constraint",
+        "Dimerization and potential glycosylation",
+        "Acid-dependent mechanism not fully characterized",
+        "Regulatory uncertainty"
+      ],
+      "required_evidence": [
+        "Feasibility of reducing chain length below 100 aa",
+        "Functional assay for pH-dependent sweetness",
+        "Single-chain engineering feasibility"
+      ],
+      "expected_benefits": [
+        "Unique taste-modifying property",
+        "Potential for novel beverage sensory profiles"
+      ]
+    },
+    {
+      "route_id": "de_novo_binder",
+      "name": "De novo 受体 binder",
+      "recommendation": "high_risk",
+      "generation": "second_generation",
+      "rationale": "De novo design lacks defined receptor epitope and functional activation gate. Binding does not guarantee sweetness; high screening cost and no expression/regulatory precedent. Inadvisable until receptor regions are experimentally validated.",
+      "key_risks": [
+        "Binding may not activate the receptor",
+        "No expression or regulatory precedent",
+        "High screening cost without guaranteed outcome"
+      ],
+      "required_evidence": [
+        "Experimentally defined TAS1R2/TAS1R3 binding site",
+        "Positive control sweet proteins for assay validation",
+        "Demonstrated functional activation upon binding"
+      ],
+      "expected_benefits": [
+        "Novel sequence and mechanism-led exploration"
+      ]
+    }
+  ],
+  "dossier_json": {
+    "seed": {
+      "title": "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+      "version": "2026-06-20",
+      "reference_count": 35,
+      "verification_policy": "Treat as a research seed. Verify recent papers, preprints, company claims, and regulatory status against primary or official sources."
+    },
+    "scaffolds": [
+      {
+        "id": "single_chain_monellin",
+        "name": "Single-chain monellin",
+        "priority": 1,
+        "route": "monellin_redesign",
+        "length_aa": 97,
+        "modeled_residues": 96,
+        "chain_architecture": "engineered single chain",
+        "uniprot": [
+          "P02881",
+          "P02882"
+        ],
+        "pdb": [
+          "2O9U"
+        ],
+        "strengths": [
+          "commercial/regulatory precedents",
+          "single-chain engineering precedent",
+          "high sweetness"
+        ],
+        "risks": [
+          "thermal/process stability",
+          "aftertaste",
+          "patent landscape"
+        ],
+        "design_focus": [
+          "fold stability",
+          "linker",
+          "secretion",
+          "sensory profile"
+        ]
+      },
+      {
+        "id": "brazzein_53",
+        "name": "Brazzein-53/54",
+        "priority": 2,
+        "route": "brazzein_redesign",
+        "length_aa": 54,
+        "modeled_residues": 53,
+        "chain_architecture": "single chain, four disulfide bonds",
+        "uniprot": [
+          "P56552"
+        ],
+        "pdb": [
+          "4HE7"
+        ],
+        "strengths": [
+          "small",
+          "heat/acid tolerant",
+          "receptor mutagenesis literature"
+        ],
+        "risks": [
+          "four disulfide pairs",
+          "patent crowding",
+          "correct oxidative folding"
+        ],
+        "design_focus": [
+          "surface residues",
+          "disulfide preservation",
+          "host compatibility"
+        ]
+      },
+      {
+        "id": "thaumatin",
+        "name": "Thaumatin",
+        "priority": 3,
+        "route": "thaumatin_benchmark",
+        "strengths": [
+          "mature industrial comparator",
+          "flavor enhancement"
+        ],
+        "risks": [
+          "large protein",
+          "long sweetness tail",
+          "multiple disulfides"
+        ],
+        "design_focus": [
+          "benchmarking",
+          "flavor modulation",
+          "surface charge"
+        ]
+      },
+      {
+        "id": "mabinlin_2",
+        "name": "Mabinlin-2",
+        "priority": 4,
+        "route": "observation_only",
+        "length_aa": [
+          33,
+          72
+        ],
+        "chain_architecture": "two mature chains",
+        "uniprot": [
+          "P30233"
+        ],
+        "pdb": [
+          "2DS2"
+        ],
+        "strengths": [
+          "heat-stability reference",
+          "small individual chains"
+        ],
+        "risks": [
+          "two-chain architecture",
+          "interchain disulfides"
+        ],
+        "design_focus": [
+          "stability mechanism reference"
+        ]
+      },
+      {
+        "id": "curculin",
+        "name": "Curculin-1/2",
+        "priority": 5,
+        "route": "ph_responsive_research",
+        "length_aa": [
+          114,
+          113
+        ],
+        "chain_architecture": "dimeric mature proteins",
+        "uniprot": [
+          "P19667",
+          "Q6F495"
+        ],
+        "pdb": [
+          "2DPF"
+        ],
+        "strengths": [
+          "taste-modifying activity",
+          "pH-responsive research value"
+        ],
+        "risks": [
+          "exceeds 100 aa",
+          "dimerization",
+          "not a simple single-chain scaffold"
+        ],
+        "design_focus": [
+          "mechanism reference, not first-generation scaffold"
+        ]
+      },
+      {
+        "id": "pentadin",
+        "name": "Pentadin",
+        "priority": 6,
+        "route": "observation_only",
+        "length_aa": null,
+        "chain_architecture": "unresolved in current official database package",
+        "uniprot": [],
+        "pdb": [],
+        "strengths": [
+          "historical natural sweet-protein report"
+        ],
+        "risks": [
+          "no independently verified UniProt sequence or RCSB structure in current search"
+        ],
+        "design_focus": [
+          "primary-source sequence verification"
+        ]
+      },
+      {
+        "id": "de_novo_receptor_binder",
+        "name": "De novo TAS1R2/TAS1R3 binder",
+        "priority": 5,
+        "route": "de_novo_binder",
+        "strengths": [
+          "novel sequence space",
+          "mechanism-led exploration"
+        ],
+        "risks": [
+          "binding does not prove activation",
+          "no first-generation product evidence"
+        ],
+        "design_focus": [
+          "defined receptor epitope",
+          "functional activation gate",
+          "specificity"
+        ]
+      }
+    ],
+    "receptor": {
+      "name": "human TAS1R2/TAS1R3",
+      "regions": [
+        "TAS1R2 VFD",
+        "TAS1R2 CRD",
+        "TAS1R3 CRD",
+        "dimer interface"
+      ],
+      "warning": "Predicted binding does not establish activation or sweetness.",
+      "target": "human TAS1R2/TAS1R3",
+      "supported_regions": [
+        "TAS1R3 transmembrane domain (residues including V738, K735) for lactisole modulation",
+        "Venus flytrap domain (VFT) of TAS1R2/TAS1R3 for sweet protein interaction based on wedge model",
+        "Cryo-EM structures (9UT8, 9UT9, 9UTA, 9NOY, 9NOR) recently determined"
+      ],
+      "uncertainties": [
+        "Exact binding site for sweet proteins not fully resolved",
+        "Predicted binding from modeling is not sufficient evidence for activation"
+      ]
+    },
+    "verification_queue": [
+      "Confirm MNEI Mut9 length < 99 aa from primary sequence",
+      "Verify MNEI Mut9 stability (Tm) at pH 3–4",
+      "Retrieve and review GRAS notice conditions for GRN 1183 and GRN 1269",
+      "Obtain PDB 2O9U and confirm modeled residues 96 vs. expressed length",
+      "Search for patent on Mut9 and MNEI variants"
+    ],
+    "source_reference_queue": [
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC8249704/",
+      "https://pubmed.ncbi.nlm.nih.gov/12208493/",
+      "https://pubmed.ncbi.nlm.nih.gov/15153113/",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC3186843/",
+      "https://pubmed.ncbi.nlm.nih.gov/40555359/",
+      "https://www.cell.com/cell/fulltext/S0092-8674(25",
+      "https://www.nature.com/articles/s41422-025-01156-x",
+      "https://pubmed.ncbi.nlm.nih.gov/41591896/",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC2879441/",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC2527743/",
+      "https://www.mdpi.com/2304-8158/12/22/4065",
+      "https://journals.sagepub.com/doi/abs/10.1177/23978473231151258",
+      "https://www.cfsanappsexternal.fda.gov/scripts/fdcc/?id=1142&set=GRASNotices",
+      "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1207&set=grasnotices",
+      "https://pubmed.ncbi.nlm.nih.gov/38159314/",
+      "https://pubmed.ncbi.nlm.nih.gov/40159929/",
+      "https://pubmed.ncbi.nlm.nih.gov/38190935/",
+      "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1183&set=GRASNotices",
+      "https://www.hfpappexternal.fda.gov/scripts/fdcc/index.cfm?id=1269&set=GRASNotices",
+      "https://pubmed.ncbi.nlm.nih.gov/23370115/",
+      "https://www.frontiersin.org/articles/10.3389/fmolb.2018.00010/full",
+      "https://pubs.acs.org/doi/10.1021/jf803956f",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC3189030/",
+      "https://cir.nii.ac.jp/crid/1363107368242093952",
+      "https://faseb.onlinelibrary.wiley.com/doi/pdf/10.1096/fj.07-100289",
+      "https://www.nature.com/articles/srep12947",
+      "https://www.semanticscholar.org/paper/0a436f381afd6322bf0081594ccaceaa5cb35d24",
+      "https://pubmed.ncbi.nlm.nih.gov/18308584/",
+      "https://www.rcsb.org/structure/2ds2",
+      "https://pmc.ncbi.nlm.nih.gov/articles/PMC549512/",
+      "https://www.researchgate.net/publication/31002804_Isolation_and_characterization_of_Pentadin_the_sweet_principle_of_Pentadiplandra_brazzeana_Baillon",
+      "https://arxiv.org/abs/2601.14574",
+      "https://www.nature.com/articles/s41586-023-06415-8",
+      "https://www.science.org/doi/10.1126/science.add2187",
+      "https://github.com/jwohlwend/boltz"
+    ],
+    "experiment_gates": [
+      "expression_and_correct_folding",
+      "human_receptor_activation",
+      "human_sensory_after_approval",
+      "food_matrix_performance",
+      "manufacturing_economics",
+      "safety_and_regulatory"
+    ],
+    "assumptions": [
+      {
+        "key": "receptor_species",
+        "value": "human",
+        "status": "needs_confirmation"
+      },
+      {
+        "key": "receptor",
+        "value": "TAS1R2/TAS1R3",
+        "status": "working_assumption"
+      },
+      {
+        "key": "first_application",
+        "value": "acidic beverage",
+        "status": "confirmed"
+      },
+      {
+        "key": "scaffold_length_aa",
+        "value": "MNEI length confirmed ≤ 97 aa",
+        "status": "needs_confirmation"
+      },
+      {
+        "key": "MNEI_mutant_stability",
+        "value": "Mut9 stability data at pH conditions representative of acidic beverage",
+        "status": "needs_confirmation"
+      }
+    ],
+    "risks": [
+      {
+        "risk": "Thermal/process stability at acidic pH",
+        "severity": "medium",
+        "mitigation": "Use pH-stabilized mutants (e.g., E23A, Mut9) and validate under beverage conditions",
+        "gate": "In vitro stability assay at pH 3–4, 25–85°C"
+      },
+      {
+        "risk": "Off-target taste (bitterness, lingering sweetness)",
+        "severity": "medium",
+        "mitigation": "Screen for receptor specificity and conduct sensory panels early",
+        "gate": "Cell-based receptor assay and trained sensory panel"
+      },
+      {
+        "risk": "Freedom-to-operate",
+        "severity": "high",
+        "mitigation": "Landscape analysis of patents on MNEI mutants and production hosts",
+        "gate": "FTO opinion before committing to production strain"
+      },
+      {
+        "risk": "Immunogenicity and allergenicity",
+        "severity": "low",
+        "mitigation": "In silico allergenicity screening and in vitro digestibility",
+        "gate": "Bioinformatics analysis and pepsin resistance assay"
+      }
+    ],
+    "success_criteria": [
+      {
+        "stage": "design",
+        "criterion": "Designed sequence length < 99 aa, single-chain, no introduced disulfides beyond natural scaffold",
+        "evidence_required": "Sequence and structure model"
+      },
+      {
+        "stage": "expression_and_folding",
+        "criterion": "Soluble expression > 0.1 g/L in Komagataella phaffii, correct fold by CD/DSF",
+        "evidence_required": "SDS-PAGE, CD spectra, Tm > 50°C at pH 3"
+      },
+      {
+        "stage": "receptor_function",
+        "criterion": "Specific activation of human TAS1R2/TAS1R3 in cell-based assay with EC50 ≤ 10 μM",
+        "evidence_required": "Calcium mobilization assay"
+      },
+      {
+        "stage": "sensory",
+        "criterion": "Sweetness potency ≥ 1000× sucrose (weight basis) in model acidic beverage, no off-tastes",
+        "evidence_required": "Trained panel, difference-from-control test"
+      },
+      {
+        "stage": "food_matrix",
+        "criterion": "Retains sweetness and solubility for 6-month shelf-life at 4°C, pH 3",
+        "evidence_required": "Accelerated stability study"
+      },
+      {
+        "stage": "safety_regulatory",
+        "criterion": "Passes in silico allergenicity, in vitro digestibility, and no genotoxicity",
+        "evidence_required": "Bioinformatics, pepsin resistance, Ames test"
+      }
+    ],
+    "planning_summary": "Prioritize single-chain monellin (MNEI) as primary scaffold due to its single-chain architecture, high sweetness potential, and regulatory precedents. Begin with verification of MNEI Mut9 sequence length and stability under acidic beverage conditions. In parallel, initiate brazzein redesign to mitigate risk. Set computational design parameters to diffuse on MNEI backbone with functional residue preservation. Experimental stage gates will validate expression, receptor activation, sensory profile, shelf-life, and safety before advancing to regulatory submission.",
+    "planning_provenance": {
+      "mode": "llm_validated",
+      "model": "deepseek-v4-pro",
+      "fallback_reason": null,
+      "guardrails": [
+        "canonical_route_ids_only",
+        "registered_models_only",
+        "existing_parameter_keys_only",
+        "trusted_script_renderer_only"
+      ]
+    }
+  },
+  "nodes_json": [
+    {
+      "key": "evidence",
+      "node_type": "research_review",
+      "name": "Evidence and assumption review",
+      "resource": "manual",
+      "initial_status": "requires_review",
+      "parameters": {
+        "review_gate": true
+      }
+    },
+    {
+      "key": "prepare",
+      "node_type": "structure_preparation",
+      "name": "Receptor and scaffold preparation",
+      "resource": "manual",
+      "initial_status": "requires_review",
+      "parameters": {
+        "receptor": "human TAS1R2/TAS1R3",
+        "verify_structure_version": true
+      }
+    },
+    {
+      "key": "rf",
+      "node_type": "backbone_generation",
+      "name": "Constrained scaffold redesign",
+      "resource": "gpu",
+      "model_name": "RFdiffusion",
+      "parameters": {
+        "design_mode": "scaffold_partial_diffusion",
+        "scaffold": "single_chain_monellin",
+        "inference.input_pdb": "2O9U",
+        "contigmap.contigs": "[A1-96]",
+        "ppi.hotspot_res": "",
+        "inference.num_designs": 300,
+        "diffuser.partial_T": 10,
+        "diffuser.T": 50,
+        "denoiser.noise_scale_ca": 0.5,
+        "denoiser.noise_scale_frame": 0.5,
+        "preserve_disulfides": false,
+        "copilot_basis": "research_seed_pending_primary_source_verification",
+        "requires_user_review": true
+      }
+    },
+    {
+      "key": "mpnn",
+      "node_type": "sequence_generation",
+      "name": "ProteinMPNN sequence design",
+      "resource": "gpu",
+      "model_name": "ProteinMPNN",
+      "parameters": {
+        "num_seq_per_target": 8,
+        "sampling_temp": "0.1 0.2",
+        "omit_AAs": "CX",
+        "preserve_functional_positions": true,
+        "requires_user_review": true
+      }
+    },
+    {
+      "key": "fold",
+      "node_type": "fold_prediction",
+      "name": "Monomer and receptor-complex prediction",
+      "resource": "gpu",
+      "model_name": "AlphaFold2",
+      "parameters": {
+        "model_preset": "monomer",
+        "models_to_relax": "none",
+        "cross_validate_complex": true,
+        "requires_user_review": true
+      }
+    },
+    {
+      "key": "rosetta",
+      "node_type": "scoring",
+      "name": "Rosetta stability and interface analysis",
+      "resource": "cpu",
+      "model_name": "Rosetta",
+      "parameters": {
+        "application": "rosetta_scripts",
+        "nstruct": 3,
+        "score:weights": "ref2015",
+        "interface": "A_B",
+        "requires_user_review": true
+      }
+    },
+    {
+      "key": "filter",
+      "node_type": "selection",
+      "name": "Developability, safety and diversity filters",
+      "resource": "cpu",
+      "parameters": {
+        "check_disulfides": true,
+        "allergenicity_screen": true,
+        "aggregation_screen": true
+      }
+    },
+    {
+      "key": "review",
+      "node_type": "review_gate",
+      "name": "Design review gate",
+      "resource": "manual",
+      "parameters": {
+        "binding_is_not_activation": true,
+        "requires_human_receptor_assay_plan": true
+      }
+    },
+    {
+      "key": "experiment",
+      "node_type": "experiment",
+      "name": "Expandable experiment plan",
+      "resource": "manual",
+      "initial_status": "waiting_external_result",
+      "parameters": {
+        "stages": [
+          "expression_and_folding",
+          "receptor_function",
+          "sensory",
+          "food_matrix",
+          "process",
+          "safety_regulatory"
+        ]
+      }
+    }
+  ],
+  "edges_json": [
+    {
+      "source": "evidence",
+      "target": "prepare",
+      "edge_type": "review_gate"
+    },
+    {
+      "source": "prepare",
+      "target": "rf",
+      "edge_type": "data"
+    },
+    {
+      "source": "rf",
+      "target": "mpnn",
+      "edge_type": "data"
+    },
+    {
+      "source": "mpnn",
+      "target": "fold",
+      "edge_type": "data"
+    },
+    {
+      "source": "fold",
+      "target": "rosetta",
+      "edge_type": "data"
+    },
+    {
+      "source": "rosetta",
+      "target": "filter",
+      "edge_type": "data"
+    },
+    {
+      "source": "filter",
+      "target": "review",
+      "edge_type": "review_gate"
+    },
+    {
+      "source": "review",
+      "target": "experiment",
+      "edge_type": "review_gate"
+    }
+  ],
+  "status": "materialized",
+  "materialized_workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+  "created_by": "user_22892b7c8f",
+  "created_at": "2026-06-25 12:52:31",
+  "updated_at": "2026-06-25 12:53:18",
+  "version": 1,
+  "supersedes_workflow_plan_id": null,
+  "parameter_recommendations": [
+    {
+      "parameter_recommendation_id": "paramrec_ca94ca08674c",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "fold",
+      "model_name": "AlphaFold2",
+      "parameter_key": "cross_validate_complex",
+      "recommended_value_json": true,
+      "default_value_json": null,
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Copilot workflow-template recommendation.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_8fef9d6d55c7",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "fold",
+      "model_name": "AlphaFold2",
+      "parameter_key": "model_preset",
+      "recommended_value_json": "monomer",
+      "default_value_json": "multimer",
+      "recommended_range_json": {
+        "options": [
+          "monomer",
+          "monomer_casp14",
+          "monomer_ptm",
+          "multimer"
+        ]
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "AlphaFold preset.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "options": [
+          "monomer",
+          "monomer_casp14",
+          "monomer_ptm",
+          "multimer"
+        ]
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_e86b0b94840d",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "fold",
+      "model_name": "AlphaFold2",
+      "parameter_key": "models_to_relax",
+      "recommended_value_json": "none",
+      "default_value_json": "best",
+      "recommended_range_json": {
+        "options": [
+          "all",
+          "best",
+          "none"
+        ]
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Amber relaxation scope.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "options": [
+          "all",
+          "best",
+          "none"
+        ]
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_74bf47de1b01",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "mpnn",
+      "model_name": "ProteinMPNN",
+      "parameter_key": "num_seq_per_target",
+      "recommended_value_json": 8,
+      "default_value_json": 8,
+      "recommended_range_json": {
+        "min": 1,
+        "max": 10000
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Number of sequences sampled per backbone.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 1,
+        "max": 10000
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_a8f70e9fe8fd",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "mpnn",
+      "model_name": "ProteinMPNN",
+      "parameter_key": "omit_AAs",
+      "recommended_value_json": "CX",
+      "default_value_json": "X",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Amino acids excluded from sampling, e.g. CX.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_ca8958f7df5f",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "mpnn",
+      "model_name": "ProteinMPNN",
+      "parameter_key": "preserve_functional_positions",
+      "recommended_value_json": true,
+      "default_value_json": null,
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Copilot workflow-template recommendation.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_6f54a2759525",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "mpnn",
+      "model_name": "ProteinMPNN",
+      "parameter_key": "sampling_temp",
+      "recommended_value_json": "0.1 0.2",
+      "default_value_json": "0.1",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Space-separated temperatures, e.g. 0.1 0.15 0.2; higher increases diversity.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_808400a9486d",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "contigmap.contigs",
+      "recommended_value_json": "[A1-96]",
+      "default_value_json": "[A1-150/0 70-100]",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Hydra contig list, e.g. target residues plus a chain break and binder length range.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_f29117438854",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "denoiser.noise_scale_ca",
+      "recommended_value_json": 0.5,
+      "default_value_json": 1.0,
+      "recommended_range_json": {
+        "min": 0,
+        "max": 5
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Translation noise scale; lower values can improve constrained PPI designs at lower diversity.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 0,
+        "max": 5
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_1581eb462986",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "denoiser.noise_scale_frame",
+      "recommended_value_json": 0.5,
+      "default_value_json": 1.0,
+      "recommended_range_json": {
+        "min": 0,
+        "max": 5
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Frame/rotation noise scale; usually tied to CA noise scale.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 0,
+        "max": 5
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_564834c405bc",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "diffuser.T",
+      "recommended_value_json": 50,
+      "default_value_json": 50,
+      "recommended_range_json": {
+        "min": 1,
+        "max": 200
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Total denoising steps; RFdiffusion defaults are checkpoint-aware.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 1,
+        "max": 200
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_8d5a3cc5d2cb",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "diffuser.partial_T",
+      "recommended_value_json": 10,
+      "default_value_json": 0,
+      "recommended_range_json": {
+        "min": 0,
+        "max": 50
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Use >0 to noise/denoise from a starting structure; requires length-compatible contigs.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 0,
+        "max": 50
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_d1532615773f",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "inference.input_pdb",
+      "recommended_value_json": "2O9U",
+      "default_value_json": "",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Target or motif PDB passed as inference.input_pdb.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": true,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_1f52f5bb1010",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "inference.num_designs",
+      "recommended_value_json": 300,
+      "default_value_json": 100,
+      "recommended_range_json": {
+        "min": 1,
+        "max": 100000
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "RFdiffusion trajectories/backbones to sample.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 1,
+        "max": 100000
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_55e26c988742",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "ppi.hotspot_res",
+      "recommended_value_json": "",
+      "default_value_json": "[A59,A83,A91]",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Target residues used to bias binder contacts.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_8a058eda8819",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rf",
+      "model_name": "RFdiffusion",
+      "parameter_key": "preserve_disulfides",
+      "recommended_value_json": false,
+      "default_value_json": null,
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Copilot workflow-template recommendation.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_d0c4692ed1a2",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rosetta",
+      "model_name": "Rosetta",
+      "parameter_key": "application",
+      "recommended_value_json": "rosetta_scripts",
+      "default_value_json": "rosetta_scripts",
+      "recommended_range_json": {
+        "options": [
+          "rosetta_scripts",
+          "relax",
+          "InterfaceAnalyzer",
+          "cartesian_ddg"
+        ]
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Rosetta executable/application.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "options": [
+          "rosetta_scripts",
+          "relax",
+          "InterfaceAnalyzer",
+          "cartesian_ddg"
+        ]
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_7b95fe6ea870",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rosetta",
+      "model_name": "Rosetta",
+      "parameter_key": "interface",
+      "recommended_value_json": "A_B",
+      "default_value_json": "A_B",
+      "recommended_range_json": {},
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Interface definition used by interface scoring/analyzer protocols.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {},
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_8933c95a7b75",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rosetta",
+      "model_name": "Rosetta",
+      "parameter_key": "nstruct",
+      "recommended_value_json": 3,
+      "default_value_json": 1,
+      "recommended_range_json": {
+        "min": 1,
+        "max": 10000
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Number of output trajectories/decoys.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "min": 1,
+        "max": 10000
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    },
+    {
+      "parameter_recommendation_id": "paramrec_8805c91d8096",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "node_key": "rosetta",
+      "model_name": "Rosetta",
+      "parameter_key": "score:weights",
+      "recommended_value_json": "ref2015",
+      "default_value_json": "ref2015",
+      "recommended_range_json": {
+        "options": [
+          "ref2015",
+          "beta_nov16",
+          "beta_cart",
+          "talaris2014"
+        ]
+      },
+      "source_refs_json": [
+        "AI甜味蛋白_天然骨架_受体机制_计算设计与实验验证_2026-06-20",
+        "用户提供的甜味蛋白研发资料",
+        "官方序列与结构核验后的骨架对比",
+        "首轮设计路线建议"
+      ],
+      "rationale": "Score function weights file.",
+      "confidence": "template_inferred",
+      "validation_rules_json": {
+        "options": [
+          "ref2015",
+          "beta_nov16",
+          "beta_cart",
+          "talaris2014"
+        ]
+      },
+      "user_modified": false,
+      "created_at": "2026-06-25 12:52:31",
+      "updated_at": "2026-06-25 12:52:31"
+    }
+  ],
+  "decision_gates": [
+    {
+      "decision_gate_id": "gate_fd3261052033",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_run_id": "node_a2ddff6f86",
+      "gate_type": "manual_review",
+      "name": "Evidence and assumption review",
+      "criteria_json": [
+        {
+          "criterion": "inputs reviewed",
+          "required": true
+        },
+        {
+          "criterion": "assumptions and evidence boundaries accepted",
+          "required": true
+        }
+      ],
+      "status": "approved",
+      "rationale": null,
+      "reviewed_by": "user_22892b7c8f",
+      "reviewed_at": "2026-06-25 12:53:18",
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    },
+    {
+      "decision_gate_id": "gate_3c16239695a9",
+      "workflow_plan_id": "plan_436ab13250bb",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_run_id": "node_ea768fd0b1",
+      "gate_type": "manual_review",
+      "name": "Design review gate",
+      "criteria_json": [
+        {
+          "criterion": "inputs reviewed",
+          "required": true
+        },
+        {
+          "criterion": "assumptions and evidence boundaries accepted",
+          "required": true
+        }
+      ],
+      "status": "pending",
+      "rationale": null,
+      "reviewed_by": null,
+      "reviewed_at": null,
+      "created_at": "2026-06-25 12:53:18",
+      "updated_at": "2026-06-25 12:53:18"
+    }
+  ]
+}

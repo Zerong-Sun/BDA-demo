@@ -1,0 +1,6 @@
+record_id,protein_group,source_file,length_aa,under_100_aa,cysteine_count,sequence,source_header
+single-chain_monellin_MNEI_1,single-chain monellin MNEI,2O9U.fasta,97,True,1,MGEWEIIDIGPFTQNLGKFAVDEENKIGQYGRLTFNKVIRPCMKKTIYENEGFREIKGYEYQLYVYASDKLFRADISEDYKTRGRKLLRFNGPVPPP,2O9U_1|Chain A[auth X]|Monellin chain B and Monellin chain A|Dioscoreophyllum cumminsii (3457)
+brazzein_1,brazzein,4HE7.fasta,54,True,8,QDKCKKVYENYPVSKCQLANQCNYDCKLDKHARSGECFYDEKRNLQCICDYCEY,4HE7_1|Chain A|Defensin-like protein|Pentadiplandra brazzeana (43545)
+mabinlin-2_chains_1,mabinlin-2 chains,2DS2.fasta,72,True,6,QPRRPALRQCCNQLRQVDRPCVCPVLRQAAQQVLQRQIIQGPQQLRRLFDAARNLPNICNIPNIGACPFRAW,"2DS2_2|Chains B, D|Sweet protein mabinlin-2 chain B|Capparis masaikai (13395)"
+mabinlin-2_chains_2,mabinlin-2 chains,2DS2.fasta,33,True,2,QLWRCQRQFLQHQRLRACQRFIHRRAQFGGQPD,"2DS2_1|Chains A, C|Sweet protein mabinlin-2 chain A|Capparis masaikai (13395)"
+curculin-1_1,curculin-1,2DPF.fasta,115,False,4,MDNVLLSGQTLHADHSLQAGAYTLTIQNKCNLVKYQNGRQIWASNTDRRGSGCRLTLLSDGNLVIYDHNNNDVWGSACWGDNGKYALVLQKDGRFVIYGPVLWSLGPNGCRRVNG,"2DPF_1|Chains A, B, C, D|Curculin|Curculigo latifolia (4676)"

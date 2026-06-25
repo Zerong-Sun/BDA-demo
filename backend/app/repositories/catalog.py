@@ -559,10 +559,16 @@ def upsert_target_upload(
         connection.execute(
             """
             UPDATE targets
-            SET target_name = ?, structure_file_path = ?, metadata_json = ?
+            SET target_name = ?, chain_ids = ?, structure_file_path = ?, metadata_json = ?
             WHERE target_id = ?
             """,
-            (target_name, structure_file_path, metadata_json, target_id),
+            (
+                target_name,
+                ",".join(metadata.get("chains", [])) or "A",
+                structure_file_path,
+                metadata_json,
+                target_id,
+            ),
         )
     else:
         target_id = f"target_{project_id}_upload"

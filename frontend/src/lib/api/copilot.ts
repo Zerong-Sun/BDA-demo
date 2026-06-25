@@ -91,6 +91,17 @@ export interface ResearchBrief {
   status: string
 }
 
+export interface ResearchBriefDetail extends ResearchBrief {
+  findings: Array<Record<string, unknown>>
+  questions: Array<Record<string, unknown>>
+  research_runs: Array<{
+    research_run_id: string
+    status: string
+    created_at: string
+  }>
+  hypotheses: Array<Record<string, unknown>>
+}
+
 export interface SweetProteinRoute {
   route_id: string
   name: string
@@ -471,6 +482,12 @@ export function listResearchBriefs(projectId: string) {
   )
 }
 
+export function getResearchBrief(researchBriefId: string) {
+  return apiRequest<ResearchBriefDetail>(
+    `/copilot/research-briefs/${researchBriefId}`,
+  )
+}
+
 export function ingestResearchMarkdown(
   researchBriefId: string,
   payload: { title: string; content: string; source_uri?: string },
@@ -509,6 +526,12 @@ export function startResearchRun(researchRunId: string) {
   return apiRequest<ResearchRun>(
     `/copilot/research-runs/${researchRunId}/start`,
     { method: 'POST' },
+  )
+}
+
+export function getResearchRun(researchRunId: string) {
+  return apiRequest<ResearchRun>(
+    `/copilot/research-runs/${researchRunId}`,
   )
 }
 

@@ -10,6 +10,8 @@ import {
   createLiteratureSubscription,
   detectLiteratureRelations,
   generateResearchPlan,
+  getResearchBrief,
+  getResearchRun,
   ingestLiterature,
   ingestResearchMarkdown,
   listLiteratureClaims,
@@ -375,6 +377,7 @@ function SweetProteinBuilder() {
   const [sequenceComparison, setSequenceComparison] = useState<SequenceComparison | null>(null)
   const [structureComparison, setStructureComparison] = useState<StructureComparison | null>(null)
   const [selectedStructureIds, setSelectedStructureIds] = useState<string[]>([])
+  const [builderStage, setBuilderStage] = useState('')
   const applyPlan = (generated: WorkflowPlan) => {
     setPlan(generated)
     setSelectedRoute(generated.selected_route ?? 'monellin_redesign')
@@ -397,6 +400,7 @@ function SweetProteinBuilder() {
   })
   const create = useMutation({
     mutationFn: async () => {
+      setBuilderStage('创建 Research Brief')
       const brief = await createResearchBrief({
         project_id: projectId,
         title: 'AI 甜味蛋白研发',
@@ -415,14 +419,18 @@ function SweetProteinBuilder() {
       })
       let ingested: { chunk_count: number; reference_count: number } | null = null
       if (sourceFile) {
+        setBuilderStage('摄取参考资料')
         ingested = await ingestResearchMarkdown(brief.research_brief_id, {
           title: sourceFile.name,
           content: await sourceFile.text(),
           source_uri: `upload://${sourceFile.name}`,
         })
       }
+      setBuilderStage('生成问题树')
       const run = await createResearchRun(brief.research_brief_id)
+      setBuilderStage('执行多源检索与证据综合')
       const completedRun = await startResearchRun(run.research_run_id)
+      setBuilderStage('生成证据驱动路线')
       const generated = await generateResearchPlan(brief.research_brief_id)
       return { generated, ingested, completedRun }
     },
@@ -432,8 +440,42 @@ function SweetProteinBuilder() {
       }
       setResearchRun(completedRun)
       applyPlan(generated)
+      setBuilderStage('')
       client.invalidateQueries({ queryKey: ['research-briefs', projectId] })
     },
+    onError: () => {
+      setBuilderStage('')
+      client.invalidateQueries({ queryKey: ['research-briefs', projectId] })
+    },
+  })
+  const resume = useMutation({
+    mutationFn: async () => {
+      const latest = briefs.data?.items[0]
+      if (!latest) throw new Error('No saved Research Brief')
+      setBuilderStage('恢复已保存的 Research Brief')
+      const detail = await getResearchBrief(latest.research_brief_id)
+      const previousRun = detail.research_runs[0]
+      let completedRun: ResearchRun
+      if (previousRun?.status === 'completed' || previousRun?.status === 'partial') {
+        completedRun = await getResearchRun(previousRun.research_run_id)
+      } else if (previousRun?.research_run_id) {
+        setBuilderStage('继续未完成的多源检索')
+        completedRun = await startResearchRun(previousRun.research_run_id)
+      } else {
+        setBuilderStage('创建并执行 Research Run')
+        const run = await createResearchRun(latest.research_brief_id)
+        completedRun = await startResearchRun(run.research_run_id)
+      }
+      setBuilderStage('重新生成证据驱动路线')
+      const generated = await generateResearchPlan(latest.research_brief_id)
+      return { generated, completedRun }
+    },
+    onSuccess: ({ generated, completedRun }) => {
+      setResearchRun(completedRun)
+      applyPlan(generated)
+      setBuilderStage('')
+    },
+    onError: () => setBuilderStage(''),
   })
   const changeRoute = useMutation({
     mutationFn: (routeId: string) => {
@@ -534,6 +576,20 @@ function SweetProteinBuilder() {
           {create.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}
           建立 dossier 与路线
         </button>
+        {briefs.data?.items.length ? (
+          <button
+            className="w-full rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50"
+            disabled={create.isPending || resume.isPending}
+            onClick={() => resume.mutate()}
+          >
+            继续最近一次 Brief
+          </button>
+        ) : null}
+        {builderStage ? (
+          <p className="rounded border border-bda-cyan/40 bg-bda-cyan/10 p-2 text-xs text-bda-cyan">
+            {builderStage}；外部数据库与 LLM 综合可能需要约 1–2 分钟。
+          </p>
+        ) : null}
         <div className="border-t border-bda-border pt-3">
           <p className="text-xs text-bda-muted">当前项目 Brief：{briefs.data?.total ?? 0}</p>
           <p className="mt-1 text-xs text-bda-muted">
@@ -550,7 +606,7 @@ function SweetProteinBuilder() {
       </aside>
 
       <section className="space-y-4">
-        {actionError ? <p className="rounded border border-bda-red/40 p-3 text-sm text-bda-red">{actionError.message}</p> : null}
+        {actionError || resume.error ? <p className="rounded border border-bda-red/40 p-3 text-sm text-bda-red">{(actionError || resume.error)?.message}</p> : null}
         {!plan ? (
           <div className="rounded-lg border border-dashed border-bda-border bg-bda-panel p-8 text-center text-sm text-bda-muted">
             输入目标后，系统会生成骨架比较、证据边界、实验 gates 和可物化 workflow。
