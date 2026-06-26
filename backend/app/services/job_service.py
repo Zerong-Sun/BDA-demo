@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 import uuid
@@ -247,6 +248,88 @@ def _manifest_outputs(output_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return normalized
 
 
+def _candidate_family_for_artifact(entry: dict[str, Any], artifact: dict[str, Any], job: dict[str, Any]) -> str:
+    metadata = artifact.get("metadata_json") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    return str(
+        entry.get("family")
+        or entry.get("route")
+        or metadata.get("route")
+        or metadata.get("source_port")
+        or job.get("plugin_id")
+        or "generated"
+    )
+
+
+def _register_generated_candidate(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str | None,
+    job: dict[str, Any],
+    artifact: dict[str, Any],
+    entry: dict[str, Any],
+) -> None:
+    if not project_id or not job.get("workflow_run_id"):
+        return
+    artifact_format = str(artifact.get("format") or "").lower()
+    artifact_type = str(artifact.get("artifact_type") or "").lower()
+    source_port = str(entry.get("port") or "").lower()
+    if artifact_format not in {"pdb", "mmcif", "cif"} and not any(
+        token in artifact_type or token in source_port
+        for token in ("structure", "backbone", "pdb", "model")
+    ):
+        return
+    task = catalog.get_project_design_task(connection, project_id)
+    if task is None:
+        return
+    raw_id = entry.get("candidate_id") or Path(str(artifact.get("display_name") or artifact["artifact_id"])).stem
+    safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(raw_id)).strip("_")[:80] or artifact["artifact_id"]
+    candidate_id = safe_id if safe_id.startswith("cand_") else f"cand_{safe_id}"
+    storage_uri = str(artifact.get("storage_uri") or "")
+    structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
+    metadata = artifact.get("metadata_json") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    connection.execute(
+        """
+        INSERT INTO candidates (
+            candidate_id, project_id, task_id, workflow_run_id, family, sequence,
+            structure_file_path, complex_file_path, interface_score, pred_kd,
+            plddt, interface_pae, rosetta_score, interface_energy, clash_count,
+            buried_sasa, solubility_score, aggregation_risk, expression_risk,
+            status, decision, next_action
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                  'generated_backbone', 'Needs scoring', 'Run sequence design, folding, and scoring.')
+        ON CONFLICT(candidate_id) DO UPDATE SET
+            project_id=excluded.project_id,
+            task_id=excluded.task_id,
+            workflow_run_id=excluded.workflow_run_id,
+            family=excluded.family,
+            sequence=COALESCE(excluded.sequence, candidates.sequence),
+            structure_file_path=excluded.structure_file_path,
+            status=excluded.status,
+            decision=excluded.decision,
+            next_action=excluded.next_action
+        """,
+        (
+            candidate_id,
+            project_id,
+            task["task_id"],
+            job["workflow_run_id"],
+            _candidate_family_for_artifact(entry, artifact, job),
+            entry.get("sequence") or metadata.get("sequence"),
+            structure_file_path,
+        ),
+    )
+
+
 def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str, Any]:
     job = get_job(connection, job_id)
     if job is None:
@@ -307,6 +390,13 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
             created_by="system",
         )
         registered.append(artifact)
+        _register_generated_candidate(
+            connection,
+            project_id=project_id,
+            job=job,
+            artifact=artifact,
+            entry=entry,
+        )
 
     result = {
         "manifest_found": True,
@@ -396,7 +486,16 @@ def _enqueue_poll(job_id: str) -> None:
         pass
 
 
-def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_node_id: str | None = None) -> dict:
+def submit_node_job(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    compute_node_id: str | None = None,
+    *,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> dict:
     node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
     if node is None:
         raise ValueError("node_not_found")
@@ -417,6 +516,14 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
     )
 
     runtime_env = _plugin_runtime_env(plugin)
+    if queue_name:
+        runtime_env["BDA_LSF_QUEUE"] = queue_name
+    if cpu_count:
+        runtime_env["BDA_CPU_COUNT"] = str(max(1, min(int(cpu_count), 256)))
+    if resource_requirement:
+        runtime_env["BDA_LSF_RESOURCE"] = resource_requirement
+    if gpu_requirement:
+        runtime_env["BDA_LSF_GPU"] = gpu_requirement
     container_image = (plugin or {}).get("container_image") or "bda/demo:latest"
     command = (plugin or {}).get("command_template") or "echo demo"
     workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
@@ -440,6 +547,9 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         input_dir=workspace["input_dir"],
         output_dir=workspace["output_dir"],
         work_dir=workspace["work_dir"],
+        queue_name=queue_name,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
     )
     adapter = get_compute_adapter()
     try:
@@ -465,14 +575,31 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
     return get_job(connection, job["job_id"]) or job
 
 
-def submit_workflow_jobs(connection: sqlite3.Connection, workflow_run_id: str, compute_node_id: str | None = None) -> list[dict]:
+def submit_workflow_jobs(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    compute_node_id: str | None = None,
+    *,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> list[dict]:
     nodes = catalog.list_workflow_nodes(connection, workflow_run_id)
     jobs = []
     for node in nodes:
         if node.get("status") in ("completed", "running", "queued"):
             continue
         try:
-            job = submit_node_job(connection, node["node_run_id"], compute_node_id)
+            job = submit_node_job(
+                connection,
+                node["node_run_id"],
+                compute_node_id,
+                queue_name=queue_name,
+                cpu_count=cpu_count,
+                resource_requirement=resource_requirement,
+                gpu_requirement=gpu_requirement,
+            )
             jobs.append(job)
         except ValueError:
             continue

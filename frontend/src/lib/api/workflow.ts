@@ -32,6 +32,21 @@ export function submitWorkflowRun(workflowRunId: string) {
   )
 }
 
+export interface SubmitNodeOptions {
+  compute_node_id?: string
+  queue_name?: string
+  cpu_count?: number
+  resource_requirement?: string
+  gpu_requirement?: string
+}
+
+export function submitWorkflowNode(nodeRunId: string, options: SubmitNodeOptions = {}) {
+  return apiRequest<{ node_run_id: string; job_id: string; status: string }>(
+    `/workflow-node-runs/${nodeRunId}/submit-to-compute`,
+    { method: 'POST', body: JSON.stringify(options) },
+  )
+}
+
 export function createWorkflowRun(projectId: string) {
   return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs`, { method: 'POST' }, WorkflowRunSchema)
 }

@@ -1,4 +1,4 @@
-import { apiRequest } from './client'
+import { API_BASE, apiRequest } from './client'
 import { ArtifactSchema, type Artifact } from '../schemas/artifact'
 
 function inferFormat(filename: string): string {
@@ -67,4 +67,29 @@ export function listProjectArtifacts(projectId: string): Promise<Artifact[]> {
     `/projects/${projectId}/artifacts`,
     {},
   ).then((payload) => payload.items.map((item) => ArtifactSchema.parse(item)))
+}
+
+export async function downloadArtifact(artifact: Artifact): Promise<void> {
+  const url = artifact.download_url ?? artifact.preview_url
+  if (!url) throw new Error('No download URL is available for this artifact.')
+  const token = sessionStorage.getItem('bda_token')
+  const baseOrigin = API_BASE.startsWith('http') ? new URL(API_BASE).origin : ''
+  const downloadUrl = url.startsWith('/api/')
+    ? `${baseOrigin}${url}`
+    : `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
+  const response = await fetch(downloadUrl, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    throw new Error(`Artifact download failed (${response.status})`)
+  }
+  const blob = await response.blob()
+  const objectUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = objectUrl
+  link.download = artifact.display_name || artifact.artifact_id
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(objectUrl)
 }

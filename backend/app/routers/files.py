@@ -16,6 +16,7 @@ from ..auth.service import verify_project_access
 from ..db import get_connection
 from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog
+from ..config import REPO_ROOT
 from ..services.artifacts import (
     artifact_format_for_filename,
     candidate_structure_path,
@@ -35,6 +36,8 @@ router = APIRouter()
 
 SAFE_FILENAME_RE = re.compile(r"^[\w.\-]+$")
 ARTIFACT_STORAGE_PREFIX = "artifact://"
+FILE_ARTIFACT_STORAGE_PREFIX = "file://"
+WORKSPACE_ROOT = REPO_ROOT.parent
 LEGACY_ARTIFACT_STORAGE_PREFIXES = ("local://",)
 
 
@@ -57,6 +60,21 @@ def _artifact_key(storage_uri: str) -> str:
                 return storage_uri[len(prefix):]
         raise HTTPException(status_code=400, detail="unsupported_artifact_storage")
     return storage_uri[len(ARTIFACT_STORAGE_PREFIX):]
+
+
+def _artifact_file_path(storage_uri: str):
+    if storage_uri.startswith(FILE_ARTIFACT_STORAGE_PREFIX):
+        raw = storage_uri[len(FILE_ARTIFACT_STORAGE_PREFIX):]
+        candidate = Path(raw)
+        if not candidate.is_absolute():
+            candidate = WORKSPACE_ROOT / raw
+        resolved = candidate.resolve()
+        if not str(resolved).startswith(str(WORKSPACE_ROOT.resolve())):
+            raise HTTPException(status_code=400, detail="invalid_artifact_path")
+        if not resolved.exists() or not resolved.is_file():
+            raise HTTPException(status_code=404, detail="artifact_not_found")
+        return resolved
+    return resolve_artifact_path(_artifact_key(storage_uri))
 
 
 def _artifact_payload(artifact: dict) -> dict:
@@ -325,7 +343,7 @@ def batch_download_artifacts(
                 if artifact is None:
                     raise HTTPException(status_code=404, detail=f"artifact_not_found:{artifact_id}")
                 _require_artifact_access(connection, user, artifact)
-                path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+                path = _artifact_file_path(artifact["storage_uri"])
                 archive.write(path, arcname=artifact["display_name"])
         background_tasks.add_task(tmp_path.unlink, missing_ok=True)
         return FileResponse(tmp_path, media_type="application/zip", filename=safe_filename)
@@ -344,7 +362,7 @@ def artifact_preview(
     if artifact is None:
         raise HTTPException(status_code=404, detail="artifact_not_found")
     _require_artifact_access(connection, user, artifact)
-    path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+    path = _artifact_file_path(artifact["storage_uri"])
     return envelope({
         "artifact": _artifact_payload(artifact),
         "preview": preview_artifact(path, artifact["format"]),
@@ -361,7 +379,7 @@ def artifact_download(
     if artifact is None:
         raise HTTPException(status_code=404, detail="artifact_not_found")
     _require_artifact_access(connection, user, artifact)
-    path = resolve_artifact_path(_artifact_key(artifact["storage_uri"]))
+    path = _artifact_file_path(artifact["storage_uri"])
     return FileResponse(
         path,
         media_type=media_type_for_format(artifact["format"]),

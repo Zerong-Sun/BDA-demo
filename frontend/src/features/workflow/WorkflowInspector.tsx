@@ -3,10 +3,11 @@ import { Download, Info, Network, Settings2 } from 'lucide-react'
 import type { WorkflowNode } from '../../lib/schemas/workflow'
 import type { Artifact } from '../../lib/schemas/artifact'
 import { formatBytes } from '../../lib/schemas/artifact'
-import { API_BASE } from '../../lib/api/client'
+import { downloadArtifact } from '../../lib/api/artifacts'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { statusTone } from '../../components/ui/statusTone'
 import { JobStatusDrawer } from '../jobs'
+import { useToastStore } from '../../components/ui/toastStore'
 
 interface WorkflowInspectorProps {
   workflowRunId?: string
@@ -27,17 +28,20 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
   return typeof value === 'object' ? (value as Record<string, unknown>) : {}
 }
 
-function previewHref(artifact: Artifact): string | undefined {
-  const url = artifact.download_url ?? artifact.preview_url
-  if (!url) return undefined
-  if (url.startsWith('/api/')) return url
-  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
-}
-
 export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifact }: WorkflowInspectorProps) {
   const parameters = parseJsonObject(selectedNode?.parameters_json)
   const metrics = parseJsonObject(selectedNode?.metrics_json)
-  const href = selectedArtifact ? previewHref(selectedArtifact) : undefined
+  const showToast = useToastStore((s) => s.show)
+  const hasDownload = Boolean(selectedArtifact?.download_url ?? selectedArtifact?.preview_url)
+
+  const downloadSelectedArtifact = async () => {
+    if (!selectedArtifact) return
+    try {
+      await downloadArtifact(selectedArtifact)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Artifact download failed', 'error')
+    }
+  }
 
   return (
     <aside className="space-y-4">
@@ -88,14 +92,15 @@ export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifac
               </p>
             </div>
             <KeyValueGrid data={selectedArtifact.metadata} empty="No metadata parsed yet." />
-            {href ? (
-              <a
-                href={href}
+            {hasDownload ? (
+              <button
+                type="button"
                 className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm text-bda-text hover:border-bda-cyan/50"
+                onClick={() => void downloadSelectedArtifact()}
               >
                 <Download className="h-4 w-4" />
-                Open artifact
-              </a>
+                Download artifact
+              </button>
             ) : (
               <p className="rounded border border-dashed border-bda-border p-3 text-xs text-bda-muted">
                 No download URL is available for this artifact yet.

@@ -1,10 +1,12 @@
 import { useQuery } from '@tanstack/react-query'
-import { Cpu, Layers3 } from 'lucide-react'
+import { Cpu, Layers3, Plus } from 'lucide-react'
 import { ArtifactBrowser, ArtifactUploadDropzone } from '../artifacts'
 import { listModelPlugins } from '../../lib/api/registry'
 import type { Artifact } from '../../lib/schemas/artifact'
+import type { ModelPlugin } from '../../lib/schemas/registry'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { statusTone } from '../../components/ui/statusTone'
+import { ScriptAssetManager } from './ScriptAssetManager'
 
 interface WorkflowResourceSidebarProps {
   projectId?: string
@@ -12,6 +14,8 @@ interface WorkflowResourceSidebarProps {
   selectedArtifactId?: string
   onArtifactUploaded: (artifact: Artifact, file: File) => void
   onArtifactSelected: (artifact: Artifact) => void
+  onPluginAdd?: (plugin: ModelPlugin) => void
+  readOnly?: boolean
 }
 
 export function WorkflowResourceSidebar({
@@ -20,6 +24,8 @@ export function WorkflowResourceSidebar({
   selectedArtifactId,
   onArtifactUploaded,
   onArtifactSelected,
+  onPluginAdd,
+  readOnly = false,
 }: WorkflowResourceSidebarProps) {
   const { data: plugins = [] } = useQuery({
     queryKey: ['model-plugins'],
@@ -65,11 +71,24 @@ export function WorkflowResourceSidebar({
                 <p className="mt-1 truncate text-xs text-bda-muted">
                   v{plugin.version} · {plugin.model_type}
                 </p>
+                {onPluginAdd ? (
+                  <button
+                    type="button"
+                    className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded border border-bda-border px-2 py-1.5 text-xs text-bda-text hover:border-bda-cyan/50 disabled:opacity-50"
+                    disabled={readOnly || plugin.status !== 'active'}
+                    onClick={() => onPluginAdd(plugin)}
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    添加到流程图
+                  </button>
+                ) : null}
               </article>
             ))
           )}
         </div>
       </section>
+
+      <ScriptAssetManager />
     </aside>
   )
 }

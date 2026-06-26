@@ -15,7 +15,7 @@ elif ! "$PYTHON" -c "import uvicorn" 2>/dev/null; then
 fi
 
 echo "Initializing database..."
-"$PYTHON" backend/scripts/init_db.py
+"$PYTHON" backend/scripts/init_db.py --if-missing
 
 echo "Starting backend on :8100..."
 "$PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8100 --reload &

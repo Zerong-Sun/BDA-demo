@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import shlex
 import os
 import re
@@ -236,22 +237,168 @@ class RemoteLsfAdapter:
         except (OSError, subprocess.SubprocessError) as exc:
             raise RuntimeError(f"remote_lsf_ssh_failed:{exc}") from exc
 
-    def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:
+    def _manifest_payload(self, job: JobSpec) -> dict:
+        if not job.input_dir:
+            return {}
+        manifest_path = Path(job.input_dir) / "manifest.json"
+        if not manifest_path.exists():
+            return {}
+        try:
+            return json.loads(manifest_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return {}
+
+    def _staged_input_name(self, manifest: dict) -> str:
+        for item in manifest.get("inputs") or []:
+            if item.get("port") != "target_structure":
+                continue
+            path = str(item.get("path") or "")
+            name = Path(path).name
+            if name:
+                return name
+        return "input.pdb"
+
+    def _rfdiffusion_arg(self, key: str, value: object) -> str | None:
+        if value is None or value == "":
+            return None
+        if isinstance(value, bool):
+            rendered = "true" if value else "false"
+        elif isinstance(value, (dict, list)):
+            rendered = json.dumps(value, separators=(",", ":"))
+        else:
+            rendered = str(value)
+        if any(char in rendered for char in "[] ,"):
+            return f"{shlex.quote(f'{key}={rendered}')}"
+        return f"{key}={shlex.quote(rendered)}"
+
+    def _render_rfdiffusion_lsf_script(self, job: JobSpec) -> str:
+        manifest = self._manifest_payload(job)
+        parameters = manifest.get("parameters") or {}
         gpu = job.env.get("BDA_GPU") == "1"
-        queue = job.env.get("BDA_LSF_QUEUE") or (self._gpu_queue if gpu else self._cpu_queue)
+        partial_t = int(parameters.get("diffuser.partial_T") or 0)
+        default_queue = "8v100-32-sc" if partial_t > 0 else "4v100-16-e5"
+        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or default_queue
+        resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=1]"
+        gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
+        remote_dir = self._remote_job_dir(job.job_id)
+        input_name = self._staged_input_name(manifest)
+        work_input = "rfdiffusion_input.pdb"
+        output_prefix = str(parameters.get("inference.output_prefix") or "rfdiffusion_design")
+        output_prefix = Path(output_prefix).name or "rfdiffusion_design"
+        run_args = [
+            f"inference.input_pdb=./{work_input}",
+            self._rfdiffusion_arg("contigmap.contigs", parameters.get("contigmap.contigs")),
+            self._rfdiffusion_arg("ppi.hotspot_res", parameters.get("ppi.hotspot_res")),
+            self._rfdiffusion_arg("contigmap.provide_seq", parameters.get("contigmap.provide_seq")),
+            self._rfdiffusion_arg("inference.num_designs", parameters.get("inference.num_designs") or 100),
+            f"inference.output_prefix=../output/{shlex.quote(output_prefix)}",
+            self._rfdiffusion_arg("diffuser.partial_T", parameters.get("diffuser.partial_T")),
+            self._rfdiffusion_arg("diffuser.T", parameters.get("diffuser.T")),
+            self._rfdiffusion_arg("denoiser.noise_scale_ca", parameters.get("denoiser.noise_scale_ca")),
+            self._rfdiffusion_arg("denoiser.noise_scale_frame", parameters.get("denoiser.noise_scale_frame")),
+            self._rfdiffusion_arg("contigmap.inpaint_seq", parameters.get("contigmap.inpaint_seq")),
+            self._rfdiffusion_arg("contigmap.inpaint_str", parameters.get("contigmap.inpaint_str")),
+            self._rfdiffusion_arg("inference.ckpt_override_path", parameters.get("inference.ckpt_override_path")),
+            self._rfdiffusion_arg("inference.symmetry", parameters.get("inference.symmetry")),
+            self._rfdiffusion_arg("potentials.guiding_potentials", parameters.get("potentials.guiding_potentials")),
+            self._rfdiffusion_arg("potentials.guide_scale", parameters.get("potentials.guide_scale")),
+        ]
+        run_args = [arg for arg in run_args if arg]
+        run_command = " \\\n".join(run_args) + " \\"
+        collect_script = f"""
+python - <<'PY' >> ../logs/$LSB_JOBID.log 2>&1
+import json
+from pathlib import Path
+
+output_dir = Path("../output").resolve()
+source_manifest = json.loads(Path("../input/manifest.json").read_text(encoding="utf-8"))
+prefix = {output_prefix!r}
+backbones = sorted(output_dir.glob(f"{{prefix}}*.pdb"))
+if not backbones:
+    raise RuntimeError(f"RFdiffusion produced no PDB files for prefix {{prefix}}")
+route = (source_manifest.get("parameters") or {{}}).get("scaffold")
+outputs = {{
+    "backbone_set": [
+        {{
+            "path": path.name,
+            "format": "pdb",
+            "artifact_type": "backbone_set",
+            "display_name": path.name,
+            "metadata": {{"design_index": index, "route": route}},
+        }}
+        for index, path in enumerate(backbones)
+    ],
+    "run_record": [
+        {{
+            "path": "rfdiffusion_run.json",
+            "format": "json",
+            "artifact_type": "run_record",
+            "display_name": "rfdiffusion_run.json",
+        }}
+    ],
+}}
+(output_dir / "rfdiffusion_run.json").write_text(
+    json.dumps({{
+        "backbone_count": len(backbones),
+        "parameters": source_manifest.get("parameters") or {{}},
+        "inputs": source_manifest.get("inputs") or [],
+        "native_lsf_template": "qm-scripts/rfd",
+    }}, indent=2),
+    encoding="utf-8",
+)
+(output_dir / "manifest.json").write_text(
+    json.dumps({{"outputs": outputs, "metrics": {{"backbone_count": len(backbones)}}}}, indent=2),
+    encoding="utf-8",
+)
+PY"""
+        directives = [
+            "#!/bin/bash",
+            "",
+            f"#BSUB -J RFdiffusion_{job.job_id.removeprefix('job_')[:10]}",
+            f"#BSUB -q {queue}",
+            "#BSUB -n 1",
+        ]
+        if gpu:
+            directives.append(f'#BSUB -gpu "{gpu_requirement}"')
+        directives.extend([
+            f'#BSUB -R "{resource_requirement}"',
+            "#BSUB -o %J.out",
+            "#BSUB -e %J.err",
+            "",
+            f"cd {shlex.quote(remote_dir)}",
+            "mkdir -p output work logs",
+            f"cp input/{shlex.quote(input_name)} work/{work_input}",
+            "",
+            "source activate /work/bme-liz/miniconda3/envs/SE3nv-gpu",
+            "",
+            "cd work",
+            "/work/bme-liz/software/RFdiffusion/scripts/run_inference.py \\",
+            run_command,
+            f"> ../logs/$LSB_JOBID.log 2>&1",
+            collect_script.strip(),
+        ])
+        return "\n".join(directives) + "\n"
+
+    def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:
+        if job.plugin_id == "plugin_rfdiffusion":
+            return self._render_rfdiffusion_lsf_script(job)
+        gpu = job.env.get("BDA_GPU") == "1"
+        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or (self._gpu_queue if gpu else self._cpu_queue)
         cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT", "1")))
+        resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=1]"
+        gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
         remote_dir = self._remote_job_dir(job.job_id)
         directives = [
             "#!/bin/bash",
             f"#BSUB -J bda-{job.job_id}",
             f"#BSUB -q {queue}",
             f"#BSUB -n {cpu_count}",
-            '#BSUB -R "span[ptile=1]"',
+            f'#BSUB -R "{resource_requirement}"',
             "#BSUB -o logs/%J.out",
             "#BSUB -e logs/%J.err",
         ]
         if gpu:
-            directives.append('#BSUB -gpu "num=1"')
+            directives.append(f'#BSUB -gpu "{gpu_requirement}"')
         directives.extend([
             "",
             "set -Eeuo pipefail",
@@ -370,22 +517,27 @@ class RemoteLsfAdapter:
             for queue in dict.fromkeys([self._gpu_queue, self._cpu_queue])
             if queue
         )
+        queue_filter = f" {queues}" if queues else ""
         result = self._run_ssh(
             "command -v bsub >/dev/null && command -v bjobs >/dev/null && "
             "printf 'BDA_LSF_OK\\n' && "
-            f"bqueues -noheader -o 'queue_name status njobs pend run' {queues} 2>/dev/null",
-            timeout=25,
+            f"bqueues -noheader -o 'queue_name status njobs pend run' {queue_filter} 2>/dev/null && "
+            "printf 'BDA_LSF_ALL_QUEUES\\n' && "
+            "bqueues -noheader -o 'queue_name status njobs pend run' 2>/dev/null",
+            timeout=60,
             check=False,
         )
         text = result.stdout.decode("utf-8", errors="replace")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
         connected = result.returncode == 0 and bool(lines) and lines[0] == "BDA_LSF_OK"
+        all_marker = lines.index("BDA_LSF_ALL_QUEUES") if "BDA_LSF_ALL_QUEUES" in lines else len(lines)
         return {
             "mode": "remote_lsf",
             "connected": connected,
             "host": self._host,
             "remote_root": self._remote_root,
-            "queues": lines[1:] if connected else [],
+            "queues": lines[1:all_marker] if connected else [],
+            "all_queues": lines[all_marker + 1:] if connected and all_marker < len(lines) else [],
             "reason": None if connected else result.stderr.decode("utf-8", errors="replace").strip(),
         }
 

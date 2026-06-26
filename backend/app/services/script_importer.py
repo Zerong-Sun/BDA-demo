@@ -148,6 +148,141 @@ def parse_script(path: Path, relative_path: str) -> dict[str, Any]:
     }
 
 
+def _store_parsed_script(
+    connection: sqlite3.Connection,
+    *,
+    relative_path: str,
+    title: str,
+    parsed: dict[str, Any],
+    model_plugin_id: str | None,
+    metadata: dict[str, Any],
+) -> dict[str, Any]:
+    source_id = _stable_id("source", relative_path)
+    asset_id = _stable_id("script", relative_path)
+    connection.execute(
+        """
+        INSERT INTO research_sources (
+            source_id, source_type, title, uri, content_hash,
+            metadata_json, status, last_ingested_at
+        ) VALUES (?, 'local_script', ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
+        ON CONFLICT(source_type, uri) DO UPDATE SET
+            title=excluded.title,
+            content_hash=excluded.content_hash,
+            metadata_json=excluded.metadata_json,
+            status='active',
+            last_ingested_at=CURRENT_TIMESTAMP,
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (
+            source_id,
+            title,
+            relative_path,
+            parsed["content_hash"],
+            json.dumps(metadata),
+        ),
+    )
+    source_row = connection.execute(
+        "SELECT source_id FROM research_sources WHERE source_type='local_script' AND uri=?",
+        (relative_path,),
+    ).fetchone()
+    source_id = source_row["source_id"]
+    connection.execute(
+        """
+        INSERT INTO script_assets (
+            script_asset_id, source_id, model_plugin_id, relative_path,
+            language, scheduler, content_hash, resource_config_json,
+            environment_json, parse_warnings_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        ON CONFLICT(relative_path) DO UPDATE SET
+            source_id=excluded.source_id,
+            model_plugin_id=excluded.model_plugin_id,
+            language=excluded.language,
+            scheduler=excluded.scheduler,
+            content_hash=excluded.content_hash,
+            resource_config_json=excluded.resource_config_json,
+            environment_json=excluded.environment_json,
+            parse_warnings_json=excluded.parse_warnings_json,
+            status='active',
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (
+            asset_id,
+            source_id,
+            model_plugin_id,
+            relative_path,
+            parsed["language"],
+            parsed["scheduler"],
+            parsed["content_hash"],
+            json.dumps(parsed["resource_config"]),
+            json.dumps(parsed["environment"]),
+            json.dumps(parsed["warnings"]),
+        ),
+    )
+    asset_row = connection.execute(
+        "SELECT script_asset_id FROM script_assets WHERE relative_path=?",
+        (relative_path,),
+    ).fetchone()
+    asset_id = asset_row["script_asset_id"]
+    connection.execute(
+        "DELETE FROM script_parameter_observations WHERE script_asset_id=?",
+        (asset_id,),
+    )
+    for observation in parsed["observations"]:
+        connection.execute(
+            """
+            INSERT INTO script_parameter_observations (
+                observation_id, script_asset_id, model_plugin_id,
+                parameter_key, raw_value, normalized_value_json,
+                source_line, source_kind
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"obs_{uuid.uuid4().hex[:16]}",
+                asset_id,
+                model_plugin_id,
+                observation["parameter_key"],
+                observation["raw_value"],
+                json.dumps(observation["normalized_value"]),
+                observation["source_line"],
+                observation["source_kind"],
+            ),
+        )
+    return {
+        "script_asset_id": asset_id,
+        "source_id": source_id,
+        "relative_path": relative_path,
+        "model_plugin_id": model_plugin_id,
+        "content_hash": parsed["content_hash"],
+        "language": parsed["language"],
+        "scheduler": parsed["scheduler"],
+        "parameter_observations": len(parsed["observations"]),
+        "parse_warnings": len(parsed["warnings"]),
+        "warnings": parsed["warnings"],
+    }
+
+
+def import_script_file(
+    connection: sqlite3.Connection,
+    path: Path,
+    *,
+    relative_path: str,
+    model_plugin_id: str | None = None,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    plugins = registry.list_model_plugins(connection)
+    model_catalog.sync_plugin_parameters(connection, plugins)
+    parsed = parse_script(path, relative_path)
+    plugin_id = model_plugin_id or _model_for_path(relative_path)
+    return _store_parsed_script(
+        connection,
+        relative_path=relative_path,
+        title=path.name,
+        parsed=parsed,
+        model_plugin_id=plugin_id,
+        metadata=metadata or {},
+    )
+
+
 def import_script_tree(
     connection: sqlite3.Connection,
     root: Path,
@@ -156,8 +291,6 @@ def import_script_tree(
 ) -> dict[str, Any]:
     root = root.resolve()
     repository_root = (repository_root or root.parent).resolve()
-    plugins = registry.list_model_plugins(connection)
-    model_catalog.sync_plugin_parameters(connection, plugins)
     imported = 0
     observation_count = 0
     warning_count = 0
@@ -166,101 +299,15 @@ def import_script_tree(
         if not path.is_file() or path.suffix.lower() not in SUPPORTED_SUFFIXES:
             continue
         relative_path = path.relative_to(repository_root).as_posix()
-        parsed = parse_script(path, relative_path)
-        source_id = _stable_id("source", relative_path)
-        asset_id = _stable_id("script", relative_path)
-        plugin_id = _model_for_path(relative_path)
-        connection.execute(
-            """
-            INSERT INTO research_sources (
-                source_id, source_type, title, uri, content_hash,
-                metadata_json, status, last_ingested_at
-            ) VALUES (?, 'local_script', ?, ?, ?, ?, 'active', CURRENT_TIMESTAMP)
-            ON CONFLICT(source_type, uri) DO UPDATE SET
-                title=excluded.title,
-                content_hash=excluded.content_hash,
-                metadata_json=excluded.metadata_json,
-                status='active',
-                last_ingested_at=CURRENT_TIMESTAMP,
-                updated_at=CURRENT_TIMESTAMP
-            """,
-            (
-                source_id,
-                path.name,
-                relative_path,
-                parsed["content_hash"],
-                json.dumps({"absolute_root": str(repository_root)}),
-            ),
+        item = import_script_file(
+            connection,
+            path,
+            relative_path=relative_path,
+            metadata={"absolute_root": str(repository_root)},
         )
-        source_row = connection.execute(
-            "SELECT source_id FROM research_sources WHERE source_type='local_script' AND uri=?",
-            (relative_path,),
-        ).fetchone()
-        source_id = source_row["source_id"]
-        connection.execute(
-            """
-            INSERT INTO script_assets (
-                script_asset_id, source_id, model_plugin_id, relative_path,
-                language, scheduler, content_hash, resource_config_json,
-                environment_json, parse_warnings_json, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
-            ON CONFLICT(relative_path) DO UPDATE SET
-                source_id=excluded.source_id,
-                model_plugin_id=excluded.model_plugin_id,
-                language=excluded.language,
-                scheduler=excluded.scheduler,
-                content_hash=excluded.content_hash,
-                resource_config_json=excluded.resource_config_json,
-                environment_json=excluded.environment_json,
-                parse_warnings_json=excluded.parse_warnings_json,
-                status='active',
-                updated_at=CURRENT_TIMESTAMP
-            """,
-            (
-                asset_id,
-                source_id,
-                plugin_id,
-                relative_path,
-                parsed["language"],
-                parsed["scheduler"],
-                parsed["content_hash"],
-                json.dumps(parsed["resource_config"]),
-                json.dumps(parsed["environment"]),
-                json.dumps(parsed["warnings"]),
-            ),
-        )
-        asset_row = connection.execute(
-            "SELECT script_asset_id FROM script_assets WHERE relative_path=?",
-            (relative_path,),
-        ).fetchone()
-        asset_id = asset_row["script_asset_id"]
-        connection.execute(
-            "DELETE FROM script_parameter_observations WHERE script_asset_id=?",
-            (asset_id,),
-        )
-        for observation in parsed["observations"]:
-            connection.execute(
-                """
-                INSERT INTO script_parameter_observations (
-                    observation_id, script_asset_id, model_plugin_id,
-                    parameter_key, raw_value, normalized_value_json,
-                    source_line, source_kind
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    f"obs_{uuid.uuid4().hex[:16]}",
-                    asset_id,
-                    plugin_id,
-                    observation["parameter_key"],
-                    observation["raw_value"],
-                    json.dumps(observation["normalized_value"]),
-                    observation["source_line"],
-                    observation["source_kind"],
-                ),
-            )
-            observation_count += 1
         imported += 1
-        warning_count += len(parsed["warnings"])
+        observation_count += item["parameter_observations"]
+        warning_count += item["parse_warnings"]
 
     return {
         "root": str(root),

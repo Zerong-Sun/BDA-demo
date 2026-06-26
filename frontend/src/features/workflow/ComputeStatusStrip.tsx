@@ -43,6 +43,14 @@ export function ComputeStatusStrip() {
               Queues: {clusterHealth.queues.slice(0, 3).join(' · ')}
             </span>
           ) : null}
+          {clusterHealth.connected && clusterHealth.all_queues?.length ? (
+            <span
+              className="max-w-full truncate text-xs text-bda-muted"
+              title={clusterHealth.all_queues.join('\n')}
+            >
+              More queues: {clusterHealth.all_queues.slice(0, 6).join(' · ')}
+            </span>
+          ) : null}
         </>
       ) : null}
       <span className={gpuAvailable ? 'text-bda-green' : 'text-bda-amber'}>

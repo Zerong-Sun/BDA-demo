@@ -1,4 +1,5 @@
 import sqlite3
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -14,11 +15,34 @@ router = APIRouter()
 class SubmitWorkflowRequest(BaseModel):
     compute_node_id: str | None = None
     priority: int | None = None
+    queue_name: str | None = None
+    cpu_count: int | None = None
+    resource_requirement: str | None = None
+    gpu_requirement: str | None = None
 
 
 class SubmitNodeRequest(BaseModel):
     compute_node_id: str | None = None
     override_params: dict | None = None
+    queue_name: str | None = None
+    cpu_count: int | None = None
+    resource_requirement: str | None = None
+    gpu_requirement: str | None = None
+
+
+QUEUE_RE = re.compile(r"^[A-Za-z0-9_.-]{1,80}$")
+LSF_SAFE_RE = re.compile(r"^[A-Za-z0-9_.,=:+\\-\\[\\]()/ <>!*&|]+$")
+
+
+def _validate_lsf_overrides(payload: SubmitWorkflowRequest | SubmitNodeRequest) -> None:
+    if payload.queue_name and not QUEUE_RE.fullmatch(payload.queue_name):
+        raise HTTPException(status_code=422, detail="invalid_queue_name")
+    if payload.cpu_count is not None and not (1 <= payload.cpu_count <= 256):
+        raise HTTPException(status_code=422, detail="invalid_cpu_count")
+    for field in ("resource_requirement", "gpu_requirement"):
+        value = getattr(payload, field)
+        if value and (len(value) > 240 or not LSF_SAFE_RE.fullmatch(value)):
+            raise HTTPException(status_code=422, detail=f"invalid_{field}")
 
 
 @router.get("/compute/cluster-health")
@@ -56,7 +80,16 @@ def submit_workflow_run(
     _user: dict = Depends(require_workflow_run_access),
 ):
     payload = payload or SubmitWorkflowRequest()
-    jobs = job_service.submit_workflow_jobs(connection, workflow_run_id, payload.compute_node_id)
+    _validate_lsf_overrides(payload)
+    jobs = job_service.submit_workflow_jobs(
+        connection,
+        workflow_run_id,
+        payload.compute_node_id,
+        queue_name=payload.queue_name,
+        cpu_count=payload.cpu_count,
+        resource_requirement=payload.resource_requirement,
+        gpu_requirement=payload.gpu_requirement,
+    )
     if not jobs:
         return envelope({
             "workflow_run_id": workflow_run_id,
@@ -90,8 +123,17 @@ def submit_workflow_node(
         raise HTTPException(status_code=404, detail="node_not_found")
 
     payload = payload or SubmitNodeRequest()
+    _validate_lsf_overrides(payload)
     try:
-        job = job_service.submit_node_job(connection, node_run_id, payload.compute_node_id)
+        job = job_service.submit_node_job(
+            connection,
+            node_run_id,
+            payload.compute_node_id,
+            queue_name=payload.queue_name,
+            cpu_count=payload.cpu_count,
+            resource_requirement=payload.resource_requirement,
+            gpu_requirement=payload.gpu_requirement,
+        )
     except ValueError as exc:
         detail = str(exc)
         status = 404 if detail == "node_not_found" else 400

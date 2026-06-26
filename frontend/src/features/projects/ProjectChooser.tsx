@@ -97,6 +97,7 @@ export function ProjectChooser({
               onChange={(event) => setProjectType(event.target.value)}
             >
               <option value="protein_design">蛋白质设计</option>
+              <option value="sweet_protein_design">甜蛋白设计</option>
               <option value="binder_design">结合蛋白设计</option>
               <option value="enzyme_design">酶设计</option>
               <option value="biomaterial_design">可编程生物材料</option>
@@ -122,7 +123,11 @@ export function ProjectChooser({
             {create.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FolderPlus className="h-4 w-4" />}
             创建并选择
           </button>
-          {create.isError ? <p className="text-xs text-bda-red">创建项目失败，请检查后端服务。</p> : null}
+          {create.isError ? (
+            <p className="text-xs text-bda-red">
+              {create.error instanceof Error ? create.error.message : '创建项目失败，请检查后端服务。'}
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

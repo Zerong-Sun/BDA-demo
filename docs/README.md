@@ -6,6 +6,7 @@ This directory keeps the current technical and product-supporting documentation 
 
 | Document | Purpose |
 |----------|---------|
+| `../BDA_Codex_Context.md` | Short Codex briefing for new BDA threads |
 | `ARCHITECTURE.md` | System architecture, services, API groups, deployment model |
 | `DATA_MODEL.md` | Core data ownership, workflow, research, artifact, and campaign entities |
 | `PRD02_后端与工作流接入规划.md` | Backend, artifact contract, plugin registry, compute adapter, and workflow integration plan |

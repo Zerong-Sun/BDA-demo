@@ -21,21 +21,31 @@ export function useProjectContext() {
     staleTime: 30_000,
   })
 
+  const sortedProjects = useMemo(() => {
+    const priority = (project: (typeof projects)[number]) => {
+      if (project.status === 'running' && project.owner_id && project.owner_id !== 'demo-user') return 0
+      if (project.status === 'running') return 1
+      if (project.project_id === 'proj_pd1_0423') return 2
+      return 3
+    }
+    return [...projects].sort((a, b) => priority(a) - priority(b) || a.project_name.localeCompare(b.project_name))
+  }, [projects])
+
   const urlProjectId = searchParams.get('project')
 
   const projectId = useMemo(() => {
-    const exists = (id: string) => projects.some((p) => p.project_id === id)
+    const exists = (id: string) => sortedProjects.some((p) => p.project_id === id)
     if (urlProjectId && exists(urlProjectId)) return urlProjectId
     if (activeProjectId && exists(activeProjectId)) return activeProjectId
     return ''
-  }, [activeProjectId, urlProjectId, projects])
+  }, [activeProjectId, urlProjectId, sortedProjects])
 
   useEffect(() => {
     if (projectsLoading || !projectId) return
     if (activeProjectId !== projectId) setActiveProjectId(projectId)
   }, [activeProjectId, projectId, projectsLoading, setActiveProjectId])
 
-  const activeProject = projects.find((p) => p.project_id === projectId) ?? null
+  const activeProject = sortedProjects.find((p) => p.project_id === projectId) ?? null
 
   const setProjectId = (nextProjectId: string) => {
     setActiveProjectId(nextProjectId)
@@ -48,7 +58,7 @@ export function useProjectContext() {
   return {
     projectId,
     activeProject,
-    projects,
+    projects: sortedProjects,
     projectsLoading,
     projectsError,
     projectsQueryError,

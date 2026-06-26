@@ -18,6 +18,9 @@ class JobSpec:
     input_dir: str | None = None
     output_dir: str | None = None
     work_dir: str | None = None
+    queue_name: str | None = None
+    resource_requirement: str | None = None
+    gpu_requirement: str | None = None
 
 
 @dataclass

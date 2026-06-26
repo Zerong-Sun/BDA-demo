@@ -7,9 +7,9 @@ import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
-import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
+import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates, type NodeTemplate } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
-import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
+import { getLatestWorkflowRunOrNull, listProjectWorkflowRuns } from '../lib/api/projects'
 import { addWorkflowNode, createWorkflowRun, getWorkflowGraph, saveWorkflowLayout, submitWorkflowRun } from '../lib/api/workflow'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
@@ -18,6 +18,53 @@ import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import type { Artifact } from '../lib/schemas/artifact'
 import { ProjectContextBar } from '../features/projects/ProjectContextBar'
+import type { ModelPlugin } from '../lib/schemas/registry'
+
+function workflowNodeTypeForPlugin(plugin: ModelPlugin) {
+  if (plugin.model_name === 'RFdiffusion') return 'backbone_generation'
+  if (plugin.model_name === 'ProteinMPNN') return 'sequence_generation'
+  if (['AlphaFold2', 'AlphaFold 3', 'Boltz', 'Chai-1'].includes(plugin.model_name)) return 'fold_prediction'
+  if (plugin.model_name === 'Rosetta') return 'scoring'
+  if (plugin.model_name === 'BindCraft') return 'workflow_pipeline'
+  return plugin.model_type
+}
+
+function templateForPlugin(plugin: ModelPlugin): NodeTemplate {
+  return {
+    id: plugin.model_plugin_id,
+    icon: plugin.model_name === 'RFdiffusion' ? 'wand-sparkles' : 'activity',
+    title: plugin.model_name,
+    body: plugin.description ?? `${plugin.model_type} model plugin`,
+    resource: plugin.model_type.includes('manual') ? 'manual' : plugin.model_type.includes('gpu') ? 'gpu' : 'cpu',
+    nodeType: workflowNodeTypeForPlugin(plugin),
+    modelName: plugin.model_name,
+    modelVersion: plugin.version,
+    pluginId: plugin.model_plugin_id,
+    parameterSchema: plugin.parameter_schema_json,
+  }
+}
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function routeLabel(runId: string, metrics: unknown) {
+  const route = String(parseRecord(metrics).route ?? '')
+  if (route === 'monellin_redesign') return 'Monellin route'
+  if (route === 'brazzein_redesign') return 'Brazzein route'
+  if (runId.includes('449a8216')) return 'Monellin route'
+  if (runId.includes('bbe4a091')) return 'Brazzein route'
+  return runId.replace(/^run_/, '').slice(-18)
+}
 
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
@@ -44,6 +91,12 @@ export function WorkflowPage() {
   } = useQuery({
     queryKey: ['workflow-run', 'latest', projectId],
     queryFn: () => getLatestWorkflowRunOrNull(projectId),
+    enabled: Boolean(projectId),
+  })
+
+  const { data: projectWorkflowRuns = [] } = useQuery({
+    queryKey: ['workflow-runs', projectId],
+    queryFn: () => listProjectWorkflowRuns(projectId),
     enabled: Boolean(projectId),
   })
 
@@ -190,10 +243,45 @@ export function WorkflowPage() {
     onError: () => showToast('Failed to start workflow', 'error'),
   })
 
+  const addPluginNode = async (plugin: ModelPlugin) => {
+    if (!workflowRunId || readOnly) return
+    try {
+      await canvasRef.current?.addNodeFromTemplate(templateForPlugin(plugin), plugin.model_name, [], {})
+      showToast(`Added ${plugin.model_name} to workflow`, 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to add plugin node', 'error')
+    }
+  }
+
   return (
     <section>
       <ProjectContextBar />
       <ComputeStatusStrip />
+
+      {projectWorkflowRuns.length > 1 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2">
+          <span className="text-xs uppercase tracking-wide text-bda-cyan">Routes</span>
+          {projectWorkflowRuns.map((run) => (
+            <button
+              key={run.workflow_run_id}
+              type="button"
+              className={`rounded-md border px-3 py-1.5 text-xs ${
+                run.workflow_run_id === workflowRunId
+                  ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
+                  : 'border-bda-border text-bda-muted hover:border-bda-cyan/50 hover:text-bda-text'
+              }`}
+              onClick={() => {
+                setProjectWorkflowRunId(projectId, run.workflow_run_id)
+                setSelectedNodeId(null)
+                setSelectedArtifactId(undefined)
+              }}
+            >
+              {routeLabel(run.workflow_run_id, run.summary_metrics_json)} · {run.status}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {!workflowRunId && !isDemoMode ? (
@@ -244,7 +332,7 @@ export function WorkflowPage() {
         error={workflowQueryError}
         onRetry={() => void refetchWorkflow()}
       >
-        {!isDemoMode ? (
+        {!isDemoMode && (!workflowRunId || workflowNodes.length === 0) ? (
           <section className="mb-4 rounded-lg border border-bda-border bg-bda-panel p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               <div className="min-w-0 flex-1">
@@ -270,9 +358,7 @@ export function WorkflowPage() {
                 生成推荐工作流
               </button>
             </div>
-            <p className="mt-3 text-xs text-bda-muted">
-              点击生成后才会在画布中创建真实节点和连线；生成前当前项目工作流保持为空。
-            </p>
+            <p className="mt-3 text-xs text-bda-muted">新项目可以在这里生成推荐工作流；已有运行中的 workflow 会直接显示当前图。</p>
           </section>
         ) : null}
 
@@ -298,6 +384,8 @@ export function WorkflowPage() {
                 setSelectedArtifactId(artifact.artifact_id)
                 setSelectedNodeId(null)
               }}
+              onPluginAdd={(plugin) => void addPluginNode(plugin)}
+              readOnly={readOnly || !workflowRunId}
             />
           </div>
 

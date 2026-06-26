@@ -32,6 +32,40 @@ def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
     return get_by_id(connection, "projects", "project_id", project_id)
 
 
+def get_project_research_summary(connection: sqlite3.Connection, project_id: str) -> dict:
+    brief = connection.execute(
+        "SELECT * FROM research_briefs WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1",
+        (project_id,),
+    ).fetchone()
+    if brief is None:
+        return {"brief": None, "questions": [], "findings": [], "runs": [], "workflow_plans": []}
+    brief_payload = decode_row(brief)
+    brief_id = brief_payload["research_brief_id"]
+    questions = connection.execute(
+        "SELECT * FROM research_questions WHERE research_brief_id = ? ORDER BY priority, created_at",
+        (brief_id,),
+    ).fetchall()
+    findings = connection.execute(
+        "SELECT * FROM research_findings WHERE research_brief_id = ? ORDER BY created_at",
+        (brief_id,),
+    ).fetchall()
+    runs = connection.execute(
+        "SELECT * FROM research_runs WHERE research_brief_id = ? ORDER BY created_at DESC LIMIT 10",
+        (brief_id,),
+    ).fetchall()
+    plans = connection.execute(
+        "SELECT * FROM workflow_plans WHERE research_brief_id = ? ORDER BY updated_at DESC LIMIT 10",
+        (brief_id,),
+    ).fetchall()
+    return {
+        "brief": brief_payload,
+        "questions": decode_rows(questions),
+        "findings": decode_rows(findings),
+        "runs": decode_rows(runs),
+        "workflow_plans": decode_rows(plans),
+    }
+
+
 def create_project(
     connection: sqlite3.Connection,
     *,
@@ -59,6 +93,59 @@ def create_project(
             (project_id, owner_id),
         )
     return get_project(connection, project_id) or {}
+
+
+def ensure_project_workspace(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str,
+    project_type: str,
+    objective: str,
+    created_by: str | None,
+) -> dict[str, str]:
+    """Create the minimum real workspace records a new project needs."""
+    task_id = f"task_{project_id}_draft"
+    workflow_run_id = f"run_{project_id}_draft"
+    brief_id = f"brief_{project_id}_draft"
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO design_tasks (
+            task_id, project_id, task_type, objective, constraints_json,
+            model_route_json, status, created_by
+        ) VALUES (?, ?, ?, ?, '{}', '[]', 'draft', ?)
+        """,
+        (task_id, project_id, project_type or "protein_design", objective, created_by),
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO workflow_runs (
+            workflow_run_id, task_id, status, compute_resource,
+            summary_metrics_json, layout_json, output_directory
+        ) VALUES (?, ?, 'draft', 'local', '{}', '{"nodes":[],"edges":[]}', NULL)
+        """,
+        (workflow_run_id, task_id),
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO research_briefs (
+            research_brief_id, project_id, title, objective, product_context,
+            constraints_json, source_material_json, assumptions_json,
+            status, created_by
+        ) VALUES (?, ?, ?, ?, 'food_ingredient', '{}', '[]', '{}', 'planned', ?)
+        """,
+        (
+            brief_id,
+            project_id,
+            f"{project_type or 'Project'} research brief",
+            objective,
+            created_by,
+        ),
+    )
+    return {
+        "task_id": task_id,
+        "workflow_run_id": workflow_run_id,
+        "research_brief_id": brief_id,
+    }
 
 
 def list_project_candidates(connection: sqlite3.Connection, project_id: str) -> list[dict]:
@@ -256,6 +343,20 @@ def get_latest_project_workflow_run(connection: sqlite3.Connection, project_id: 
         (project_id,),
     ).fetchone()
     return get_by_id(connection, "workflow_runs", "workflow_run_id", row["workflow_run_id"]) if row else None
+
+
+def list_project_workflow_runs(connection: sqlite3.Connection, project_id: str) -> list[dict]:
+    rows = connection.execute(
+        """
+        SELECT wr.*
+        FROM workflow_runs wr
+        JOIN design_tasks dt ON dt.task_id = wr.task_id
+        WHERE dt.project_id = ?
+        ORDER BY COALESCE(wr.start_time, wr.end_time, '') DESC, wr.rowid DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return decode_rows(rows)
 
 
 def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str) -> dict[str, int]:

@@ -11,6 +11,7 @@ export const JobSchema = z.object({
   output_artifacts: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
   logs: z.string().nullable().optional(),
   error_message: z.string().nullable().optional(),
+  external_id: z.string().nullable().optional(),
   created_at: z.string().optional(),
   started_at: z.string().nullable().optional(),
   finished_at: z.string().nullable().optional(),

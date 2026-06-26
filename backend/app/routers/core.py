@@ -43,6 +43,15 @@ def project_overview(
     return envelope(item)
 
 
+@router.get("/projects/{project_id}/research-summary")
+def project_research_summary(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    return envelope(catalog.get_project_research_summary(connection, project_id))
+
+
 @router.get("/projects")
 def projects(
     limit: int = Query(default=50, ge=1, le=200),
@@ -80,6 +89,13 @@ def create_project(
         owner_id=user.get("user_id"),
         organization_id=organization["organization_id"] if organization else None,
         summary=payload.summary.strip() if payload.summary else None,
+    )
+    catalog.ensure_project_workspace(
+        connection,
+        project_id=project_id,
+        project_type=project_type,
+        objective=payload.summary.strip() if payload.summary else f"Plan and run {name}.",
+        created_by=user.get("user_id") or user.get("username"),
     )
     return envelope(item)
 
@@ -187,6 +203,16 @@ def project_latest_workflow_run(
     if item is None:
         raise HTTPException(status_code=404, detail="workflow_run_not_found")
     return envelope(item)
+
+
+@router.get("/projects/{project_id}/workflow-runs")
+def project_workflow_runs(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    items = catalog.list_project_workflow_runs(connection, project_id)
+    return envelope({"items": items, "total": len(items)})
 
 
 @router.get("/workflow-runs/{workflow_run_id}")

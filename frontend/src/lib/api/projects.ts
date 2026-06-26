@@ -70,6 +70,24 @@ export function getLatestWorkflowRun(projectId: string) {
   return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs/latest`, {}, WorkflowRunSchema)
 }
 
+export function listProjectWorkflowRuns(projectId: string) {
+  return apiRequest<{ items: WorkflowRun[] }>(
+    `/projects/${projectId}/workflow-runs`,
+  ).then((payload) => payload.items.map((item) => WorkflowRunSchema.parse(item)))
+}
+
+export interface ProjectResearchSummary {
+  brief: Record<string, unknown> | null
+  questions: Record<string, unknown>[]
+  findings: Record<string, unknown>[]
+  runs: Record<string, unknown>[]
+  workflow_plans: Record<string, unknown>[]
+}
+
+export function getProjectResearchSummary(projectId: string) {
+  return apiRequest<ProjectResearchSummary>(`/projects/${projectId}/research-summary`)
+}
+
 export async function getLatestWorkflowRunOrNull(projectId: string): Promise<WorkflowRun | null> {
   try {
     return await getLatestWorkflowRun(projectId)
