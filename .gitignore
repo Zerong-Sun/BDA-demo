@@ -2,6 +2,9 @@
 
 .DS_Store
 **/.DS_Store
+.coverage
+coverage.xml
+htmlcov/
 
 node_modules/
 dist/
@@ -13,8 +16,23 @@ frontend/.npm-cache/
 backend/.venv/
 backend/db/*.sqlite3
 backend/db/*.sqlite3-*
-backend/artifacts/copilot-cluster-drafts/
-backend/artifacts/jobs/job_*/
-backend/artifacts/uploads/*
+backend/artifacts/*
+!backend/artifacts/structures/
+!backend/artifacts/structures/**
+!backend/artifacts/complexes/
+!backend/artifacts/complexes/**
 __pycache__/
 *.pyc
+
+.playwright-cli/
+**/.playwright-cli/
+playwright-report/
+test-results/
+
+# External model repositories, checkpoints, and training outputs are mounted.
+models/*
+!models/README.md
+*.pt
+*.pth
+*.ckpt
+*.safetensors
