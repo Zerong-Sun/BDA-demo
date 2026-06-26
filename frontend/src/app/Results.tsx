@@ -14,6 +14,7 @@ import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import { ProjectContextBar } from '../features/projects/ProjectContextBar'
+import { useAppStore } from '../lib/store/appStore'
 
 const DEMO_PROJECT_ID = 'proj_pd1_0423'
 
@@ -37,6 +38,7 @@ function InlineError({ message, onRetry }: { message: string; onRetry?: () => vo
 export function ResultsPage() {
   const { t } = useI18n()
   const { projectId, setProjectId } = useProjectContext()
+  const appMode = useAppStore((state) => state.appMode)
   const queryClient = useQueryClient()
   const showToast = useToastStore((s) => s.show)
 
@@ -97,7 +99,7 @@ export function ResultsPage() {
   }
 
   const showDemoPrompt =
-    !resultsLoading && !resultsError && results.length === 0 && projectId !== DEMO_PROJECT_ID
+    appMode === 'demo' && !resultsLoading && !resultsError && results.length === 0 && projectId !== DEMO_PROJECT_ID
 
   const resultsErrorMessage =
     resultsQueryError instanceof Error ? resultsQueryError.message : 'Failed to load validation readouts.'
@@ -135,9 +137,11 @@ export function ResultsPage() {
         }
       />
 
-      <div className="mb-5 rounded-lg border border-bda-amber/30 bg-bda-panel p-4 text-sm text-bda-muted">
-        {t.results.disclaimer}
-      </div>
+      {appMode === 'demo' ? (
+        <div className="mb-5 rounded-lg border border-bda-amber/30 bg-bda-panel p-4 text-sm text-bda-muted">
+          {t.results.disclaimer}
+        </div>
+      ) : null}
 
       {summaryError ? (
         <InlineError message={summaryErrorMessage} onRetry={() => void refetchSummary()} />

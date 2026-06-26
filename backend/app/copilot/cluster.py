@@ -15,6 +15,7 @@ from ..settings import get_settings
 
 DRAFTS_ROOT = ARTIFACTS_ROOT / "copilot-cluster-drafts"
 SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$")
+AF3_HINT = re.compile(r"\b(?:af3|alphafold3|alpha[-_ ]?fold\s*3|plugin_alphafold3)\b", re.IGNORECASE)
 BLOCKED_PATTERNS = [
     re.compile(pattern, re.IGNORECASE)
     for pattern in (
@@ -88,6 +89,18 @@ def _validate_lines(lines: list[str]) -> list[str]:
     return cleaned
 
 
+def recommend_lsf_queue(*, job_name: str, command: str, requested_queue: str | None, gpu_count: int) -> tuple[str, str]:
+    settings = get_settings()
+    if requested_queue and requested_queue.strip():
+        return requested_queue.strip(), "user_requested_queue"
+    if gpu_count <= 0:
+        return settings.bda_lsf_default_cpu_queue, "default_cpu_queue"
+    haystack = f"{job_name}\n{command}"
+    if AF3_HINT.search(haystack):
+        return settings.bda_lsf_af3_gpu_queue, "af3_requires_gpu_bme_liz"
+    return settings.lsf_gpu_queue_priority_list[0], "gpu_priority_4v100_then_8v100"
+
+
 def create_draft(
     *,
     project_id: str | None,
@@ -107,9 +120,12 @@ def create_draft(
         raise ValueError("invalid_cluster_job_name")
     gpu_count = max(0, min(int(gpu_count), 8))
     cpu_count = max(1, min(int(cpu_count), 128))
-    selected_queue = (queue or (
-        settings.bda_lsf_default_gpu_queue if gpu_count else settings.bda_lsf_default_cpu_queue
-    )).strip()
+    selected_queue, queue_policy = recommend_lsf_queue(
+        job_name=safe_name,
+        command=command,
+        requested_queue=queue,
+        gpu_count=gpu_count,
+    )
     if not SAFE_NAME.fullmatch(selected_queue):
         raise ValueError("invalid_cluster_queue")
     setup = _validate_lines(setup_lines or ["module purge"])
@@ -147,6 +163,8 @@ def create_draft(
         "status": "awaiting_confirmation",
         "job_name": safe_name,
         "queue": selected_queue,
+        "queue_policy": queue_policy,
+        "queue_priority": settings.lsf_gpu_queue_priority_list if gpu_count else [],
         "gpu_count": gpu_count,
         "cpu_count": cpu_count,
         "setup_lines": setup,
@@ -188,7 +206,17 @@ def submit_draft(draft_id: str, *, confirmed_by: str) -> dict[str, Any]:
     if hashlib.sha256(draft["script"].encode("utf-8")).hexdigest() != draft["script_sha256"]:
         raise ValueError("draft_integrity_failed")
     remote_dir = draft["remote_dir"]
-    _ssh(f"umask 077 && mkdir -p {shlex.quote(remote_dir)}/logs {shlex.quote(remote_dir)}/output")
+    try:
+        _ssh(f"umask 077 && mkdir -p {shlex.quote(remote_dir)}/logs {shlex.quote(remote_dir)}/output")
+    except RuntimeError as exc:
+        draft.update({
+            "status": "ssh_unreachable",
+            "error_message": str(exc),
+            "confirmed_by": confirmed_by,
+            "confirmed_at": _now(),
+        })
+        _save(draft)
+        raise
     _ssh(
         f"cat > {shlex.quote(remote_dir)}/submit.lsf",
         input_text=draft["script"],

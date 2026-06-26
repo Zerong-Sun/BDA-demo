@@ -27,6 +27,7 @@ def main() -> None:
     print(
         f"Imported {result['scripts_imported']} scripts, "
         f"{result['parameter_observations']} parameter observations, "
+        f"{result['catalog_parameters']} upstream catalog parameters, "
         f"{result['parse_warnings']} warnings."
     )
 

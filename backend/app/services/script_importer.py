@@ -18,6 +18,22 @@ MODEL_PATH_HINTS = {
     "rfd": "plugin_rfdiffusion",
     "mpnn": "plugin_proteinmpnn",
     "ros": "plugin_rosetta",
+    "boltz": "plugin_boltz",
+    "chai1": "plugin_chai1",
+    "chai": "plugin_chai1",
+    "bindcraft": "plugin_bindcraft",
+    "maskrgn": "plugin_maskrgn",
+}
+CATALOG_MODEL_PLUGINS = {
+    "rfdiffusion": "plugin_rfdiffusion",
+    "proteinmpnn": "plugin_proteinmpnn",
+    "alphafold2": "plugin_alphafold2",
+    "alphafold3": "plugin_alphafold3",
+    "rosetta": "plugin_rosetta",
+    "boltz": "plugin_boltz",
+    "chai1": "plugin_chai1",
+    "bindcraft": "plugin_bindcraft",
+    "maskrgn": "plugin_maskrgn",
 }
 CLI_PATTERN = re.compile(r"--([A-Za-z0-9_:-]+)(?:=|\s+)(\"[^\"]*\"|'[^']*'|[^\s\\]+)")
 HYDRA_PATTERN = re.compile(r"(?<![-\w])([A-Za-z][A-Za-z0-9_]*\.[A-Za-z0-9_.]+)=(\"[^\"]*\"|'[^']*'|[^\s\\]+)")
@@ -148,6 +164,67 @@ def parse_script(path: Path, relative_path: str) -> dict[str, Any]:
     }
 
 
+def import_parameter_catalog(
+    connection: sqlite3.Connection,
+    catalog_path: Path,
+) -> int:
+    if not catalog_path.exists():
+        return 0
+    payload = json.loads(catalog_path.read_text(encoding="utf-8"))
+    imported = 0
+    for model_name, model in (payload.get("models") or {}).items():
+        plugin_id = CATALOG_MODEL_PLUGINS.get(model_name)
+        if not plugin_id:
+            continue
+        upstream = {
+            "repo": model.get("repo"),
+            "commit": model.get("commit"),
+            "entrypoint": model.get("entrypoint"),
+            "group": None,
+            "required": False,
+        }
+        for item in model.get("parameters") or []:
+            key = str(item.get("key") or "").strip()
+            if not key:
+                continue
+            constraints = {
+                **upstream,
+                "group": item.get("group"),
+                "required": bool(item.get("required")),
+                "boolean_style": item.get("boolean_style"),
+            }
+            connection.execute(
+                """
+                INSERT INTO model_parameter_catalog (
+                    parameter_catalog_id, model_plugin_id, parameter_key, label,
+                    parameter_type, default_value_json, constraints_json,
+                    description, advanced, provenance, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'upstream_catalog', 'active')
+                ON CONFLICT(model_plugin_id, parameter_key) DO UPDATE SET
+                    parameter_type=excluded.parameter_type,
+                    default_value_json=excluded.default_value_json,
+                    constraints_json=excluded.constraints_json,
+                    description=COALESCE(excluded.description, model_parameter_catalog.description),
+                    provenance='upstream_catalog',
+                    status='active',
+                    updated_at=CURRENT_TIMESTAMP
+                """,
+                (
+                    f"param_{plugin_id}_{key}".replace(".", "_").replace(":", "_"),
+                    plugin_id,
+                    key,
+                    item.get("label") or key,
+                    item.get("type") or "string",
+                    json.dumps(item.get("default")),
+                    json.dumps(constraints),
+                    item.get("help") or None,
+                    int(bool(item.get("advanced"))),
+                ),
+            )
+            imported += 1
+    return imported
+
+
 def import_script_tree(
     connection: sqlite3.Connection,
     root: Path,
@@ -158,6 +235,9 @@ def import_script_tree(
     repository_root = (repository_root or root.parent).resolve()
     plugins = registry.list_model_plugins(connection)
     model_catalog.sync_plugin_parameters(connection, plugins)
+    catalog_parameter_count = import_parameter_catalog(
+        connection, root / "library" / "catalog.json"
+    )
     imported = 0
     observation_count = 0
     warning_count = 0
@@ -267,6 +347,7 @@ def import_script_tree(
         "scripts_imported": imported,
         "parameter_observations": observation_count,
         "parse_warnings": warning_count,
+        "catalog_parameters": catalog_parameter_count,
     }
 
 

@@ -44,18 +44,19 @@ import {
   type Campaign,
 } from '../lib/api/campaigns'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
+import { API_BASE } from '../lib/api/client'
+import { MolStarViewerLazy } from '../features/pdb-viewer/MolStarViewerLazy'
 
 function text(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
-function currentRole() {
-  try {
-    const raw = sessionStorage.getItem('bda_user')
-    return raw ? text((JSON.parse(raw) as { role?: unknown }).role) : ''
-  } catch {
-    return ''
-  }
+function artifactPreviewUrl(artifact: { download_url?: string; preview_url?: string } | undefined) {
+  const url = artifact?.preview_url ?? artifact?.download_url
+  if (!url) return ''
+  if (url.startsWith('http://') || url.startsWith('https://')) return url
+  if (url.startsWith('/api/')) return url
+  return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
 }
 
 function DecisionReview({
@@ -130,7 +131,6 @@ function DecisionReview({
 
 function LiteraturePanel() {
   const client = useQueryClient()
-  const isAdmin = currentRole() === 'admin'
   const [query, setQuery] = useState('protein binder design')
   const claims = useQuery({ queryKey: ['literature-claims'], queryFn: () => listLiteratureClaims() })
   const relations = useQuery({ queryKey: ['literature-relations'], queryFn: () => listLiteratureRelations() })
@@ -138,7 +138,6 @@ function LiteraturePanel() {
     queryKey: ['literature-subscriptions'],
     queryFn: listLiteratureSubscriptions,
     retry: false,
-    enabled: isAdmin,
   })
   const search = useQuery({
     queryKey: ['literature-search', query],
@@ -203,12 +202,11 @@ function LiteraturePanel() {
         <div className="mt-3 flex flex-wrap gap-2">
           <input className="min-w-72 flex-1 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => search.refetch()}><Search className="mr-1 inline h-4 w-4" />检索本地库</button>
-          <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={!isAdmin || ingest.isPending} onClick={() => ingest.mutate()}>
+          <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={ingest.isPending} onClick={() => ingest.mutate()}>
             {ingest.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}立即摄取
           </button>
-          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={!isAdmin} onClick={() => createSubscription.mutate()}>每日自动阅读</button>
+          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={createSubscription.isPending} onClick={() => createSubscription.mutate()}>每日自动阅读</button>
         </div>
-        {!isAdmin ? <p className="mt-2 text-xs text-bda-muted">摄取、自动订阅和关系检测需要管理员权限；研究员仍可检索并审核证据。</p> : null}
         {ingest.isError || createSubscription.isError ? (
           <p className="mt-2 text-xs text-bda-red">文献任务失败，请检查权限、网络和模型配置。</p>
         ) : null}
@@ -248,7 +246,7 @@ function LiteraturePanel() {
         <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
           <div className="flex items-center justify-between">
             <h2 className="font-semibold">待审核主张关系</h2>
-            <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={!isAdmin || detectRelations.isPending} onClick={() => detectRelations.mutate()}>
+            <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={detectRelations.isPending} onClick={() => detectRelations.mutate()}>
               检测关系
             </button>
           </div>
@@ -529,6 +527,8 @@ function SweetProteinBuilder() {
     },
     onSuccess: setStructureComparison,
   })
+  const selectedStructure = (artifacts.data ?? []).find((item) => item.artifact_id === selectedStructureIds[0])
+  const selectedStructureUrl = artifactPreviewUrl(selectedStructure)
   const actionError = create.error || materialize.error || compareSequences.error || compareStructures.error
 
   return (
@@ -676,7 +676,7 @@ function SweetProteinBuilder() {
                 <div className="mt-3 grid gap-4 lg:grid-cols-2">
                   <div className="rounded border border-bda-border p-3">
                     <h3 className="text-sm font-medium">序列全局比对</h3>
-                    <p className="mt-1 text-xs text-bda-muted">每行使用 name|SEQUENCE；第一行为参考序列。</p>
+                    <p className="mt-1 text-xs text-bda-muted">每行使用 name|SEQUENCE；第一行为参考序列。低温采样更适合少量序列的微调，但“保留电荷”应同时写入固定/偏置位点、净电荷/pI 过滤和理性设计位点清单。</p>
                     <textarea
                       className="mt-2 min-h-28 w-full rounded border border-bda-border bg-bda-bg p-2 font-mono text-xs"
                       value={sequenceInput}
@@ -694,6 +694,9 @@ function SweetProteinBuilder() {
                           </div>
                         ))}
                         <p className="text-bda-muted">保守参考位点：{sequenceComparison.conserved_reference_positions.join(', ') || '无'}</p>
+                        <div className="rounded border border-bda-border bg-bda-bg p-2 text-bda-muted">
+                          参数建议：ProteinMPNN 温度可从 0.05–0.15 起步；需要保留带电界面时，明确 fixed_positions / omit_AA / bias_AA，并在筛选阶段加入 net charge、pI、盐桥/氢键和已知理性设计位点。
+                        </div>
                       </div>
                     ) : null}
                   </div>
@@ -715,6 +718,16 @@ function SweetProteinBuilder() {
                         </label>
                       ))}
                     </div>
+                    {selectedStructureUrl ? (
+                      <div className="mt-3">
+                        <p className="mb-2 text-xs text-bda-muted">当前预览：{selectedStructure?.display_name}</p>
+                        <MolStarViewerLazy sourceUrl={selectedStructureUrl} height={260} />
+                      </div>
+                    ) : (
+                      <p className="mt-3 rounded border border-dashed border-bda-border p-3 text-xs text-bda-muted">
+                        选择一个 PDB artifact 后会在这里直接打开结构预览。
+                      </p>
+                    )}
                     <button className="mt-2 rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-40" disabled={compareStructures.isPending || selectedStructureIds.length < 2} onClick={() => compareStructures.mutate()}>
                       运行结构叠合
                     </button>

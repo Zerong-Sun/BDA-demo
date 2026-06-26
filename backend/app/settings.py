@@ -36,7 +36,9 @@ class Settings(BaseSettings):
     bda_lsf_ssh_host: str = "qm"
     bda_lsf_remote_root: str = "/work/bme-sunzr/bda"
     bda_lsf_default_cpu_queue: str = "v3-64"
-    bda_lsf_default_gpu_queue: str = "gpu-bme-liz"
+    bda_lsf_default_gpu_queue: str = "4v100-16-e5"
+    bda_lsf_gpu_queue_priority: str = "4v100-16-e5,8v100-32-sc"
+    bda_lsf_af3_gpu_queue: str = "gpu-bme-liz"
     bda_lsf_connect_timeout_seconds: int = 10
     # JSON object keyed by model_plugin_id. Values are trusted remote wrapper
     # commands maintained by the BDA administrator, never supplied by the UI.
@@ -80,6 +82,11 @@ class Settings(BaseSettings):
             for key, command in value.items()
             if isinstance(command, str) and command.strip()
         }
+
+    @property
+    def lsf_gpu_queue_priority_list(self) -> list[str]:
+        queues = [item.strip() for item in self.bda_lsf_gpu_queue_priority.split(",") if item.strip()]
+        return queues or [self.bda_lsf_default_gpu_queue]
 
     def validate_for_environment(self) -> list[str]:
         """Return a list of fatal misconfigurations for the current environment.

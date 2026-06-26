@@ -29,6 +29,12 @@ function DraftCard({ draft }: { draft: ClusterDraft }) {
             {draft.queue} · CPU {draft.cpu_count} · GPU {draft.gpu_count}
             {draft.external_id ? ` · LSF ${draft.external_id}` : ''}
           </p>
+          {draft.queue_policy ? (
+            <p className="mt-0.5 text-[11px] text-bda-muted">
+              Queue policy: {draft.queue_policy}
+              {draft.queue_priority?.length ? ` · fallback ${draft.queue_priority.slice(1).join(' → ') || 'none'}` : ''}
+            </p>
+          ) : null}
         </div>
         <span className="rounded border border-bda-border px-2 py-0.5 text-[10px] uppercase text-bda-cyan">
           {draft.status}
@@ -65,7 +71,8 @@ function DraftCard({ draft }: { draft: ClusterDraft }) {
           </button>
         )}
       </div>
-      {confirm.isError ? <p className="text-xs text-bda-red">Submission failed. Check SSH session and script.</p> : null}
+      {confirm.isError ? <p className="text-xs text-bda-red">Submission failed before LSF accepted the job. SSH is currently unreachable or refused before authentication.</p> : null}
+      {draft.error_message ? <p className="break-all text-xs text-bda-red">{draft.error_message}</p> : null}
       {draft.logs ? (
         <pre className="max-h-40 overflow-auto whitespace-pre-wrap rounded bg-black/30 p-2 text-[11px] text-bda-muted">
           {draft.logs}

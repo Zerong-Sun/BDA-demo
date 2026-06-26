@@ -1,9 +1,15 @@
+import json
 import sqlite3
 from pathlib import Path
 
 from backend.app.plugins.defaults import register_default_model_plugins
 from backend.app.repositories import model_catalog
-from backend.app.services.script_importer import consistency_report, import_script_tree, parse_script
+from backend.app.services.script_importer import (
+    consistency_report,
+    import_parameter_catalog,
+    import_script_tree,
+    parse_script,
+)
 from backend.app.copilot.tools import execute_tool
 
 
@@ -90,3 +96,39 @@ def test_copilot_can_inspect_model_parameter_catalog(tmp_path):
     assert result["model"]["model_plugin_id"] == "plugin_rfdiffusion"
     assert any(item["parameter_key"] == "inference.num_designs" for item in result["parameters"])
     assert "inference.num_designs" in result["consistency"]["matched"]
+
+
+def test_import_upstream_parameter_catalog(tmp_path):
+    catalog = tmp_path / "catalog.json"
+    catalog.write_text(json.dumps({
+        "models": {
+            "proteinmpnn": {
+                "repo": "https://github.com/dauparas/ProteinMPNN",
+                "commit": "abc123",
+                "entrypoint": "protein_mpnn_run.py",
+                "parameters": [{
+                    "key": "save_probs",
+                    "type": "integer",
+                    "default": 0,
+                    "help": "Save probabilities.",
+                    "required": False,
+                    "group": "parameters",
+                }],
+            }
+        }
+    }))
+    connection = _connection()
+    try:
+        count = import_parameter_catalog(connection, catalog)
+        item = connection.execute(
+            """
+            SELECT * FROM model_parameter_catalog
+            WHERE model_plugin_id='plugin_proteinmpnn' AND parameter_key='save_probs'
+            """
+        ).fetchone()
+    finally:
+        connection.close()
+
+    assert count == 1
+    assert item["provenance"] == "upstream_catalog"
+    assert json.loads(item["constraints_json"])["commit"] == "abc123"

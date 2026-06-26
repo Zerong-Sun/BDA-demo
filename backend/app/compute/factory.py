@@ -182,6 +182,7 @@ class RemoteLsfAdapter:
         "plugin_rfdiffusion": REPO_ROOT / "cluster_wrappers" / "rfdiffusion_job.py",
     }
     _SAFE_JOB_ID = re.compile(r"^job_[A-Za-z0-9_-]+$")
+    _AF3_HINT = re.compile(r"\b(?:af3|alphafold3|alpha[-_ ]?fold\s*3|plugin_alphafold3)\b", re.IGNORECASE)
     _LSF_STATUS = {
         "PEND": "queued",
         "WAIT": "queued",
@@ -204,6 +205,8 @@ class RemoteLsfAdapter:
         self._remote_root = settings.bda_lsf_remote_root.rstrip("/")
         self._cpu_queue = settings.bda_lsf_default_cpu_queue
         self._gpu_queue = settings.bda_lsf_default_gpu_queue
+        self._af3_gpu_queue = settings.bda_lsf_af3_gpu_queue
+        self._gpu_queue_priority = settings.lsf_gpu_queue_priority_list
         self._connect_timeout = settings.bda_lsf_connect_timeout_seconds
         self._plugin_commands = settings.lsf_plugin_commands
 
@@ -242,6 +245,8 @@ class RemoteLsfAdapter:
     def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:
         gpu = job.env.get("BDA_GPU") == "1"
         queue = job.env.get("BDA_LSF_QUEUE") or (self._gpu_queue if gpu else self._cpu_queue)
+        if gpu and self._AF3_HINT.search(f"{job.plugin_id}\n{trusted_command}"):
+            queue = self._af3_gpu_queue
         cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT", "1")))
         remote_dir = self._remote_job_dir(job.job_id)
         directives = [
@@ -377,7 +382,7 @@ class RemoteLsfAdapter:
     def health(self) -> dict[str, object]:
         queues = " ".join(
             shlex.quote(queue)
-            for queue in dict.fromkeys([self._gpu_queue, self._cpu_queue])
+            for queue in dict.fromkeys([*self._gpu_queue_priority, self._af3_gpu_queue, self._cpu_queue])
             if queue
         )
         result = self._run_ssh(
