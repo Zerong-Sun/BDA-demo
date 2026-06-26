@@ -13,5 +13,8 @@ frontend/.npm-cache/
 backend/.venv/
 backend/db/*.sqlite3
 backend/db/*.sqlite3-*
+backend/artifacts/copilot-cluster-drafts/
+backend/artifacts/jobs/job_*/
+backend/artifacts/uploads/*
 __pycache__/
 *.pyc

@@ -16,6 +16,10 @@ MIGRATIONS = [
     "ALTER TABLE workflow_runs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{\"nodes\":[],\"edges\":[]}'",
     "ALTER TABLE workflow_node_runs ADD COLUMN position_json TEXT NOT NULL DEFAULT '{\"x\":0,\"y\":0}'",
     "ALTER TABLE projects ADD COLUMN organization_id TEXT",
+    "ALTER TABLE document_chunks ADD COLUMN summary_text TEXT",
+    "ALTER TABLE document_chunks ADD COLUMN summary_method TEXT",
+    "ALTER TABLE claim_relations ADD COLUMN reviewed_by TEXT",
+    "ALTER TABLE claim_relations ADD COLUMN reviewed_at TEXT",
 ]
 
 
@@ -68,6 +72,19 @@ def register_builtin_plugins(connection: sqlite3.Connection) -> None:
     register_default_model_plugins(connection)
 
 
+def register_builtin_knowledge(connection: sqlite3.Connection) -> None:
+    from backend.app.copilot.knowledge_defaults import register_default_knowledge
+
+    register_default_knowledge(connection)
+
+
+def register_model_parameter_catalog(connection: sqlite3.Connection) -> None:
+    from backend.app.repositories import registry
+    from backend.app.repositories.model_catalog import sync_plugin_parameters
+
+    sync_plugin_parameters(connection, registry.list_model_plugins(connection))
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -81,18 +98,27 @@ def init_db(seed: bool = True) -> Path:
             connection.executescript(SEED.read_text())
             seed_admin_user(connection)
         register_builtin_plugins(connection)
+        register_builtin_knowledge(connection)
+        register_model_parameter_catalog(connection)
         connection.commit()
     finally:
         connection.close()
     return DB_PATH
 
 
-if __name__ == "__main__":
-    # --if-missing makes container startup safe to run on every boot: it will
-    # not re-apply schema/seed (and risk clobbering data) once the DB exists.
-    if "--if-missing" in sys.argv and DB_PATH.exists():
-        print(f"BDA database already present, skipping init: {DB_PATH}")
-        sys.exit(0)
-    should_seed = "--no-seed" not in sys.argv
+def main(argv: list[str] | None = None) -> Path:
+    argv = argv if argv is not None else sys.argv[1:]
+    # Existing databases must still receive additive schema and ALTER migrations.
+    # --if-missing only controls demo seeding; it must never skip migrations.
+    existed = DB_PATH.exists()
+    should_seed = "--no-seed" not in argv and not (
+        "--if-missing" in argv and existed
+    )
     path = init_db(seed=should_seed)
-    print(f"Initialized BDA database: {path}")
+    action = "Migrated" if existed and not should_seed else "Initialized"
+    print(f"{action} BDA database: {path}")
+    return path
+
+
+if __name__ == "__main__":
+    main()

@@ -37,6 +37,19 @@ export interface NodeTemplate {
   parameterSchema?: unknown
 }
 
+export interface RecommendedWorkflowStep {
+  templateId: keyof typeof nodeTemplates
+  name: string
+  methods: string[]
+  parameters: Record<string, unknown>
+  estimate: {
+    planned: number
+    current: number
+    unit: string
+    duration: string
+  }
+}
+
 export const nodeTemplates: Record<string, NodeTemplate> = {
   rf: {
     id: 'rf',
@@ -70,6 +83,50 @@ export const nodeTemplates: Record<string, NodeTemplate> = {
     modelName: 'AlphaFold2',
     modelVersion: 'demo-2.3',
     pluginId: 'plugin_alphafold2',
+  },
+  af3: {
+    id: 'af3',
+    icon: 'scan-search',
+    title: 'AlphaFold 3 prediction',
+    body: 'All-atom complex prediction for non-commercial evaluation branches',
+    resource: 'gpu',
+    nodeType: 'fold_prediction',
+    modelName: 'AlphaFold 3',
+    modelVersion: '3.0',
+    pluginId: 'plugin_alphafold3',
+  },
+  boltz: {
+    id: 'boltz',
+    icon: 'scan-search',
+    title: 'Boltz prediction',
+    body: 'Open biomolecular complex prediction and affinity-oriented ranking',
+    resource: 'gpu',
+    nodeType: 'fold_prediction',
+    modelName: 'Boltz',
+    modelVersion: '2.x',
+    pluginId: 'plugin_boltz',
+  },
+  chai1: {
+    id: 'chai1',
+    icon: 'scan-search',
+    title: 'Chai-1 prediction',
+    body: 'Complex prediction with support for restraints and ligand-like context',
+    resource: 'gpu',
+    nodeType: 'fold_prediction',
+    modelName: 'Chai-1',
+    modelVersion: '0.6.1',
+    pluginId: 'plugin_chai1',
+  },
+  bindcraft: {
+    id: 'bindcraft',
+    icon: 'wand-sparkles',
+    title: 'BindCraft pipeline',
+    body: 'Automated binder design branch with AF2 optimization, MPNN, and PyRosetta filters',
+    resource: 'gpu',
+    nodeType: 'workflow_pipeline',
+    modelName: 'BindCraft',
+    modelVersion: '2025.09',
+    pluginId: 'plugin_bindcraft',
   },
   rosetta: {
     id: 'rosetta',
@@ -219,3 +276,87 @@ export const defaultWorkflowEdges: BdaWorkflowEdge[] = [
   { id: 'e-filters-wetlab', source: 'filters', target: 'wetlab', type: 'workflowEdge' },
   { id: 'e-wetlab-req', source: 'wetlab', target: 'requirements', type: 'workflowEdge', label: 'feedback' },
 ]
+
+export function buildRecommendedWorkflow(goal: string): RecommendedWorkflowStep[] {
+  const normalized = goal.toLowerCase()
+  const isEnzyme = normalized.includes('enzyme') || normalized.includes('酶')
+  const isDisplay = normalized.includes('display') || normalized.includes('展示') || normalized.includes('nanocage')
+  const designCount = isDisplay ? 12000 : isEnzyme ? 6000 : 10000
+  const sequenceCount = Math.max(1200, Math.round(designCount * 0.18))
+  const foldedCount = Math.max(300, Math.round(sequenceCount * 0.28))
+  const scoredCount = Math.max(120, Math.round(foldedCount * 0.45))
+  const orderedCount = isDisplay ? 72 : isEnzyme ? 32 : 48
+
+  return [
+    {
+      templateId: 'rf',
+      name: isDisplay ? 'Assembly backbone generation' : isEnzyme ? 'Scaffold redesign' : 'Backbone generation',
+      methods: ['RFdiffusion', 'motif constraints'],
+      parameters: {
+        goal,
+        planned_designs: designCount,
+        current_designs: 0,
+        estimated_time: isDisplay ? '18-30 GPU hours' : '12-24 GPU hours',
+      },
+      estimate: { planned: designCount, current: 0, unit: 'backbones', duration: isDisplay ? '18-30h GPU' : '12-24h GPU' },
+    },
+    {
+      templateId: 'mpnn',
+      name: 'Sequence design',
+      methods: ['ProteinMPNN', 'diversity cap'],
+      parameters: {
+        planned_sequences: sequenceCount,
+        current_sequences: 0,
+        temperature: 0.15,
+        max_family_ordered: 6,
+      },
+      estimate: { planned: sequenceCount, current: 0, unit: 'sequences', duration: '1-3h GPU' },
+    },
+    {
+      templateId: 'af2',
+      name: isDisplay ? 'Multimer fold prediction' : 'Fold prediction',
+      methods: ['AlphaFold2', isDisplay ? 'multimer confidence' : 'complex confidence'],
+      parameters: {
+        planned_folds: foldedCount,
+        current_folds: 0,
+        recycles: 3,
+        database_preset: 'reduced_dbs',
+      },
+      estimate: { planned: foldedCount, current: 0, unit: 'folds', duration: '6-16h GPU' },
+    },
+    {
+      templateId: 'rosetta',
+      name: 'Rosetta scoring',
+      methods: ['relax', 'interface energy'],
+      parameters: {
+        planned_scores: scoredCount,
+        current_scores: 0,
+        relax_repeats: 3,
+      },
+      estimate: { planned: scoredCount, current: 0, unit: 'scores', duration: '2-6h CPU' },
+    },
+    {
+      templateId: 'filter',
+      name: isEnzyme ? 'Activity and developability filters' : 'BDA filters',
+      methods: ['risk ranking', 'family diversity'],
+      parameters: {
+        planned_orders: orderedCount,
+        current_orders: 0,
+        penalize_hydrophobic_patch: true,
+        expression_risk_gate: true,
+      },
+      estimate: { planned: orderedCount, current: 0, unit: 'ordered', duration: '<30m CPU' },
+    },
+    {
+      templateId: 'lab',
+      name: isEnzyme ? 'Activity validation' : 'Wet-lab validation',
+      methods: isEnzyme ? ['expression', 'activity assay', 'thermal shift'] : ['expression', 'purification', 'BLI/SPR', 'SEC'],
+      parameters: {
+        planned_assays: orderedCount,
+        current_assays: 0,
+        expected_turnaround: isEnzyme ? '2-4 weeks' : '3-5 weeks',
+      },
+      estimate: { planned: orderedCount, current: 0, unit: 'assays', duration: isEnzyme ? '2-4w lab' : '3-5w lab' },
+    },
+  ]
+}

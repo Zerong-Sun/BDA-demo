@@ -1,3 +1,4 @@
+import json
 from functools import lru_cache
 from pathlib import Path
 
@@ -29,8 +30,17 @@ class Settings(BaseSettings):
     llm_api_base: str = "https://api.openai.com/v1"
     llm_api_key: str = ""
     llm_model: str = "gpt-4o-mini"
-    bda_compute_mode: str = "demo"  # demo | local | docker
+    bda_research_proxy: str = ""
+    bda_compute_mode: str = "demo"  # demo | local | docker | remote_lsf
     bda_docker_host: str = "unix:///var/run/docker.sock"
+    bda_lsf_ssh_host: str = "qm"
+    bda_lsf_remote_root: str = "/work/bme-sunzr/bda"
+    bda_lsf_default_cpu_queue: str = "v3-64"
+    bda_lsf_default_gpu_queue: str = "gpu-bme-liz"
+    bda_lsf_connect_timeout_seconds: int = 10
+    # JSON object keyed by model_plugin_id. Values are trusted remote wrapper
+    # commands maintained by the BDA administrator, never supplied by the UI.
+    bda_lsf_plugin_commands_json: str = "{}"
 
     # Maximum accepted upload size in bytes (default 25 MiB). Guards against memory/disk DoS.
     bda_max_upload_bytes: int = 25 * 1024 * 1024
@@ -56,6 +66,20 @@ class Settings(BaseSettings):
     @property
     def docs_enabled(self) -> bool:
         return self.bda_expose_docs and not self.is_production
+
+    @property
+    def lsf_plugin_commands(self) -> dict[str, str]:
+        try:
+            value = json.loads(self.bda_lsf_plugin_commands_json)
+        except json.JSONDecodeError:
+            return {}
+        if not isinstance(value, dict):
+            return {}
+        return {
+            str(key): str(command)
+            for key, command in value.items()
+            if isinstance(command, str) and command.strip()
+        }
 
     def validate_for_environment(self) -> list[str]:
         """Return a list of fatal misconfigurations for the current environment.

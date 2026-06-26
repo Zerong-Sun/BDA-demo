@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#BSUB -J superfold2
+#BSUB -q 4v100-16-e5
+#BSUB -n 1
+#BSUB -gpu "num=1"
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+source deactivate base
+
+for pdb_file in /work/bme-sunzr/projects/0208_b326/mpnn/cut2/*.pdb; do
+    # Skip files that start with '._'
+    if [[ $(basename $pdb_file) == ._*.pdb ]]; then
+        continue
+    fi
+    /work/bme-liz/software/superfold/superfold $pdb_file --models 4 --max_recycle 5 --output_summary
+done

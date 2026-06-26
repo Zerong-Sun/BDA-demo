@@ -13,6 +13,7 @@ import { DeliveryPackage } from '../features/results/DeliveryPackage'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
+import { ProjectContextBar } from '../features/projects/ProjectContextBar'
 
 const DEMO_PROJECT_ID = 'proj_pd1_0423'
 
@@ -109,6 +110,7 @@ export function ResultsPage() {
 
   return (
     <section>
+      <ProjectContextBar />
       <PageHead
         eyebrow={t.results.eyebrow}
         title={t.results.title}

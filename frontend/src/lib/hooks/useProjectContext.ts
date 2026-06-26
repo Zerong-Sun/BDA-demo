@@ -2,11 +2,12 @@ import { useEffect, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { listProjects } from '../api/projects'
-
-const DEFAULT_PROJECT_ID = 'proj_pd1_0423'
+import { useAppStore } from '../store/appStore'
 
 export function useProjectContext() {
   const [searchParams, setSearchParams] = useSearchParams()
+  const activeProjectId = useAppStore((state) => state.activeProjectId)
+  const setActiveProjectId = useAppStore((state) => state.setActiveProjectId)
 
   const {
     data: projects = [],
@@ -25,24 +26,22 @@ export function useProjectContext() {
   const projectId = useMemo(() => {
     const exists = (id: string) => projects.some((p) => p.project_id === id)
     if (urlProjectId && exists(urlProjectId)) return urlProjectId
-    if (exists(DEFAULT_PROJECT_ID)) return DEFAULT_PROJECT_ID
-    return projects[0]?.project_id ?? DEFAULT_PROJECT_ID
-  }, [urlProjectId, projects])
+    if (activeProjectId && exists(activeProjectId)) return activeProjectId
+    return ''
+  }, [activeProjectId, urlProjectId, projects])
 
   useEffect(() => {
     if (projectsLoading || !projectId) return
-    if (projectId !== urlProjectId) {
-      const next = new URLSearchParams(searchParams)
-      next.set('project', projectId)
-      setSearchParams(next, { replace: true })
-    }
-  }, [projectId, urlProjectId, projectsLoading, searchParams, setSearchParams])
+    if (activeProjectId !== projectId) setActiveProjectId(projectId)
+  }, [activeProjectId, projectId, projectsLoading, setActiveProjectId])
 
   const activeProject = projects.find((p) => p.project_id === projectId) ?? null
 
   const setProjectId = (nextProjectId: string) => {
+    setActiveProjectId(nextProjectId)
     const next = new URLSearchParams(searchParams)
-    next.set('project', nextProjectId)
+    if (nextProjectId) next.set('project', nextProjectId)
+    else next.delete('project')
     setSearchParams(next)
   }
 
@@ -55,5 +54,6 @@ export function useProjectContext() {
     projectsQueryError,
     refetchProjects,
     setProjectId,
+    hasProject: Boolean(activeProject),
   }
 }

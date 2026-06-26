@@ -21,7 +21,7 @@ def get_job(
     if job is None:
         raise HTTPException(status_code=404, detail="job_not_found")
     adapter = get_compute_adapter()
-    if job.get("external_id"):
+    if job.get("external_id") and job.get("status") not in {"completed", "failed", "cancelled"}:
         live = adapter.status(job_id, job.get("external_id"))
         if live.status not in ("blocked", "not_found") and live.status != job.get("status"):
             job = job_service.update_job_status(

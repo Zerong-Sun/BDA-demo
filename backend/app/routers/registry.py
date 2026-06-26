@@ -1,5 +1,6 @@
 import sqlite3
 import uuid
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -7,9 +8,11 @@ from pydantic import BaseModel, Field
 from ..auth.deps import get_current_user, require_role
 from ..db import get_connection
 from ..repositories import registry
+from ..repositories import model_catalog
 from ..utils.response import envelope
 
 router = APIRouter()
+REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 class CreateMethodPluginRequest(BaseModel):
@@ -138,6 +141,59 @@ def validate_model_plugin(
         "valid": all(item.get(key) is not None for key in required),
         "status": item["status"],
     })
+
+
+@router.get("/model-parameter-catalog")
+def model_parameter_catalog(
+    model_plugin_id: str | None = Query(default=None, max_length=120),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    if model_plugin_id and registry.get_model_plugin(connection, model_plugin_id) is None:
+        raise HTTPException(status_code=404, detail="model_plugin_not_found")
+    items = model_catalog.list_parameters(
+        connection,
+        model_plugin_id=model_plugin_id,
+    )
+    return envelope({"items": items, "total": len(items), "model_plugin_id": model_plugin_id})
+
+
+@router.get("/script-assets")
+def script_assets(
+    model_plugin_id: str | None = Query(default=None, max_length=120),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    items = model_catalog.list_script_assets(
+        connection,
+        model_plugin_id=model_plugin_id,
+    )
+    return envelope({"items": items, "total": len(items), "model_plugin_id": model_plugin_id})
+
+
+@router.post("/model-parameter-catalog/import-qm-scripts")
+def import_qm_scripts(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    from ..services.script_importer import import_script_tree
+
+    root = REPO_ROOT / "qm-scripts"
+    if not root.exists():
+        raise HTTPException(status_code=404, detail="qm_scripts_not_found")
+    result = import_script_tree(connection, root, repository_root=REPO_ROOT)
+    return envelope(result)
+
+
+@router.get("/model-parameter-catalog/consistency")
+def model_parameter_consistency(
+    model_plugin_id: str | None = Query(default=None, max_length=120),
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    from ..services.script_importer import consistency_report
+
+    return envelope(consistency_report(connection, model_plugin_id=model_plugin_id))
 
 
 @router.get("/method-plugins")

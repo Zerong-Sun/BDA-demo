@@ -1,0 +1,218 @@
+#!/bin/bash
+#BSUB -J rmsd_superfold
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+set -euo pipefail
+
+# ===== 配置区：只改这里就行 =====
+PACKED_DIR="./packed_chainA"      # SuperFold 输入结构目录（packed 链）
+OUTPUT_DIR="./output"             # SuperFold 输出结构目录（含 pLDDT）
+CHAIN_ID="A"                      # 要比较的链 ID
+ATOM_NAME="CA"                    # 用哪种原子算 RMSD（一般 CA）
+OUT_TSV="superfold_rmsd_plddt.tsv"  # 输出结果表格
+# =================================
+
+# 如需，根据你集群环境加载 Python
+if command -v module >/dev/null 2>&1; then
+  module load python/anaconda3/2022.10 || true
+fi
+
+export PACKED_DIR OUTPUT_DIR CHAIN_ID ATOM_NAME OUT_TSV
+
+python - << 'PY'
+import os
+import glob
+import sys
+
+try:
+    import numpy as np
+except ImportError:
+    print("[ERROR] numpy 未安装：请在集群环境中使用带 numpy 的 Python（如 Anaconda）")
+    sys.exit(1)
+
+# ==== 从环境变量读取配置 ====
+PACKED_DIR = os.environ.get("PACKED_DIR", "./packed_chainA")
+OUTPUT_DIR = os.environ.get("OUTPUT_DIR", "./output")
+CHAIN_ID   = os.environ.get("CHAIN_ID", "A")
+ATOM_NAME  = os.environ.get("ATOM_NAME", "CA")
+OUT_TSV    = os.environ.get("OUT_TSV", "superfold_rmsd_plddt.tsv")
+# ==========================
+
+def parse_chain_atoms(pdb_path, chain_id, atom_name="CA"):
+    """
+    只读 ATOM/HETATM 行，按链 ID + 原子名筛选，
+    返回 [(key, coord), ...]，key = (resseq, icode)
+    用于 RMSD 对齐。
+    """
+    atoms = []
+    with open(pdb_path, "r") as fh:
+        for line in fh:
+            if not (line.startswith("ATOM") or line.startswith("HETATM")):
+                continue
+            if len(line) < 54:
+                continue
+
+            line_chain = line[21].strip()
+            if line_chain != chain_id:
+                continue
+
+            name = line[12:16].strip()
+            if name != atom_name:
+                continue
+
+            try:
+                resseq = int(line[22:26])
+            except ValueError:
+                continue
+            icode = line[26].strip()
+
+            try:
+                x = float(line[30:38])
+                y = float(line[38:46])
+                z = float(line[46:54])
+            except ValueError:
+                continue
+
+            key = (resseq, icode)
+            atoms.append((key, np.array([x, y, z], dtype=float)))
+    if not atoms:
+        raise ValueError(f"{pdb_path}: 找不到链 {chain_id} 的原子 {atom_name}")
+    return atoms
+
+def get_chain_plddt_stats(pdb_path, chain_id):
+    """
+    从 PDB 的 B-factor 列读取指定链的 pLDDT，返回 (mean_plddt, n_res)
+    AlphaFold/AF3 默认把 pLDDT 写在 temperature factor 里（列 61-66）。
+    """
+    values = []
+    with open(pdb_path, "r") as fh:
+        for line in fh:
+            if not (line.startswith("ATOM") or line.startswith("HETATM")):
+                continue
+            if len(line) < 66:
+                continue
+
+            line_chain = line[21].strip()
+            if line_chain != chain_id:
+                continue
+
+            # B-factor 列 61-66（Python 切片 60:66）
+            try:
+                bf = float(line[60:66])
+            except ValueError:
+                continue
+            values.append(bf)
+
+    if not values:
+        # 没有 pLDDT 信息就返回 NaN
+        return float("nan"), 0
+
+    arr = np.array(values, dtype=float)
+    return float(arr.mean()), arr.size
+
+def match_atom_lists(ref_atoms, mob_atoms):
+    """
+    根据 (resseq, icode) 匹配公共残基，返回 ref_coords, mob_coords, n_common
+    """
+    ref_dict = {k: v for k, v in ref_atoms}
+    mob_dict = {k: v for k, v in mob_atoms}
+    common_keys = sorted(set(ref_dict.keys()) & set(mob_dict.keys()))
+    if not common_keys:
+        return None, None, 0
+
+    ref_list = [ref_dict[k] for k in common_keys]
+    mob_list = [mob_dict[k] for k in common_keys]
+    ref_coords = np.stack(ref_list, axis=0)
+    mob_coords = np.stack(mob_list, axis=0)
+    return ref_coords, mob_coords, len(common_keys)
+
+def kabsch_rmsd(P, Q):
+    """
+    Kabsch 算法：将 Q 叠合到 P，返回 RMSD
+    P, Q: (N, 3) 的 numpy 数组
+    """
+    if P.shape != Q.shape:
+        raise ValueError("P 和 Q 形状不一致")
+
+    # 去质心
+    Pc = P - P.mean(axis=0)
+    Qc = Q - Q.mean(axis=0)
+
+    # 协方差矩阵
+    H = Qc.T @ Pc  # 把 Q 旋转到 P
+    U, S, Vt = np.linalg.svd(H)
+    R = Vt.T @ U.T
+
+    # 处理反射的情况
+    if np.linalg.det(R) < 0:
+        Vt[-1, :] *= -1
+        R = Vt.T @ U.T
+
+    Q_rot = Qc @ R
+    diff = Pc - Q_rot
+    rmsd = np.sqrt((diff * diff).sum() / P.shape[0])
+    return rmsd
+
+def main():
+    packed_files = sorted(glob.glob(os.path.join(PACKED_DIR, "*.pdb")))
+    if not packed_files:
+        print(f("[ERROR] 在 {PACKED_DIR} 里找不到任何 *.pdb"))
+        return
+
+    with open(OUT_TSV, "w") as out:
+        # 多了一列 mean_plddt
+        out.write("id\tpacked_pdb\toutput_pdb\tn_atoms\tRMSD\tmean_plddt\n")
+
+        for packed in packed_files:
+            base = os.path.splitext(os.path.basename(packed))[0]
+            pattern = os.path.join(OUTPUT_DIR, base + "*.pdb")
+            candidates = sorted(glob.glob(pattern))
+            if not candidates:
+                print(f"[WARN] {base}: 在 {OUTPUT_DIR} 中找不到匹配 PDB")
+                continue
+
+            output_pdb = candidates[0]
+
+            # 读坐标做 RMSD
+            try:
+                ref_atoms = parse_chain_atoms(packed, CHAIN_ID, ATOM_NAME)
+                mob_atoms = parse_chain_atoms(output_pdb, CHAIN_ID, ATOM_NAME)
+            except Exception as e:
+                print(f"[WARN] {base}: {e}")
+                continue
+
+            ref_coords, mob_coords, n_common = match_atom_lists(ref_atoms, mob_atoms)
+            if n_common < 5:
+                print(f"[WARN] {base}: 共同残基只有 {n_common} 个，跳过")
+                continue
+
+            try:
+                rmsd = kabsch_rmsd(ref_coords, mob_coords)
+            except Exception as e:
+                print(f"[WARN] {base}: Kabsch 失败: {e}")
+                continue
+
+            # 读预测结构的 pLDDT
+            mean_plddt, n_plddt = get_chain_plddt_stats(output_pdb, CHAIN_ID)
+
+            out.write(
+                f"{base}\t"
+                f"{os.path.basename(packed)}\t"
+                f"{os.path.basename(output_pdb)}\t"
+                f"{n_common}\t"
+                f"{rmsd:.3f}\t"
+                f"{mean_plddt:.1f}\n"
+            )
+
+            print(
+                f"{base}: RMSD = {rmsd:.3f} over {n_common} atoms, "
+                f"mean pLDDT(chain {CHAIN_ID}) = {mean_plddt:.1f} ({n_plddt} atoms)"
+            )
+
+if __name__ == "__main__":
+    main()
+PY

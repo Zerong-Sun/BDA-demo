@@ -1,0 +1,4 @@
+ROOT="/work/bme-sunzr/projects/0208_b326/af3-05"
+for j in "$ROOT"/inputs/*.json; do
+  bash "$ROOT/predict.sh" "$j"
+done

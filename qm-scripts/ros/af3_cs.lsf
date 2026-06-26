@@ -1,0 +1,335 @@
+#!/bin/bash
+#BSUB -J af3_collect_sum
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+set -Eeuo pipefail
+
+# 只收“第一层(top目录)里”的文件：
+#   SRC/<top_dir>/*_model.cif(.gz)
+#   SRC/<top_dir>/*summary_confidences.json
+# 忽略 seeds/ 等更深层子目录
+
+SRC="/work/bme-sunzr/projects/0210_Bam/af3-05/output"
+DEST="./af3_collect_sum"
+
+CIF_DIR="${DEST}/cif"
+JSON_DIR="${DEST}/json"
+LOGD="${DEST}/logs"
+OUT_CSV="${DEST}/af3_summary-05.csv"
+
+mkdir -p "${CIF_DIR}" "${JSON_DIR}" "${LOGD}"
+
+if command -v module >/dev/null 2>&1; then
+  module load python/anaconda3/2022.10 || true
+fi
+
+# =====================
+# Step 1) 收集（仅第一层）CIF + JSON
+#   - 文件名保持原始：<原文件名>
+# =====================
+
+: > "${LOGD}/cif_mapping.tsv"
+: > "${LOGD}/json_mapping.tsv"
+: > "${LOGD}/collisions.warn"
+
+cif_cnt=0
+json_cnt=0
+
+copy_with_collision_warn () {
+  local src="$1"
+  local dst_dir="$2"
+  local bn
+  bn="$(basename "$src")"
+  local dst="${dst_dir}/${bn}"
+
+  if [[ -e "$dst" ]]; then
+    echo "[WARN] collision: ${dst} already exists; overwriting with ${src}" >> "${LOGD}/collisions.warn"
+  fi
+  cp -f -- "$src" "$dst"
+  printf "%s\t%s\t%s\n" "$(basename "$(dirname "$src")")" "$src" "$dst"
+}
+
+# CIF：只在 SRC 下第二层（SRC/<top_dir>/<file>）
+while IFS= read -r -d '' f; do
+  copy_with_collision_warn "$f" "${CIF_DIR}" >> "${LOGD}/cif_mapping.tsv"
+  ((cif_cnt++)) || true
+done < <(find "${SRC}" -mindepth 2 -maxdepth 2 -type f \( -name "*_model.cif" -o -name "*_model.cif.gz" \) -print0 | sort -z)
+
+# JSON：只在 SRC 下第二层
+while IFS= read -r -d '' f; do
+  copy_with_collision_warn "$f" "${JSON_DIR}" >> "${LOGD}/json_mapping.tsv"
+  ((json_cnt++)) || true
+done < <(find "${SRC}" -mindepth 2 -maxdepth 2 -type f -name "*summary_confidences.json" -print0 | sort -z)
+
+echo "[INFO] Step1 done: CIF copied=${cif_cnt}, JSON copied=${json_cnt}"
+test "${json_cnt}" -gt 0 || { echo "[FATAL] No *summary_confidences.json found under ${SRC} (top level only)" >&2; exit 2; }
+
+# =====================
+# Step 2) af3sum 汇总（JSON + CIF pLDDT）
+# =====================
+
+export CIF_DIR JSON_DIR OUT_CSV
+
+python3 - <<'PY'
+import os, re, json, csv, glob, gzip
+from pathlib import Path
+
+json_dir = os.environ["JSON_DIR"]
+cif_dir  = os.environ["CIF_DIR"]
+out_csv  = os.environ["OUT_CSV"]
+
+# 目录名/前缀解析：b001_1binder_123-seq1
+pat = re.compile(r"^b(?P<bnum>\d+)_(?:(?P<bcnt>\d+)binder_)?(?P<binder>\d+)-seq(?P<seq>\d+)$")
+
+def open_maybe_gz(path: str, mode: str = "rt"):
+    return gzip.open(path, mode) if path.endswith(".gz") else open(path, mode)
+
+def plddt_from_cif(path: str):
+    """return (mean_all, {chain_id: mean}) or (None, {}) if failed"""
+    # 1) gemmi
+    try:
+        import gemmi  # type: ignore
+        st = gemmi.read_structure(path)
+        atom_vals = []
+        chain_atoms = {}
+        for model in st:
+            for chain in model:
+                cid = chain.name or "-"
+                for res in chain:
+                    for at in res:
+                        try:
+                            b = float(at.b_iso)
+                        except Exception:
+                            continue
+                        atom_vals.append(b)
+                        chain_atoms.setdefault(cid, []).append(b)
+        mean_all = (sum(atom_vals) / len(atom_vals)) if atom_vals else None
+        chain_mean = {cid: (sum(v)/len(v)) for cid, v in chain_atoms.items() if v}
+        return mean_all, chain_mean
+    except Exception:
+        pass
+
+    # 2) Biopython MMCIF2Dict
+    try:
+        from Bio.PDB.MMCIF2Dict import MMCIF2Dict  # type: ignore
+        d = MMCIF2Dict(path)
+        bs = d.get("_atom_site.B_iso_or_equiv")
+        if bs is None:
+            return None, {}
+        chain = d.get("_atom_site.auth_asym_id") or d.get("_atom_site.label_asym_id")
+        if chain is None:
+            chain = ["-"] * len(bs)
+        atom_vals = []
+        chain_atoms = {}
+        for b_str, c in zip(bs, chain):
+            try:
+                b = float(b_str)
+            except Exception:
+                continue
+            atom_vals.append(b)
+            chain_atoms.setdefault(str(c), []).append(b)
+        mean_all = (sum(atom_vals) / len(atom_vals)) if atom_vals else None
+        chain_mean = {cid: (sum(v)/len(v)) for cid, v in chain_atoms.items() if v}
+        return mean_all, chain_mean
+    except Exception:
+        pass
+
+    # 3) 纯文本兜底解析（atom_site loop）
+    try:
+        with open_maybe_gz(path, "rt") as fh:
+            lines = fh.readlines()
+
+        i = 0
+        while i < len(lines):
+            if lines[i].strip() != "loop_":
+                i += 1
+                continue
+            j = i + 1
+            cols = []
+            while j < len(lines) and lines[j].startswith("_"):
+                cols.append(lines[j].strip())
+                j += 1
+            if not cols:
+                i = j
+                continue
+            if "_atom_site.B_iso_or_equiv" not in cols:
+                i = j
+                continue
+
+            b_idx = cols.index("_atom_site.B_iso_or_equiv")
+            ccol = "_atom_site.auth_asym_id" if "_atom_site.auth_asym_id" in cols else (
+                   "_atom_site.label_asym_id" if "_atom_site.label_asym_id" in cols else None)
+            c_idx = cols.index(ccol) if ccol else None
+
+            atom_vals = []
+            chain_atoms = {}
+            k = j
+            while k < len(lines):
+                s = lines[k].strip()
+                if not s or s.startswith("#") or s == "loop_" or s.startswith("_"):
+                    break
+                parts = s.split()
+                if len(parts) <= b_idx:
+                    k += 1
+                    continue
+                try:
+                    b = float(parts[b_idx])
+                except Exception:
+                    k += 1
+                    continue
+                cid = parts[c_idx] if (c_idx is not None and len(parts) > c_idx) else "-"
+                atom_vals.append(b)
+                chain_atoms.setdefault(cid, []).append(b)
+                k += 1
+
+            mean_all = (sum(atom_vals) / len(atom_vals)) if atom_vals else None
+            chain_mean = {cid: (sum(v)/len(v)) for cid, v in chain_atoms.items() if v}
+            return mean_all, chain_mean
+
+        return None, {}
+    except Exception:
+        return None, {}
+
+json_files = sorted(glob.glob(os.path.join(json_dir, "*summary_confidences.json")))
+if not json_files:
+    raise SystemExit(f"No JSON in {json_dir}")
+
+def top_from_json_basename(bn: str) -> str:
+    return bn[:-len("_summary_confidences.json")] if bn.endswith("_summary_confidences.json") else Path(bn).stem
+
+rows = []
+for jp in json_files:
+    jname = Path(jp).name
+    top = top_from_json_basename(jname)
+
+    m = pat.match(top)
+    if m:
+        b_id = int(m.group("bnum"))
+        binder_count = int(m.group("bcnt") or 0) if m.group("bcnt") else None
+        binder_id = int(m.group("binder"))
+        seq_id = int(m.group("seq"))
+    else:
+        b_id = binder_id = seq_id = None
+        binder_count = None
+
+    try:
+        with open(jp, "r") as f:
+            data = json.load(f)
+    except Exception:
+        data = {}
+
+    cand = []
+    for ext in (".cif", ".cif.gz"):
+        p = os.path.join(cif_dir, f"{top}_model{ext}")
+        if os.path.exists(p):
+            cand.append(p)
+    if not cand:
+        cand = sorted(glob.glob(os.path.join(cif_dir, f"{top}*_model.cif*")))
+    cif_path = cand[0] if cand else None
+
+    plddt_all = None
+    plddt_chain = {}
+    cif_name = None
+    if cif_path and os.path.exists(cif_path):
+        cif_name = Path(cif_path).name
+        plddt_all, plddt_chain = plddt_from_cif(cif_path)
+
+    chain_iptm = data.get("chain_iptm") or []
+    chain_ptm  = data.get("chain_ptm") or []
+    chain_pair_iptm    = data.get("chain_pair_iptm") or []
+    chain_pair_pae_min = data.get("chain_pair_pae_min") or []
+
+    pae_intra_1 = pae_intra_2 = None
+    pae_inter_12 = pae_inter_21 = None
+    pae_inter_avg = None
+    try:
+        if len(chain_pair_pae_min) > 0 and len(chain_pair_pae_min[0]) > 0:
+            pae_intra_1 = chain_pair_pae_min[0][0]
+        if len(chain_pair_pae_min) > 1 and len(chain_pair_pae_min[1]) > 1:
+            pae_intra_2 = chain_pair_pae_min[1][1]
+        if len(chain_pair_pae_min) > 0 and len(chain_pair_pae_min[0]) > 1:
+            pae_inter_12 = chain_pair_pae_min[0][1]
+        if len(chain_pair_pae_min) > 1 and len(chain_pair_pae_min[1]) > 0:
+            pae_inter_21 = chain_pair_pae_min[1][0]
+        if pae_inter_12 is not None and pae_inter_21 is not None:
+            pae_inter_avg = 0.5 * (pae_inter_12 + pae_inter_21)
+    except Exception:
+        pass
+
+    row = {
+        "top": top,
+        "b_id": b_id,
+        "binder_count": binder_count,
+        "binder_id": binder_id,
+        "seq_id": seq_id,
+        "json_name": jname,
+        "cif_name": cif_name,
+
+        "iptm": data.get("iptm"),
+        "ptm": data.get("ptm"),
+        "ranking_score": data.get("ranking_score"),
+        "fraction_disordered": data.get("fraction_disordered"),
+        "has_clash": data.get("has_clash"),
+
+        "chain_ptm_1": chain_ptm[0] if len(chain_ptm) > 0 else None,
+        "chain_ptm_2": chain_ptm[1] if len(chain_ptm) > 1 else None,
+        "chain_iptm_1": chain_iptm[0] if len(chain_iptm) > 0 else None,
+        "chain_iptm_2": chain_iptm[1] if len(chain_iptm) > 1 else None,
+
+        "pae_intra_1": pae_intra_1,
+        "pae_intra_2": pae_intra_2,
+        "pae_inter_12": pae_inter_12,
+        "pae_inter_21": pae_inter_21,
+        "pae_inter_avg": pae_inter_avg,
+
+        "plddt_mean_all": plddt_all,
+    }
+
+    for cid, meanv in sorted(plddt_chain.items(), key=lambda x: x[0]):
+        row[f"plddt_mean_chain_{cid}"] = meanv
+
+    for i, v in enumerate(chain_ptm, start=1):
+        row[f"chain_ptm_{i}"] = v
+    for i, v in enumerate(chain_iptm, start=1):
+        row[f"chain_iptm_{i}"] = v
+
+    try:
+        for i in range(len(chain_pair_iptm)):
+            for j in range(len(chain_pair_iptm[i])):
+                row[f"chain_pair_iptm_{i+1}_{j+1}"] = chain_pair_iptm[i][j]
+    except Exception:
+        pass
+
+    rows.append(row)
+
+base_fields = [
+    "top","b_id","binder_count","binder_id","seq_id",
+    "json_name","cif_name",
+    "iptm","ptm","ranking_score","fraction_disordered","has_clash",
+    "chain_ptm_1","chain_ptm_2","chain_iptm_1","chain_iptm_2",
+    "pae_intra_1","pae_intra_2","pae_inter_12","pae_inter_21","pae_inter_avg",
+    "plddt_mean_all",
+]
+fieldnames = list(base_fields)
+extra = sorted({k for r in rows for k in r.keys() if k not in fieldnames})
+fieldnames.extend(extra)
+
+os.makedirs(os.path.dirname(out_csv), exist_ok=True)
+with open(out_csv, "w", newline="") as f:
+    w = csv.DictWriter(f, fieldnames=fieldnames)
+    w.writeheader()
+    for r in rows:
+        w.writerow(r)
+
+print(f"[INFO] wrote {out_csv} (n_rows={len(rows)})")
+PY
+
+echo "[DONE]"
+echo "  CIF_DIR : ${CIF_DIR}"
+echo "  JSON_DIR: ${JSON_DIR}"
+echo "  CSV     : ${OUT_CSV}"
+echo "  logs    : ${LOGD}"

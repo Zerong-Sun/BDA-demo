@@ -1,0 +1,12 @@
+{
+  "job_id": "job_ab36222781c5",
+  "project_id": "proj_nanocage_0518",
+  "workflow_run_id": "run_proj_nanocage_0518_540951e7",
+  "node_run_id": "node_5909d6cbab",
+  "plugin_id": "plugin_proteinmpnn",
+  "model_name": "ProteinMPNN",
+  "inputs": [],
+  "parameters": {
+    "num_seq_per_target": 1
+  }
+}

@@ -4,14 +4,107 @@ import { Loader2, Plus, X } from 'lucide-react'
 import { nodeTemplates, type NodeTemplate } from './workflowTypes'
 import { createMethodPlugin, listMethodPlugins, listModelPlugins } from '../../lib/api/registry'
 import { ParameterSchemaForm } from '../plugins'
-import { defaultsFromFields, fieldsFromParameterSchema } from '../../lib/forms/parameterSchema'
-import type { MethodPlugin } from '../../lib/schemas/registry'
+import {
+  defaultsFromFields,
+  fieldsFromParameterSchema,
+  parseParameterSchemaMetadata,
+  type ParameterSchemaMetadata,
+} from '../../lib/forms/parameterSchema'
+import type { MethodPlugin, ModelPlugin } from '../../lib/schemas/registry'
+import type { WorkflowNodeData } from './workflowTypes'
 
 const PLUGIN_ICON: Record<string, string> = {
   RFdiffusion: 'wand-sparkles',
   ProteinMPNN: 'dna',
   AlphaFold2: 'scan-search',
+  'AlphaFold 3': 'scan-search',
+  Boltz: 'scan-search',
+  'Chai-1': 'scan-search',
   Rosetta: 'activity',
+  BindCraft: 'wand-sparkles',
+}
+
+function workflowNodeTypeForPlugin(plugin: { model_name: string; model_type: string }) {
+  if (plugin.model_name === 'RFdiffusion') return 'backbone_generation'
+  if (plugin.model_name === 'ProteinMPNN') return 'sequence_generation'
+  if (plugin.model_name === 'AlphaFold2') return 'fold_prediction'
+  if (plugin.model_name === 'AlphaFold 3') return 'fold_prediction'
+  if (plugin.model_name === 'Boltz') return 'fold_prediction'
+  if (plugin.model_name === 'Chai-1') return 'fold_prediction'
+  if (plugin.model_name === 'BindCraft') return 'workflow_pipeline'
+  if (plugin.model_name === 'Rosetta') return 'scoring'
+  return plugin.model_type
+}
+
+const PLUGIN_LABELS: Record<string, string> = {
+  plugin_rfdiffusion: 'RFdiffusion',
+  plugin_proteinmpnn: 'ProteinMPNN',
+  plugin_alphafold2: 'AlphaFold2',
+  plugin_alphafold3: 'AlphaFold 3',
+  plugin_boltz: 'Boltz',
+  plugin_chai1: 'Chai-1',
+  plugin_bindcraft: 'BindCraft',
+  plugin_rosetta: 'Rosetta',
+}
+
+function parseJsonRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function resourceForPlugin(plugin: ModelPlugin): WorkflowNodeData['resource'] {
+  const resources = parseJsonRecord(plugin.resource_requirement_json)
+  const runtimeEnv = parseJsonRecord(resources.runtime_env)
+  const gpuCount = resources.gpu_count
+  const minVram = resources.min_vram_gb
+  if (
+    plugin.model_type === 'workflow_pipeline' ||
+    (typeof gpuCount === 'number' && gpuCount > 0) ||
+    typeof minVram === 'number' ||
+    runtimeEnv.BDA_GPU === 'required'
+  ) {
+    return 'gpu'
+  }
+  return plugin.model_type.includes('manual') ? 'manual' : 'cpu'
+}
+
+function formatPluginList(pluginIds?: string[]): string | null {
+  if (!pluginIds?.length) return null
+  return pluginIds.map((id) => PLUGIN_LABELS[id] ?? id.replace(/^plugin_/, '')).join(' / ')
+}
+
+function ChainMetadata({ metadata }: { metadata: ParameterSchemaMetadata }) {
+  const rows = [
+    ['互斥', formatPluginList(metadata.exclusiveWith)],
+    ['推荐前序', formatPluginList(metadata.recommendedAfter)],
+    ['推荐后续', formatPluginList(metadata.recommendedBefore)],
+  ].filter((row): row is [string, string] => Boolean(row[1]))
+
+  if (!metadata.workflowNote && rows.length === 0) return null
+
+  return (
+    <div className="mt-2 rounded-md border border-bda-amber/40 bg-bda-amber/10 p-2 text-xs leading-relaxed text-bda-amber">
+      {metadata.workflowNote ? <p>{metadata.workflowNote}</p> : null}
+      {rows.length > 0 ? (
+        <dl className="mt-1 space-y-1">
+          {rows.map(([label, value]) => (
+            <div key={label} className="grid grid-cols-[4.5rem_1fr] gap-2">
+              <dt className="text-bda-muted">{label}</dt>
+              <dd>{value}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </div>
+  )
 }
 
 interface NodeBuilderProps {
@@ -124,15 +217,8 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
       icon: PLUGIN_ICON[plugin.model_name] ?? 'activity',
       title: plugin.model_name,
       body: plugin.description ?? `${plugin.model_type} model plugin`,
-      resource: plugin.model_type.includes('gpu') ? ('gpu' as const) : ('cpu' as const),
-      nodeType:
-        plugin.model_name === 'RFdiffusion'
-          ? 'backbone_generation'
-          : plugin.model_name === 'ProteinMPNN'
-            ? 'sequence_generation'
-            : plugin.model_name === 'AlphaFold2'
-              ? 'fold_prediction'
-              : 'scoring',
+      resource: resourceForPlugin(plugin),
+      nodeType: workflowNodeTypeForPlugin(plugin),
       modelName: plugin.model_name,
       modelVersion: plugin.version,
       pluginId: plugin.model_plugin_id,
@@ -144,6 +230,10 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
   const parameterFields = useMemo(
     () => fieldsFromParameterSchema(template.parameterSchema, template.modelName),
     [template.modelName, template.parameterSchema],
+  )
+  const parameterMetadata = useMemo(
+    () => parseParameterSchemaMetadata(template.parameterSchema),
+    [template.parameterSchema],
   )
   const parameterSchemaForForm = useMemo(() => ({ fields: parameterFields }), [parameterFields])
 
@@ -222,24 +312,32 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
         <div>
           <span className="text-xs text-bda-muted">Model cards</span>
           <div className="mt-2 grid grid-cols-2 gap-2">
-            {templates.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                className={`rounded-lg border p-3 text-left transition-colors ${
-                  selected === item.id
-                    ? 'border-bda-cyan bg-bda-cyan/10'
-                    : 'border-bda-border hover:border-bda-cyan/40'
-                }`}
-                onClick={() => {
-                  selectTemplate(item)
-                }}
-                disabled={adding}
-              >
-                <strong className="block text-sm">{item.title}</strong>
-                <small className="text-xs text-bda-muted">{item.body}</small>
-              </button>
-            ))}
+            {templates.map((item) => {
+              const metadata = parseParameterSchemaMetadata(item.parameterSchema)
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  className={`rounded-lg border p-3 text-left transition-colors ${
+                    selected === item.id
+                      ? 'border-bda-cyan bg-bda-cyan/10'
+                      : 'border-bda-border hover:border-bda-cyan/40'
+                  }`}
+                  onClick={() => {
+                    selectTemplate(item)
+                  }}
+                  disabled={adding}
+                >
+                  <strong className="block text-sm">{item.title}</strong>
+                  <small className="text-xs text-bda-muted">{item.body}</small>
+                  {metadata.workflowNote ? (
+                    <span className="mt-2 block border-t border-bda-border pt-2 text-[11px] leading-relaxed text-bda-amber">
+                      {metadata.workflowNote}
+                    </span>
+                  ) : null}
+                </button>
+              )
+            })}
           </div>
         </div>
 
@@ -339,6 +437,7 @@ export function NodeBuilder({ open, onClose, onAdd }: NodeBuilderProps) {
           <article className="mt-2 rounded-lg border border-bda-border bg-bda-panel p-3 text-sm">
             <strong>{nodeName || template.title}</strong>
             <p className="mt-1 text-xs text-bda-muted">{template.body}</p>
+            <ChainMetadata metadata={parameterMetadata} />
             <p className="mt-2 text-xs text-bda-muted">
               {selectedMethodOptions.map((method) => method.label).join(' · ')}
             </p>

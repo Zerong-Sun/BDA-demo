@@ -1,0 +1,12 @@
+{
+  "job_id": "job_708e49c9c900",
+  "project_id": "proj_pd1_0423",
+  "workflow_run_id": "run_pd1_round1",
+  "node_run_id": "node_mpnn",
+  "plugin_id": "plugin_proteinmpnn",
+  "model_name": "ProteinMPNN",
+  "inputs": [],
+  "parameters": {
+    "num_seq_per_target": 2
+  }
+}

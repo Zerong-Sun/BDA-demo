@@ -1,43 +1,55 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Plus } from 'lucide-react'
+import { Play, Plus, Sparkles } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
 import { NodeBuilder } from '../features/workflow/NodeBuilder'
 import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
+import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
-import { createWorkflowRun, getWorkflowGraph, submitWorkflowRun } from '../lib/api/workflow'
+import { addWorkflowNode, createWorkflowRun, getWorkflowGraph, saveWorkflowLayout, submitWorkflowRun } from '../lib/api/workflow'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
+import { useAppStore } from '../lib/store/appStore'
 import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import type { Artifact } from '../lib/schemas/artifact'
+import { ProjectContextBar } from '../features/projects/ProjectContextBar'
 
 export function WorkflowPage() {
-  const [builderOpen, setBuilderOpen] = useState(true)
+  const [builderOpen, setBuilderOpen] = useState(false)
+  const [goal, setGoal] = useState('设计 10000 个 PD-1 binder 候选，并筛到 48 个进入 BLI/SEC 验证')
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | undefined>()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
   const canvasRef = useRef<WorkflowCanvasHandle>(null)
   const { projectId } = useProjectContext()
   const { t } = useI18n()
+  const appMode = useAppStore((s) => s.appMode)
+  const workflowRunIdsByProject = useAppStore((s) => s.workflowRunIdsByProject)
+  const setProjectWorkflowRunId = useAppStore((s) => s.setProjectWorkflowRunId)
   const showToast = useToastStore((s) => s.show)
   const queryClient = useQueryClient()
+  const isDemoMode = appMode === 'demo'
+  const applicationWorkflowRunId = workflowRunIdsByProject[projectId]
 
   const {
-    data: workflowRun,
+    data: latestWorkflowRun,
     isError: workflowError,
     error: workflowQueryError,
     refetch: refetchWorkflow,
   } = useQuery({
-    queryKey: ['workflow-run', projectId],
+    queryKey: ['workflow-run', 'latest', projectId],
     queryFn: () => getLatestWorkflowRunOrNull(projectId),
+    enabled: Boolean(projectId),
   })
 
-  const workflowRunId = workflowRun?.workflow_run_id
+  const workflowRunId =
+    applicationWorkflowRunId ??
+    latestWorkflowRun?.workflow_run_id
 
   const { data: workflowGraph } = useQuery({
     queryKey: ['workflow-graph', workflowRunId],
@@ -54,8 +66,11 @@ export function WorkflowPage() {
     queryFn: () => listProjectArtifacts(projectId),
   })
 
-  const workflowNodes = workflowGraph?.nodes ?? []
-  const workflowArtifacts = workflowGraph?.artifacts ?? []
+  const workflowNodes = useMemo(() => workflowGraph?.nodes ?? [], [workflowGraph?.nodes])
+  const workflowArtifacts = useMemo(
+    () => workflowGraph?.artifacts ?? [],
+    [workflowGraph?.artifacts],
+  )
   const visibleArtifacts = useMemo(() => {
     const byId = new Map<string, Artifact>()
     for (const artifact of [...workflowArtifacts, ...projectArtifacts, ...artifacts]) {
@@ -71,15 +86,89 @@ export function WorkflowPage() {
   const selectedNode = workflowNodes.find((node) => node.node_run_id === selectedNodeId) ?? null
   const selectedArtifact = visibleArtifacts.find((artifact) => artifact.artifact_id === selectedArtifactId) ?? null
 
-  const readOnly = workflowRun?.status === 'completed'
+  const workflowRun = workflowGraph?.workflow_run ?? latestWorkflowRun
+  const readOnly = isDemoMode || workflowRun?.status === 'completed'
 
   const createWorkflow = useMutation({
     mutationFn: () => createWorkflowRun(projectId),
     onSuccess: (run) => {
-      queryClient.setQueryData(['workflow-run', projectId], run)
+      setProjectWorkflowRunId(projectId, run.workflow_run_id)
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', run.workflow_run_id] })
       showToast('Workflow run created', 'success')
     },
     onError: () => showToast('Failed to create workflow run', 'error'),
+  })
+
+  const generateRecommended = useMutation({
+    mutationFn: async () => {
+      const runId = applicationWorkflowRunId ?? (await createWorkflowRun(projectId)).workflow_run_id
+      setProjectWorkflowRunId(projectId, runId)
+      const steps = buildRecommendedWorkflow(goal)
+      const existingNodes = graph?.nodes ?? []
+      const existingEdges = graph?.edges ?? []
+      const branchIndex = Math.floor(existingNodes.length / Math.max(steps.length, 1))
+      const baseY = existingNodes.length === 0 ? 110 : 130 + branchIndex * 190
+      const createdNodes: Array<{ id: string; position: { x: number; y: number } }> = []
+
+      for (const [index, step] of steps.entries()) {
+        const template = nodeTemplates[step.templateId]
+        const col = index % 3
+        const row = Math.floor(index / 3)
+        const x = 80 + col * 280
+        const y = baseY + row * 210
+        const created = await addWorkflowNode(runId, {
+          node_type: template.nodeType,
+          node_name: step.name,
+          model_name: template.modelName,
+          model_version: template.modelVersion,
+          model_plugin_id: template.pluginId,
+          parameters_json: {
+            methods: step.methods,
+            ...step.parameters,
+            copilot_goal: goal,
+            planned: step.estimate.planned,
+            current: step.estimate.current,
+            estimate_unit: step.estimate.unit,
+            estimated_time: step.estimate.duration,
+          },
+          position: { x, y },
+        })
+        createdNodes.push({ id: created.node_run_id, position: { x, y } })
+      }
+
+      const createdEdges = createdNodes.slice(0, -1).map((node, index) => ({
+        id: `e-${node.id}-${createdNodes[index + 1].id}`,
+        source_node_run_id: node.id,
+        target_node_run_id: createdNodes[index + 1].id,
+        source_port: 'output',
+        target_port: 'input',
+        edge_type: 'data',
+      }))
+
+      await saveWorkflowLayout(runId, {
+        nodes: [
+          ...existingNodes.map((node) => ({ node_run_id: node.id, position: node.position })),
+          ...createdNodes.map((node) => ({ node_run_id: node.id, position: node.position })),
+        ],
+        edges: [
+          ...existingEdges.map((edge) => ({
+            id: edge.id,
+            source_node_run_id: edge.source,
+            target_node_run_id: edge.target,
+            source_port: typeof edge.sourceHandle === 'string' ? edge.sourceHandle : 'output',
+            target_port: typeof edge.targetHandle === 'string' ? edge.targetHandle : 'input',
+            edge_type: edge.label === 'feedback' ? 'feedback' : 'data',
+          })),
+          ...createdEdges,
+        ],
+      })
+      return runId
+    },
+    onSuccess: (runId) => {
+      showToast('Recommended workflow generated and connected', 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', runId] })
+    },
+    onError: () => showToast('Failed to generate recommended workflow', 'error'),
   })
 
   const startWorkflow = useMutation({
@@ -103,10 +192,11 @@ export function WorkflowPage() {
 
   return (
     <section>
+      <ProjectContextBar />
       <ComputeStatusStrip />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        {!workflowRun ? (
+        {!workflowRunId && !isDemoMode ? (
           <button
             type="button"
             className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
@@ -116,7 +206,7 @@ export function WorkflowPage() {
             <Plus className="h-4 w-4" />
             Create workflow run
           </button>
-        ) : (
+        ) : isDemoMode ? null : (
           <>
             <button
               type="button"
@@ -138,7 +228,9 @@ export function WorkflowPage() {
             </button>
           </>
         )}
-        {workflowRun ? (
+        {isDemoMode ? (
+          <span className="text-xs text-bda-muted">演示模式：读取项目已有演示数据，只读展示。</span>
+        ) : workflowRun ? (
           <span className="text-xs text-bda-muted">
             Run {workflowRun.workflow_run_id} · {workflowRun.status}
           </span>
@@ -152,31 +244,72 @@ export function WorkflowPage() {
         error={workflowQueryError}
         onRetry={() => void refetchWorkflow()}
       >
-        {!workflowRun ? (
+        {!isDemoMode ? (
+          <section className="mb-4 rounded-lg border border-bda-border bg-bda-panel p-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+              <div className="min-w-0 flex-1">
+                <label htmlFor="workflow-goal" className="mb-1 block text-xs uppercase tracking-wide text-bda-cyan">
+                  Copilot route planner
+                </label>
+                <textarea
+                  id="workflow-goal"
+                  rows={2}
+                  className="w-full resize-none rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
+                  value={goal}
+                  onChange={(e) => setGoal(e.target.value)}
+                  placeholder="输入你想做的事情，例如：设计 10000 个候选并筛选 48 个进入湿实验"
+                />
+              </div>
+              <button
+                type="button"
+                className="inline-flex items-center justify-center gap-2 rounded-md bg-bda-cyan px-4 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+                disabled={generateRecommended.isPending || readOnly || !goal.trim()}
+                onClick={() => generateRecommended.mutate()}
+              >
+                <Sparkles className="h-4 w-4" />
+                生成推荐工作流
+              </button>
+            </div>
+            <p className="mt-3 text-xs text-bda-muted">
+              点击生成后才会在画布中创建真实节点和连线；生成前当前项目工作流保持为空。
+            </p>
+          </section>
+        ) : null}
+
+        {!workflowRunId && !isDemoMode ? (
           <div className="mb-4 rounded-lg border border-dashed border-bda-border bg-bda-panel p-6 text-center text-sm text-bda-muted">
-            <p>Create a workflow run to add nodes, upload target structures, and submit to compute.</p>
+            <p>当前项目还没有工作流。你可以手动创建空 run，也可以直接输入目标生成一套项目绑定的推荐工作流。</p>
           </div>
         ) : null}
 
-        <div className="grid gap-4 xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-          <WorkflowResourceSidebar
-            projectId={projectId}
-            artifacts={visibleArtifacts}
-            selectedArtifactId={selectedArtifactId}
-            onArtifactUploaded={(artifact) => {
-              setArtifacts((current) => [artifact, ...current.filter((item) => item.artifact_id !== artifact.artifact_id)])
-              queryClient.invalidateQueries({ queryKey: ['project-artifacts', projectId] })
-              setSelectedArtifactId(artifact.artifact_id)
-              setSelectedNodeId(null)
-            }}
-            onArtifactSelected={(artifact) => {
-              setSelectedArtifactId(artifact.artifact_id)
-              setSelectedNodeId(null)
-            }}
-          />
+        <div className="grid gap-4 2xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+          <div className="order-2 2xl:order-1">
+            <WorkflowResourceSidebar
+              projectId={projectId}
+              artifacts={visibleArtifacts}
+              selectedArtifactId={selectedArtifactId}
+              onArtifactUploaded={(artifact) => {
+                setArtifacts((current) => [artifact, ...current.filter((item) => item.artifact_id !== artifact.artifact_id)])
+                queryClient.invalidateQueries({ queryKey: ['project-artifacts', projectId] })
+                setSelectedArtifactId(artifact.artifact_id)
+                setSelectedNodeId(null)
+              }}
+              onArtifactSelected={(artifact) => {
+                setSelectedArtifactId(artifact.artifact_id)
+                setSelectedNodeId(null)
+              }}
+            />
+          </div>
 
-          <main className="min-w-0">
-            {workflowRun ? (
+          <main className="order-1 min-w-0 2xl:order-2">
+            {isDemoMode ? (
+              <WorkflowCanvas
+                initialNodes={defaultWorkflowNodes}
+                initialEdges={defaultWorkflowEdges}
+                readOnly
+                onNodeSelected={setSelectedNodeId}
+              />
+            ) : workflowRunId ? (
               <>
                 <NodeBuilder
                   open={builderOpen && !readOnly}
@@ -200,29 +333,29 @@ export function WorkflowPage() {
                   ref={canvasRef}
                   initialNodes={graph?.nodes ?? []}
                   initialEdges={graph?.edges ?? []}
-                  workflowRunId={workflowRun.workflow_run_id}
+                  workflowRunId={workflowRunId}
                   readOnly={readOnly}
                   onNodeSelected={(nodeId) => {
                     setSelectedNodeId(nodeId)
                     if (nodeId) setSelectedArtifactId(undefined)
                   }}
                   onNodeAdded={() =>
-                    queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRun.workflow_run_id] })
+                    queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
                   }
                 />
               </>
             ) : (
-              <div className="rounded-lg border border-dashed border-bda-border bg-bda-bg-elevated px-4 py-16 text-center text-sm text-bda-muted">
-                Create a workflow run to open the canvas.
-              </div>
+              <WorkflowCanvas initialNodes={[]} initialEdges={[]} />
             )}
           </main>
 
-          <WorkflowInspector
-            workflowRunId={workflowRun?.workflow_run_id}
-            selectedNode={selectedNode}
-            selectedArtifact={selectedArtifact}
-          />
+          <div className="order-3">
+            <WorkflowInspector
+              workflowRunId={workflowRunId}
+              selectedNode={selectedNode}
+              selectedArtifact={selectedArtifact}
+            />
+          </div>
         </div>
       </ApiState>
     </section>

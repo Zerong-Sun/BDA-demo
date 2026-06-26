@@ -1,0 +1,12 @@
+{
+  "job_id": "job_75f8a70aeb5d",
+  "project_id": "proj_nanocage_0518",
+  "workflow_run_id": "run_proj_nanocage_0518_a90323b0",
+  "node_run_id": "node_ed19cd4303",
+  "plugin_id": "plugin_rfdiffusion",
+  "model_name": "RFdiffusion",
+  "inputs": [],
+  "parameters": {
+    "num_designs": 1
+  }
+}

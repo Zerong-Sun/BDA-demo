@@ -255,6 +255,10 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
     if existing_outputs.get("manifest_found") is True:
         return existing_outputs
     output_dir = _job_workspace(job_id)["output"]
+    adapter = get_compute_adapter()
+    collect_remote = getattr(adapter, "collect_outputs", None)
+    if callable(collect_remote):
+        collect_remote(job_id, str(output_dir))
     manifest_path = output_dir / "manifest.json"
     if not manifest_path.exists():
         return {"manifest_found": False, "artifacts": []}

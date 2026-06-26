@@ -32,6 +32,35 @@ def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
     return get_by_id(connection, "projects", "project_id", project_id)
 
 
+def create_project(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str,
+    project_name: str,
+    project_type: str,
+    owner_id: str | None,
+    organization_id: str | None = None,
+    summary: str | None = None,
+) -> dict:
+    connection.execute(
+        """
+        INSERT INTO projects (
+            project_id, project_name, project_type, status, owner_id, organization_id, summary
+        ) VALUES (?, ?, ?, 'draft', ?, ?, ?)
+        """,
+        (project_id, project_name, project_type, owner_id, organization_id, summary),
+    )
+    if owner_id:
+        connection.execute(
+            """
+            INSERT OR IGNORE INTO project_members (project_id, user_id, role)
+            VALUES (?, ?, 'owner')
+            """,
+            (project_id, owner_id),
+        )
+    return get_project(connection, project_id) or {}
+
+
 def list_project_candidates(connection: sqlite3.Connection, project_id: str) -> list[dict]:
     rows = connection.execute(
         "SELECT * FROM candidates WHERE project_id = ? ORDER BY interface_score DESC, plddt DESC",

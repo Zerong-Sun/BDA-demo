@@ -15,6 +15,11 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
 
     settings = get_settings()
     client = OpenAI(base_url=settings.llm_api_base, api_key=settings.llm_api_key)
+    provider_options = (
+        {"extra_body": {"thinking": {"type": "disabled"}}}
+        if "api.deepseek.com" in settings.llm_api_base.lower()
+        else {}
+    )
 
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
     system = BIOMATERIALS_SYSTEM_PROMPT
@@ -24,6 +29,7 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
         messages=[{"role": "system", "content": system}, *messages],
         tools=COPILOT_TOOLS,
         tool_choice="auto",
+        **provider_options,
     )
 
     choice = response.choices[0]
@@ -49,14 +55,30 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
         ]
         last_tool_name = None
         for call in message.tool_calls:
-            result = execute_tool(connection, call.function.name, call.function.arguments, payload.project_id)
+            try:
+                result = execute_tool(
+                    connection,
+                    call.function.name,
+                    call.function.arguments,
+                    payload.project_id,
+                )
+            except Exception as exc:
+                result = {
+                    "error": "tool_execution_failed",
+                    "tool": call.function.name,
+                    "detail": str(exc)[:500],
+                }
             tool_results.append({"tool": call.function.name, "result": result})
             last_tool_name = call.function.name
             followup_messages.append(
                 {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, default=str)}
             )
 
-        followup = client.chat.completions.create(model=settings.llm_model, messages=followup_messages)
+        followup = client.chat.completions.create(
+            model=settings.llm_model,
+            messages=followup_messages,
+            **provider_options,
+        )
         final_message = followup.choices[0].message.content or "Completed the requested analysis."
 
         return {

@@ -1,0 +1,19 @@
+#!/bin/bash
+
+#BSUB -J RFdiffusion
+#BSUB -q 8v100-32-sc
+#BSUB -n 1
+#BSUB -gpu "num=1"
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+source activate /work/bme-liz/miniconda3/envs/SE3nv-gpu
+
+/work/bme-liz/software/RFdiffusion/scripts/run_inference.py \
+inference.input_pdb=./b326.pdb \
+'contigmap.contigs=[A1-213/0/0 95-95]' \
+inference.num_designs=50 \
+inference.output_prefix=./binder \
+diffuser.partial_T=1 \
+> $LSB_JOBID.log 2>&1

@@ -1,0 +1,106 @@
+#!/bin/bash
+#BSUB -J copyandcut
+#BSUB -q v3-64
+#BSUB -n 1
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+set -euo pipefail
+
+mkdir -p logs
+
+# ====== 你只需要改这几行（全是绝对路径更稳）======
+SRC_DIR="/work/bme-sunzr/projects/0208_b326/mpnn/mpnn_outputs0.1/packed"   # A：原始 .pdb 所在目录
+OUT_DIR="./cut"  # cut 后输出目录
+PREFIX="1_"                                            # copy 时加的前缀
+# ====================================================
+
+echo "[INFO] Host: $(hostname)"
+echo "[INFO] PWD : $(pwd)"
+echo "[INFO] SRC_DIR=${SRC_DIR}"
+echo "[INFO] OUT_DIR=${OUT_DIR}"
+echo "[INFO] PREFIX=${PREFIX}"
+
+mkdir -p "${OUT_DIR}"
+
+command -v python3 >/dev/null 2>&1 || { echo "[ERROR] python3 not found in PATH"; exit 1; }
+
+export SRC_DIR OUT_DIR PREFIX
+
+python3 - <<'PY'
+from pathlib import Path
+import os, sys
+
+def pad80(s: str) -> str:
+    return (s.rstrip("\n") + " " * 80)[:80] + "\n"
+
+def main():
+    src_dir = Path(os.environ["SRC_DIR"]).expanduser().resolve()
+    out_dir = Path(os.environ["OUT_DIR"]).expanduser().resolve()
+    prefix  = os.environ.get("PREFIX", "")
+
+    if not src_dir.is_dir():
+        print(f"[ERROR] SRC_DIR 不存在或不是目录：{src_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    pdbs = sorted([p for p in src_dir.iterdir() if p.is_file() and p.suffix.lower() == ".pdb"])
+    if not pdbs:
+        print(f"[ERROR] 在 {src_dir} 没找到任何 .pdb", file=sys.stderr)
+        sys.exit(1)
+
+    n_ok = 0
+    n_skip = 0
+
+    for pdb in pdbs:
+        try:
+            lines = pdb.read_text(encoding="utf-8", errors="replace").splitlines(True)
+
+            out_lines = []
+            kept_atoms = 0
+            seen_atom = False
+
+            for raw in lines:
+                rec = raw[:6].strip()
+
+                if raw.startswith(("ATOM", "HETATM")):
+                    seen_atom = True
+                    line = pad80(raw)
+                    chain = line[21] if len(line) > 21 else " "
+                    if chain == "B":
+                        out_lines.append(line)
+                        kept_atoms += 1
+                    continue
+
+                # 原子前的头部信息保留（但丢掉可能引用已删原子的记录）
+                if not seen_atom:
+                    if rec in {"TER", "CONECT", "MASTER", "END"}:
+                        continue
+                    out_lines.append(raw)
+                else:
+                    # 原子之后一般只需要 END，其他像 CONECT/TER 可能引用被删除的原子，直接丢掉更稳
+                    continue
+
+            if kept_atoms == 0:
+                print(f"[WARN] {pdb.name}: 没找到 chain B（未输出文件）", file=sys.stderr)
+                n_skip += 1
+                continue
+
+            # 确保有 END
+            if not (out_lines and out_lines[-1].startswith("END")):
+                out_lines.append("END\n")
+
+            out_path = out_dir / f"{prefix}{pdb.name}"
+            out_path.write_text("".join(out_lines), encoding="utf-8")
+            n_ok += 1
+
+        except Exception as e:
+            print(f"[WARN] 跳过 {pdb.name}: {e}", file=sys.stderr)
+
+    print(f"[DONE] 输出 {n_ok} 个文件到 {out_dir}；跳过 {n_skip} 个（无B链）")
+
+if __name__ == "__main__":
+    main()
+PY

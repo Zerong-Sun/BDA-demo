@@ -3,7 +3,7 @@ import sqlite3
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from ..auth.deps import require_node_run_access, require_workflow_run_access
+from ..auth.deps import get_current_user, require_node_run_access, require_workflow_run_access
 from ..db import get_connection
 from ..services import job_service
 from ..utils.response import envelope
@@ -19,6 +19,33 @@ class SubmitWorkflowRequest(BaseModel):
 class SubmitNodeRequest(BaseModel):
     compute_node_id: str | None = None
     override_params: dict | None = None
+
+
+@router.get("/compute/cluster-health")
+def cluster_health(
+    _user: dict = Depends(get_current_user),
+):
+    from ..compute.factory import get_compute_adapter
+    from ..settings import get_settings
+
+    adapter = get_compute_adapter()
+    health = getattr(adapter, "health", None)
+    if not callable(health):
+        return envelope({
+            "mode": get_settings().bda_compute_mode,
+            "connected": False,
+            "queues": [],
+            "reason": "remote_cluster_adapter_not_enabled",
+        })
+    try:
+        return envelope(health())
+    except RuntimeError as exc:
+        return envelope({
+            "mode": "remote_lsf",
+            "connected": False,
+            "queues": [],
+            "reason": str(exc),
+        })
 
 
 @router.post("/workflow-runs/{workflow_run_id}/submit-to-compute")
@@ -38,10 +65,14 @@ def submit_workflow_run(
             "message": "No pending workflow nodes to submit, or compute is in demo mode.",
             "job_ids": [],
         })
+    from ..services.campaign_service import sync_round_status
+
+    campaign_round = sync_round_status(connection, workflow_run_id)
     return envelope({
         "workflow_run_id": workflow_run_id,
         "status": "queued",
         "job_ids": [j["job_id"] for j in jobs],
+        "campaign_round": campaign_round,
     })
 
 

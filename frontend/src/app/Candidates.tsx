@@ -13,6 +13,7 @@ import { CandidateTable } from '../features/candidates/CandidateTable'
 import { CandidateDetail } from '../features/candidates/CandidateDetail'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import type { Candidate } from '../lib/schemas/candidate'
+import { ProjectContextBar } from '../features/projects/ProjectContextBar'
 
 const PAGE_SIZE = 10
 
@@ -77,6 +78,7 @@ export function CandidatesPage() {
 
   return (
     <section>
+      <ProjectContextBar />
       <PageHead
         eyebrow={t.candidates.eyebrow}
         title={t.candidates.title}

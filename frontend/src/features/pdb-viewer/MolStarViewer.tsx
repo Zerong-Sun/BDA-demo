@@ -174,7 +174,7 @@ export function MolStarViewer({
     }
 
     void loadStructure(viewer)
-  }, [sourceUrl, file, loading])
+  }, [sourceUrl, file, loading, representation, color])
 
   useEffect(() => {
     const host = hostRef.current

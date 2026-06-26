@@ -1,0 +1,16 @@
+#!/bin/bash
+
+#BSUB -J score_interface
+#BSUB -q v3-64
+#BSUB -n 24
+#BSUB -R "span[ptile=24]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+if compgen -G "./af3_collect_sum/pdb/*.pdb" > /dev/null; then
+  for pdb in ./af3_collect_sum/pdb/*.pdb; do
+    ./design.sh "$pdb"
+  done
+else
+  exit 2
+fi

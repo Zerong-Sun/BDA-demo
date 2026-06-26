@@ -1,0 +1,4 @@
+5_10_binder_0_seq_0_packed_0 model_4_ptm_seed_0 recycles:5 tol:0.13 mean_plddt:78.00 pTMscore:0.63 rmsd_to_input:2.07 elapsed time (s): 137.0872507095337
+5_10_binder_0_seq_1_packed_0 model_4_ptm_seed_0 recycles:5 tol:0.38 mean_plddt:71.74 pTMscore:0.53 rmsd_to_input:1.91 elapsed time (s): 133.31496238708496
+5_10_binder_0_seq_2_packed_0 model_4_ptm_seed_0 recycles:5 tol:0.04 mean_plddt:89.51 pTMscore:0.79 rmsd_to_input:0.72 elapsed time (s): 133.75200939178467
+5_10_binder_0_seq_3_packed_0 model_4_ptm_seed_0 recycles:5 tol:0.34 mean_plddt:86.55 pTMscore:0.72 rmsd_to_input:1.95 elapsed time (s): 133.39547204971313

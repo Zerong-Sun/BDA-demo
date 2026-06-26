@@ -255,6 +255,246 @@ CREATE TABLE IF NOT EXISTS knowledge_entries (
   updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS research_sources (
+  source_id TEXT PRIMARY KEY,
+  source_type TEXT NOT NULL,
+  title TEXT NOT NULL,
+  uri TEXT NOT NULL,
+  content_hash TEXT,
+  version_ref TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  last_ingested_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(source_type, uri)
+);
+
+CREATE TABLE IF NOT EXISTS script_assets (
+  script_asset_id TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  model_plugin_id TEXT,
+  relative_path TEXT NOT NULL,
+  language TEXT NOT NULL,
+  scheduler TEXT,
+  content_hash TEXT NOT NULL,
+  resource_config_json TEXT NOT NULL DEFAULT '{}',
+  environment_json TEXT NOT NULL DEFAULT '{}',
+  input_hints_json TEXT NOT NULL DEFAULT '[]',
+  output_hints_json TEXT NOT NULL DEFAULT '[]',
+  parse_warnings_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (source_id) REFERENCES research_sources(source_id),
+  FOREIGN KEY (model_plugin_id) REFERENCES model_plugins(model_plugin_id),
+  UNIQUE(relative_path)
+);
+
+CREATE TABLE IF NOT EXISTS model_parameter_catalog (
+  parameter_catalog_id TEXT PRIMARY KEY,
+  model_plugin_id TEXT NOT NULL,
+  parameter_key TEXT NOT NULL,
+  label TEXT,
+  parameter_type TEXT NOT NULL,
+  default_value_json TEXT,
+  constraints_json TEXT NOT NULL DEFAULT '{}',
+  description TEXT,
+  advanced INTEGER NOT NULL DEFAULT 0,
+  provenance TEXT NOT NULL DEFAULT 'plugin_schema',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (model_plugin_id) REFERENCES model_plugins(model_plugin_id),
+  UNIQUE(model_plugin_id, parameter_key)
+);
+
+CREATE TABLE IF NOT EXISTS script_parameter_observations (
+  observation_id TEXT PRIMARY KEY,
+  script_asset_id TEXT NOT NULL,
+  model_plugin_id TEXT,
+  parameter_key TEXT NOT NULL,
+  raw_value TEXT,
+  normalized_value_json TEXT,
+  source_line INTEGER,
+  source_kind TEXT NOT NULL,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (script_asset_id) REFERENCES script_assets(script_asset_id),
+  FOREIGN KEY (model_plugin_id) REFERENCES model_plugins(model_plugin_id),
+  UNIQUE(script_asset_id, parameter_key, source_line, source_kind)
+);
+
+CREATE TABLE IF NOT EXISTS literature_documents (
+  document_id TEXT PRIMARY KEY,
+  source_id TEXT NOT NULL,
+  external_source TEXT NOT NULL,
+  external_id TEXT NOT NULL,
+  title TEXT NOT NULL,
+  authors TEXT,
+  journal TEXT,
+  publication_year INTEGER,
+  doi TEXT,
+  pmid TEXT,
+  pmcid TEXT,
+  abstract_text TEXT,
+  content_kind TEXT NOT NULL DEFAULT 'metadata',
+  full_text_status TEXT NOT NULL DEFAULT 'not_requested',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (source_id) REFERENCES research_sources(source_id),
+  UNIQUE(external_source, external_id)
+);
+
+CREATE TABLE IF NOT EXISTS document_chunks (
+  chunk_id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  section_title TEXT,
+  section_path TEXT,
+  chunk_index INTEGER NOT NULL,
+  content TEXT NOT NULL,
+  content_hash TEXT NOT NULL,
+  token_estimate INTEGER NOT NULL DEFAULT 0,
+  summary_text TEXT,
+  summary_method TEXT,
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (document_id) REFERENCES literature_documents(document_id),
+  UNIQUE(document_id, chunk_index)
+);
+
+CREATE TABLE IF NOT EXISTS scientific_claims (
+  claim_id TEXT PRIMARY KEY,
+  document_id TEXT NOT NULL,
+  statement TEXT NOT NULL,
+  claim_type TEXT NOT NULL DEFAULT 'finding',
+  context_json TEXT NOT NULL DEFAULT '{}',
+  confidence REAL,
+  extraction_method TEXT NOT NULL,
+  review_status TEXT NOT NULL DEFAULT 'pending_review',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (document_id) REFERENCES literature_documents(document_id)
+);
+
+CREATE TABLE IF NOT EXISTS claim_evidence (
+  evidence_id TEXT PRIMARY KEY,
+  claim_id TEXT NOT NULL,
+  chunk_id TEXT NOT NULL,
+  evidence_excerpt TEXT NOT NULL,
+  start_offset INTEGER,
+  end_offset INTEGER,
+  evidence_role TEXT NOT NULL DEFAULT 'supports',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (claim_id) REFERENCES scientific_claims(claim_id),
+  FOREIGN KEY (chunk_id) REFERENCES document_chunks(chunk_id)
+);
+
+CREATE TABLE IF NOT EXISTS claim_relations (
+  relation_id TEXT PRIMARY KEY,
+  source_claim_id TEXT NOT NULL,
+  target_claim_id TEXT NOT NULL,
+  relation_type TEXT NOT NULL,
+  rationale TEXT,
+  confidence REAL,
+  review_status TEXT NOT NULL DEFAULT 'pending_review',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (source_claim_id) REFERENCES scientific_claims(claim_id),
+  FOREIGN KEY (target_claim_id) REFERENCES scientific_claims(claim_id),
+  UNIQUE(source_claim_id, target_claim_id, relation_type)
+);
+
+CREATE TABLE IF NOT EXISTS research_campaigns (
+  campaign_id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  objective TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'draft',
+  max_rounds INTEGER NOT NULL DEFAULT 3,
+  current_round INTEGER NOT NULL DEFAULT 1,
+  budget_json TEXT NOT NULL DEFAULT '{}',
+  stop_conditions_json TEXT NOT NULL DEFAULT '[]',
+  strategy_json TEXT NOT NULL DEFAULT '{}',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (project_id) REFERENCES projects(project_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS campaign_rounds (
+  campaign_round_id TEXT PRIMARY KEY,
+  campaign_id TEXT NOT NULL,
+  round_number INTEGER NOT NULL,
+  workflow_run_id TEXT NOT NULL,
+  parent_round_id TEXT,
+  status TEXT NOT NULL DEFAULT 'draft',
+  parameter_patch_json TEXT NOT NULL DEFAULT '{}',
+  approval_status TEXT NOT NULL DEFAULT 'not_required',
+  approved_by TEXT,
+  approved_at TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT,
+  FOREIGN KEY (campaign_id) REFERENCES research_campaigns(campaign_id) ON DELETE CASCADE,
+  FOREIGN KEY (workflow_run_id) REFERENCES workflow_runs(workflow_run_id) ON DELETE CASCADE,
+  FOREIGN KEY (parent_round_id) REFERENCES campaign_rounds(campaign_round_id) ON DELETE SET NULL,
+  UNIQUE(campaign_id, round_number),
+  UNIQUE(workflow_run_id)
+);
+
+CREATE TABLE IF NOT EXISTS campaign_evaluations (
+  evaluation_id TEXT PRIMARY KEY,
+  campaign_round_id TEXT NOT NULL,
+  metrics_json TEXT NOT NULL DEFAULT '{}',
+  criteria_results_json TEXT NOT NULL DEFAULT '[]',
+  recommendation TEXT NOT NULL,
+  rationale TEXT,
+  evaluator TEXT NOT NULL DEFAULT 'rule_based',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (campaign_round_id) REFERENCES campaign_rounds(campaign_round_id) ON DELETE CASCADE,
+  UNIQUE(campaign_round_id)
+);
+
+CREATE TABLE IF NOT EXISTS campaign_decisions (
+  decision_id TEXT PRIMARY KEY,
+  campaign_round_id TEXT NOT NULL,
+  decision_type TEXT NOT NULL,
+  parameter_patch_json TEXT NOT NULL DEFAULT '{}',
+  rationale TEXT,
+  status TEXT NOT NULL DEFAULT 'proposed',
+  proposed_by TEXT NOT NULL DEFAULT 'system',
+  reviewed_by TEXT,
+  reviewed_at TEXT,
+  next_campaign_round_id TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (campaign_round_id) REFERENCES campaign_rounds(campaign_round_id) ON DELETE CASCADE,
+  FOREIGN KEY (next_campaign_round_id) REFERENCES campaign_rounds(campaign_round_id) ON DELETE SET NULL,
+  UNIQUE(campaign_round_id)
+);
+
+CREATE TABLE IF NOT EXISTS literature_subscriptions (
+  subscription_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  query TEXT NOT NULL,
+  enabled INTEGER NOT NULL DEFAULT 1,
+  interval_hours INTEGER NOT NULL DEFAULT 24,
+  result_limit INTEGER NOT NULL DEFAULT 5,
+  fetch_full_text INTEGER NOT NULL DEFAULT 1,
+  extract_claims INTEGER NOT NULL DEFAULT 1,
+  last_run_at TEXT,
+  next_run_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  last_status TEXT,
+  last_result_json TEXT NOT NULL DEFAULT '{}',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS audit_logs (
   audit_id TEXT PRIMARY KEY,
   actor_id TEXT,
@@ -279,6 +519,23 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_node_run_id ON artifacts(node_run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_category ON knowledge_entries(category);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_status ON knowledge_entries(status);
+CREATE INDEX IF NOT EXISTS idx_research_sources_type ON research_sources(source_type);
+CREATE INDEX IF NOT EXISTS idx_script_assets_model ON script_assets(model_plugin_id);
+CREATE INDEX IF NOT EXISTS idx_parameter_catalog_model ON model_parameter_catalog(model_plugin_id);
+CREATE INDEX IF NOT EXISTS idx_script_parameter_model ON script_parameter_observations(model_plugin_id);
+CREATE INDEX IF NOT EXISTS idx_literature_documents_doi ON literature_documents(doi);
+CREATE INDEX IF NOT EXISTS idx_literature_documents_pmid ON literature_documents(pmid);
+CREATE INDEX IF NOT EXISTS idx_document_chunks_document ON document_chunks(document_id);
+CREATE INDEX IF NOT EXISTS idx_scientific_claims_document ON scientific_claims(document_id);
+CREATE INDEX IF NOT EXISTS idx_scientific_claims_review ON scientific_claims(review_status);
+CREATE INDEX IF NOT EXISTS idx_claim_evidence_claim ON claim_evidence(claim_id);
+CREATE INDEX IF NOT EXISTS idx_campaigns_project ON research_campaigns(project_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_rounds_campaign ON campaign_rounds(campaign_id, round_number);
+CREATE INDEX IF NOT EXISTS idx_campaign_evaluations_round ON campaign_evaluations(campaign_round_id);
+CREATE INDEX IF NOT EXISTS idx_campaign_decisions_round ON campaign_decisions(campaign_round_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_campaign_evaluation_round ON campaign_evaluations(campaign_round_id);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_campaign_decision_round ON campaign_decisions(campaign_round_id);
+CREATE INDEX IF NOT EXISTS idx_literature_subscriptions_due ON literature_subscriptions(enabled, next_run_at);
 CREATE INDEX IF NOT EXISTS idx_candidates_project_id ON candidates(project_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_workflow_run_id ON candidates(workflow_run_id);
 CREATE INDEX IF NOT EXISTS idx_candidates_status ON candidates(status);

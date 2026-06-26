@@ -1,4 +1,6 @@
 import sqlite3
+import re
+import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
@@ -10,6 +12,7 @@ from ..auth.deps import (
 )
 from ..db import get_connection
 from ..repositories import catalog
+from ..schemas import CreateProjectRequest
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -49,6 +52,36 @@ def projects(
 ):
     items, total = catalog.list_projects_paginated(connection, limit=limit, offset=offset)
     return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
+
+
+@router.post("/projects")
+def create_project(
+    payload: CreateProjectRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    if user.get("role") == "viewer":
+        raise HTTPException(status_code=403, detail="forbidden")
+    name = payload.project_name.strip()
+    project_type = payload.project_type.strip()
+    if not name or not project_type:
+        raise HTTPException(status_code=422, detail="project_name_and_type_required")
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")[:30] or "project"
+    project_id = f"proj_{slug}_{uuid.uuid4().hex[:6]}"
+    organization = connection.execute(
+        "SELECT organization_id FROM organization_members WHERE user_id = ? LIMIT 1",
+        (user.get("user_id"),),
+    ).fetchone()
+    item = catalog.create_project(
+        connection,
+        project_id=project_id,
+        project_name=name,
+        project_type=project_type,
+        owner_id=user.get("user_id"),
+        organization_id=organization["organization_id"] if organization else None,
+        summary=payload.summary.strip() if payload.summary else None,
+    )
+    return envelope(item)
 
 
 @router.get("/projects/{project_id}")

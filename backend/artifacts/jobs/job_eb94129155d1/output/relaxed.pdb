@@ -1,0 +1,7 @@
+REMARK BDA stub Rosetta output
+REMARK input_structure art_9d8e390b24094e67
+REMARK protocol interface_score
+ATOM      1  N   ALA A   1       0.000   0.000   0.000  1.00 80.00           N
+ATOM      2  CA  ALA A   1       1.400   0.000   0.000  1.00 80.00           C
+TER
+END
