@@ -162,7 +162,7 @@ def patch_workflow_node(
         connection,
         node_run_id,
         position_json=json.dumps(payload.position) if payload.position else None,
-        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json else None,
+        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json is not None else None,
         status=payload.status,
     )
     if node is None:

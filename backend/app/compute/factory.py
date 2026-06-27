@@ -13,6 +13,14 @@ from ..settings import REPO_ROOT
 
 
 class DemoComputeAdapter:
+    def render_script(self, job: JobSpec) -> str:
+        return "\n".join([
+            "#!/bin/bash",
+            f"# Demo compute preview for {job.job_id}",
+            "echo 'Compute not connected. Set BDA_COMPUTE_MODE=remote_lsf to submit to LSF.'",
+            "",
+        ])
+
     def submit(self, job: JobSpec) -> JobHandle:
         return JobHandle(job_id=job.job_id, external_id=f"demo-{job.job_id}")
 
@@ -38,6 +46,31 @@ class LocalDockerAdapter:
 
         settings = get_settings()
         self._client = docker.from_env() if settings.bda_docker_host == "unix:///var/run/docker.sock" else docker.DockerClient(base_url=settings.bda_docker_host)
+
+    def render_script(self, job: JobSpec) -> str:
+        env = {
+            "BDA_JOB_ID": job.job_id,
+            "BDA_INPUT_MANIFEST": "/input/manifest.json",
+            "BDA_OUTPUT_DIR": "/output",
+            **(job.env or {}),
+        }
+        env_flags = " ".join(f"-e {shlex.quote(str(key))}={shlex.quote(str(value))}" for key, value in sorted(env.items()))
+        volume_flags = []
+        if job.input_dir:
+            volume_flags.append(f"-v {shlex.quote(job.input_dir)}:/input:ro")
+        if job.output_dir:
+            volume_flags.append(f"-v {shlex.quote(job.output_dir)}:/output:rw")
+        if job.work_dir:
+            volume_flags.append(f"-v {shlex.quote(job.work_dir)}:/work:rw")
+        return "\n".join([
+            "#!/bin/bash",
+            f"# Local Docker preview for {job.job_id}",
+            "docker run --rm \\",
+            f"  {env_flags} \\",
+            f"  {' '.join(volume_flags)} \\",
+            f"  {shlex.quote(job.container_image)} {job.command}",
+            "",
+        ])
 
     def submit(self, job: JobSpec) -> JobHandle:
         import docker
@@ -116,6 +149,22 @@ class LocalProcessAdapter:
 
     def __init__(self) -> None:
         self._statuses: dict[str, JobStatus] = {}
+
+    def render_script(self, job: JobSpec) -> str:
+        env = {
+            "BDA_JOB_ID": job.job_id,
+            "BDA_INPUT_MANIFEST": str(Path(job.input_dir or "") / "manifest.json"),
+            "BDA_OUTPUT_DIR": str(Path(job.output_dir or "")),
+            **(job.env or {}),
+        }
+        exports = [f"export {key}={shlex.quote(str(value))}" for key, value in sorted(env.items())]
+        return "\n".join([
+            "#!/bin/bash",
+            f"# Local process preview for {job.job_id}",
+            *exports,
+            job.command or "python run.py",
+            "",
+        ])
 
     def _runner_dir(self, image: str) -> Path:
         image_name = image.split(":", 1)[0]
@@ -434,6 +483,12 @@ PY"""
         ])
         return "\n".join(directives) + "\n"
 
+    def render_script(self, job: JobSpec) -> str:
+        trusted_command = self._plugin_commands.get(job.plugin_id)
+        if not trusted_command:
+            raise RuntimeError(f"remote_lsf_plugin_not_configured:{job.plugin_id}")
+        return self._render_lsf_script(job, trusted_command)
+
     def _upload_workspace(self, job: JobSpec, script: str) -> None:
         if not job.input_dir or not job.work_dir:
             raise RuntimeError("remote_lsf_workspace_missing")
@@ -476,10 +531,7 @@ PY"""
         )
 
     def submit(self, job: JobSpec) -> JobHandle:
-        trusted_command = self._plugin_commands.get(job.plugin_id)
-        if not trusted_command:
-            raise RuntimeError(f"remote_lsf_plugin_not_configured:{job.plugin_id}")
-        script = self._render_lsf_script(job, trusted_command)
+        script = self.render_script(job)
         self._upload_workspace(job, script)
         remote_dir = self._remote_job_dir(job.job_id)
         result = self._run_ssh(

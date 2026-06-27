@@ -31,6 +31,25 @@ def test_project_overview(client: TestClient, auth_headers: dict[str, str]):
     assert "compute_status" in payload
 
 
+def test_workflow_node_script_preview_uses_override_params(client: TestClient, auth_headers: dict[str, str]):
+    response = client.post(
+        f"{API}/workflow-node-runs/node_rf/script-preview",
+        headers=auth_headers,
+        json={
+            "override_params": {
+                "inference.num_designs": 5,
+                "contigmap.contigs": "[A1-50/2-4/B1-19/B21-44]",
+                "scaffold": "monellin",
+            }
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["plugin_id"] == "plugin_rfdiffusion"
+    assert data["input_manifest"]["parameters"]["inference.num_designs"] == 5
+    assert "script" in data and data["script"].startswith("#!/bin/bash")
+
+
 def test_candidates_filter(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(
         f"{API}/projects/proj_pd1_0423/candidates?decision=Anchor&limit=5",

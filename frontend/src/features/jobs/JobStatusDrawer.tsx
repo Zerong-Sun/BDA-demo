@@ -13,9 +13,10 @@ import { useProjectContext } from '../../lib/hooks/useProjectContext'
 interface JobStatusDrawerProps {
   workflowRunId?: string
   selectedNodeId?: string | null
+  overrideParams?: Record<string, unknown>
 }
 
-export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDrawerProps) {
+export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams }: JobStatusDrawerProps) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null)
   const [manualOpen, setManualOpen] = useState(false)
   const [queueName, setQueueName] = useState('gpu-bme-liz')
@@ -63,6 +64,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
     mutationFn: () => {
       if (!selectedNodeId) throw new Error('Select a workflow node first.')
       return submitWorkflowNode(selectedNodeId, {
+        override_params: overrideParams,
         queue_name: queueName.trim() || undefined,
         cpu_count: cpuCount,
         resource_requirement: resourceRequirement.trim() || undefined,

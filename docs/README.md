@@ -11,6 +11,7 @@ This directory keeps the current technical and product-supporting documentation 
 | `DATA_MODEL.md` | Core data ownership, workflow, research, artifact, and campaign entities |
 | `PRD02_后端与工作流接入规划.md` | Backend, artifact contract, plugin registry, compute adapter, and workflow integration plan |
 | `PLAN_甜味蛋白研发Copilot与自动工作流.md` | Sweet protein research Copilot and automated workflow plan |
+| `RFDIFFUSION_WORKFLOW_SUBMISSION.md` | Fixed RFdiffusion node parameter, script preview, LSF submission, and output collection contract |
 | `COPILOT_科研检索与集群任务指南.md` | Research search, literature learning, cluster jobs, and Campaign guide |
 | `COPILOT_DEEPSEEK_配置指南.md` | DeepSeek / OpenAI-compatible Copilot configuration notes |
 | `DEV_GUIDE_接口与模型卡片扩展.md` | API and model-card extension guide |

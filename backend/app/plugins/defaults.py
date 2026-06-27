@@ -70,6 +70,7 @@ DEFAULT_MODEL_PLUGINS: list[dict[str, Any]] = [
         "parameter_schema_json": {
             "fields": [
                 _field("inference.input_pdb", "Input PDB", "artifact_ref", "", "Target or motif PDB passed as inference.input_pdb."),
+                _field("scaffold", "Route / scaffold label", "enum", "custom", "Human-readable route label used in generated candidate metadata.", options=["custom", "monellin", "brazzein", "thaumatin", "mabinlin"]),
                 _field("contigmap.contigs", "Contigs", "string", "[A1-150/0 70-100]", "Hydra contig list, e.g. target residues plus a chain break and binder length range."),
                 _field("ppi.hotspot_res", "Hotspot residues", "string", "[A59,A83,A91]", "Target residues used to bias binder contacts."),
                 _field("inference.num_designs", "Number of designs", "integer", 100, "RFdiffusion trajectories/backbones to sample.", minimum=1, maximum=100000),

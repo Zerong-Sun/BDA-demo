@@ -133,6 +133,7 @@ def submit_workflow_node(
             cpu_count=payload.cpu_count,
             resource_requirement=payload.resource_requirement,
             gpu_requirement=payload.gpu_requirement,
+            override_params=payload.override_params,
         )
     except ValueError as exc:
         detail = str(exc)
@@ -143,3 +144,30 @@ def submit_workflow_node(
         "job_id": job.get("job_id"),
         "status": job.get("status", "queued"),
     })
+
+
+@router.post("/workflow-node-runs/{node_run_id}/script-preview")
+def preview_workflow_node_script(
+    node_run_id: str,
+    payload: SubmitNodeRequest | None = None,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_node_run_access),
+):
+    payload = payload or SubmitNodeRequest()
+    _validate_lsf_overrides(payload)
+    try:
+        preview = job_service.preview_node_job_script(
+            connection,
+            node_run_id,
+            override_params=payload.override_params,
+            compute_node_id=payload.compute_node_id,
+            queue_name=payload.queue_name,
+            cpu_count=payload.cpu_count,
+            resource_requirement=payload.resource_requirement,
+            gpu_requirement=payload.gpu_requirement,
+        )
+    except ValueError as exc:
+        detail = str(exc)
+        status = 404 if detail == "node_not_found" else 400
+        raise HTTPException(status_code=status, detail=detail) from exc
+    return envelope(preview)

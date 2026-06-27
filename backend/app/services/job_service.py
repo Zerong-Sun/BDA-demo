@@ -477,6 +477,129 @@ def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
     return env
 
 
+def _plugin_for_node(connection: sqlite3.Connection, node: dict[str, Any]) -> dict | None:
+    if not node.get("model_name"):
+        return None
+    plugins = registry.list_model_plugins(connection)
+    return next((p for p in plugins if p.get("model_name") == node.get("model_name")), None)
+
+
+def _node_parameters(node: dict[str, Any]) -> dict[str, Any]:
+    parameters = node.get("parameters_json") or {}
+    if isinstance(parameters, str):
+        try:
+            parsed = json.loads(parameters)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return parameters if isinstance(parameters, dict) else {}
+
+
+def _node_with_parameters(node: dict[str, Any], parameters: dict[str, Any] | None) -> dict[str, Any]:
+    if parameters is None:
+        return node
+    merged = {**_node_parameters(node), **parameters}
+    return {**node, "parameters_json": merged}
+
+
+def _build_node_job_spec(
+    connection: sqlite3.Connection,
+    *,
+    node: dict[str, Any],
+    job: dict[str, Any],
+    plugin: dict | None,
+    compute_node_id: str | None = None,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> tuple[JobSpec, dict[str, Any]]:
+    plugin_id = (plugin or {}).get("model_plugin_id") or job.get("plugin_id") or "unknown"
+    runtime_env = _plugin_runtime_env(plugin)
+    if queue_name:
+        runtime_env["BDA_LSF_QUEUE"] = queue_name
+    if cpu_count:
+        runtime_env["BDA_CPU_COUNT"] = str(max(1, min(int(cpu_count), 256)))
+    if resource_requirement:
+        runtime_env["BDA_LSF_RESOURCE"] = resource_requirement
+    if gpu_requirement:
+        runtime_env["BDA_LSF_GPU"] = gpu_requirement
+
+    workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
+    spec = JobSpec(
+        job_id=job["job_id"],
+        workflow_run_id=node.get("workflow_run_id"),
+        node_run_id=node.get("node_run_id"),
+        plugin_id=plugin_id,
+        container_image=(plugin or {}).get("container_image") or "bda/demo:latest",
+        command=(plugin or {}).get("command_template") or "echo demo",
+        input_artifacts=job.get("input_artifacts") or {},
+        compute_node_id=compute_node_id,
+        env=runtime_env,
+        input_dir=workspace["input_dir"],
+        output_dir=workspace["output_dir"],
+        work_dir=workspace["work_dir"],
+        queue_name=queue_name,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
+    return spec, workspace
+
+
+def preview_node_job_script(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    *,
+    override_params: dict[str, Any] | None = None,
+    compute_node_id: str | None = None,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> dict[str, Any]:
+    node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+    if node is None:
+        raise ValueError("node_not_found")
+    preview_node = _node_with_parameters(node, override_params)
+    plugin = _plugin_for_node(connection, preview_node)
+    plugin_id = (plugin or {}).get("model_plugin_id", "unknown")
+    job = {
+        "job_id": f"job_preview_{uuid.uuid4().hex[:10]}",
+        "workflow_run_id": preview_node.get("workflow_run_id"),
+        "node_run_id": node_run_id,
+        "plugin_id": plugin_id,
+        "input_artifacts": resolve_node_input_artifacts(connection, preview_node),
+        "compute_node_id": compute_node_id,
+    }
+    spec, workspace = _build_node_job_spec(
+        connection,
+        node=preview_node,
+        job=job,
+        plugin=plugin,
+        compute_node_id=compute_node_id,
+        queue_name=queue_name,
+        cpu_count=cpu_count,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
+    adapter = get_compute_adapter()
+    try:
+        script = adapter.render_script(spec)
+    except RuntimeError as exc:
+        raise ValueError(str(exc)) from exc
+    return {
+        "job_id": spec.job_id,
+        "plugin_id": plugin_id,
+        "script": script,
+        "input_manifest": workspace["input_manifest"],
+        "local_workspace": {
+            "input_dir": workspace["input_dir"],
+            "output_dir": workspace["output_dir"],
+            "work_dir": workspace["work_dir"],
+        },
+    }
+
+
 def _enqueue_poll(job_id: str) -> None:
     try:
         from ..celery_app import poll_job_status
@@ -495,15 +618,20 @@ def submit_node_job(
     cpu_count: int | None = None,
     resource_requirement: str | None = None,
     gpu_requirement: str | None = None,
+    override_params: dict[str, Any] | None = None,
 ) -> dict:
     node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
     if node is None:
         raise ValueError("node_not_found")
+    if override_params is not None:
+        node = _node_with_parameters(node, override_params)
+        catalog.update_workflow_node(
+            connection,
+            node_run_id,
+            parameters_json=json.dumps(_node_parameters(node)),
+        )
 
-    plugin = None
-    if node.get("model_name"):
-        plugins = registry.list_model_plugins(connection)
-        plugin = next((p for p in plugins if p.get("model_name") == node.get("model_name")), None)
+    plugin = _plugin_for_node(connection, node)
 
     plugin_id = (plugin or {}).get("model_plugin_id", "unknown")
     job = create_job(
@@ -515,41 +643,22 @@ def submit_node_job(
         compute_node_id=compute_node_id,
     )
 
-    runtime_env = _plugin_runtime_env(plugin)
-    if queue_name:
-        runtime_env["BDA_LSF_QUEUE"] = queue_name
-    if cpu_count:
-        runtime_env["BDA_CPU_COUNT"] = str(max(1, min(int(cpu_count), 256)))
-    if resource_requirement:
-        runtime_env["BDA_LSF_RESOURCE"] = resource_requirement
-    if gpu_requirement:
-        runtime_env["BDA_LSF_GPU"] = gpu_requirement
-    container_image = (plugin or {}).get("container_image") or "bda/demo:latest"
-    command = (plugin or {}).get("command_template") or "echo demo"
-    workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
+    spec, workspace = _build_node_job_spec(
+        connection,
+        node=node,
+        job=job,
+        plugin=plugin,
+        compute_node_id=compute_node_id,
+        queue_name=queue_name,
+        cpu_count=cpu_count,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
     update_job_status(
         connection,
         job["job_id"],
         status="staging",
         output_artifacts={"input_manifest": workspace["input_manifest"]},
-    )
-
-    spec = JobSpec(
-        job_id=job["job_id"],
-        workflow_run_id=node.get("workflow_run_id"),
-        node_run_id=node_run_id,
-        plugin_id=plugin_id,
-        container_image=container_image,
-        command=command,
-        input_artifacts=job.get("input_artifacts") or {},
-        compute_node_id=compute_node_id,
-        env=runtime_env,
-        input_dir=workspace["input_dir"],
-        output_dir=workspace["output_dir"],
-        work_dir=workspace["work_dir"],
-        queue_name=queue_name,
-        resource_requirement=resource_requirement,
-        gpu_requirement=gpu_requirement,
     )
     adapter = get_compute_adapter()
     try:
