@@ -11,6 +11,23 @@ export function getJob(jobId: string): Promise<Job> {
   return apiRequest<Job>(`/jobs/${jobId}`, {}, JobSchema)
 }
 
+export function syncJobResult(jobId: string): Promise<{
+  job: Job
+  live_status: string
+  outputs?: Record<string, unknown> | null
+  next_actions?: string[]
+}> {
+  return apiRequest<{
+    job: unknown
+    live_status: string
+    outputs?: Record<string, unknown> | null
+    next_actions?: string[]
+  }>(`/jobs/${jobId}/sync`, { method: 'POST' }).then((payload) => ({
+    ...payload,
+    job: JobSchema.parse(payload.job),
+  }))
+}
+
 export function getJobLogs(jobId: string, tail = 200): Promise<{ job_id: string; logs: string }> {
   return apiRequest(`/jobs/${jobId}/logs?tail=${tail}`)
 }

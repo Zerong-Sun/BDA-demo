@@ -1,0 +1,39 @@
+{
+  "reference_artifact_id": "art_773887adb59f41d7",
+  "comparisons": [
+    {
+      "reference_artifact_id": "art_773887adb59f41d7",
+      "query_artifact_id": "art_ef06a6dd66d7495b",
+      "reference_name": "2O9U.pdb",
+      "query_name": "4HE7.pdb",
+      "reference_ca_count": 134,
+      "query_ca_count": 53,
+      "paired_ca_count": 53,
+      "ca_rmsd": 12.8214,
+      "coverage": 0.3955
+    },
+    {
+      "reference_artifact_id": "art_773887adb59f41d7",
+      "query_artifact_id": "art_509963755a94408c",
+      "reference_name": "2O9U.pdb",
+      "query_name": "2DS2.pdb",
+      "reference_ca_count": 134,
+      "query_ca_count": 189,
+      "paired_ca_count": 134,
+      "ca_rmsd": 20.6261,
+      "coverage": 0.709
+    },
+    {
+      "reference_artifact_id": "art_773887adb59f41d7",
+      "query_artifact_id": "art_d68b0a1f101b407d",
+      "reference_name": "2O9U.pdb",
+      "query_name": "2DPF.pdb",
+      "reference_ca_count": 134,
+      "query_ca_count": 444,
+      "paired_ca_count": 134,
+      "ca_rmsd": 17.6268,
+      "coverage": 0.3018
+    }
+  ],
+  "note": "CA atoms are paired by file order. Confirm chain and residue mapping before using RMSD as a design gate."
+}

@@ -1,12 +1,14 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CircleStop, RotateCw, Terminal } from 'lucide-react'
-import { cancelJob, getJobLogs, listWorkflowJobs } from '../../lib/api/jobs'
+import { CircleStop, Download, RotateCw, Terminal } from 'lucide-react'
+import { cancelJob, getJobLogs, listWorkflowJobs, syncJobResult } from '../../lib/api/jobs'
 import { submitWorkflowNode } from '../../lib/api/workflow'
 import type { Job } from '../../lib/schemas/job'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { statusTone } from '../../components/ui/statusTone'
 import { useToastStore } from '../../components/ui/toastStore'
+import { Link } from 'react-router-dom'
+import { useProjectContext } from '../../lib/hooks/useProjectContext'
 
 interface JobStatusDrawerProps {
   workflowRunId?: string
@@ -22,6 +24,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
   const [gpuRequirement, setGpuRequirement] = useState('num=1')
   const queryClient = useQueryClient()
   const showToast = useToastStore((s) => s.show)
+  const { projectId } = useProjectContext()
 
   const { data: jobs = [] } = useQuery({
     queryKey: ['workflow-jobs', workflowRunId],
@@ -72,6 +75,38 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
     },
     onError: (error) => showToast(error instanceof Error ? error.message : 'Manual submit failed', 'error'),
   })
+
+  const syncResult = useMutation({
+    mutationFn: (job: Job) => syncJobResult(job.job_id),
+    onSuccess: async (result) => {
+      const artifacts = Array.isArray(result.outputs?.artifacts) ? result.outputs.artifacts.length : 0
+      const message =
+        result.outputs?.manifest_found === true
+          ? `Synced ${artifacts} output artifact${artifacts === 1 ? '' : 's'}`
+          : `Job is ${result.live_status}; no output manifest yet`
+      showToast(message, result.outputs?.manifest_found === true ? 'success' : 'info')
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] }),
+        queryClient.invalidateQueries({ queryKey: ['job-logs', result.job.job_id] }),
+        queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] }),
+        queryClient.invalidateQueries({ queryKey: ['project-artifacts'] }),
+        queryClient.invalidateQueries({ queryKey: ['candidates'] }),
+      ])
+    },
+    onError: (error) => showToast(error instanceof Error ? error.message : 'Failed to sync cluster result', 'error'),
+  })
+
+  const outputSummary = useMemo(() => {
+    if (!selectedJob?.output_artifacts || typeof selectedJob.output_artifacts !== 'object') return null
+    const payload = selectedJob.output_artifacts as Record<string, unknown>
+    const artifacts = Array.isArray(payload.artifacts) ? payload.artifacts : []
+    const metrics = payload.metrics && typeof payload.metrics === 'object' ? (payload.metrics as Record<string, unknown>) : {}
+    return {
+      manifestFound: payload.manifest_found === true,
+      artifactCount: artifacts.length,
+      backboneCount: Number(metrics.backbone_count ?? artifacts.length) || artifacts.length,
+    }
+  }, [selectedJob])
 
   return (
     <section className="rounded-md border border-bda-border bg-bda-bg p-3">
@@ -210,7 +245,47 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId }: JobStatusDraw
                 Cancel
               </button>
             ) : null}
+            {selectedJob.external_id ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 rounded border border-bda-border px-2 py-1 text-xs text-bda-muted hover:text-bda-text disabled:opacity-40"
+                disabled={syncResult.isPending}
+                onClick={() => syncResult.mutate(selectedJob)}
+                title="Check LSF status and collect generated outputs"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {syncResult.isPending ? 'Syncing…' : 'Sync result'}
+              </button>
+            ) : null}
           </div>
+          {outputSummary ? (
+            <div className="rounded-md border border-bda-border bg-bda-panel p-2 text-xs text-bda-muted">
+              <div className="flex items-center justify-between gap-2">
+                <span>
+                  {outputSummary.manifestFound
+                    ? `${outputSummary.backboneCount} generated backbone${outputSummary.backboneCount === 1 ? '' : 's'} registered`
+                    : 'No output manifest registered yet'}
+                </span>
+                <span>{outputSummary.artifactCount} artifact{outputSummary.artifactCount === 1 ? '' : 's'}</span>
+              </div>
+              {outputSummary.manifestFound ? (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Link
+                    className="rounded border border-bda-border px-2 py-1 hover:text-bda-text"
+                    to={`/candidates?project=${encodeURIComponent(projectId)}`}
+                  >
+                    Review candidates
+                  </Link>
+                  <Link
+                    className="rounded border border-bda-border px-2 py-1 hover:text-bda-text"
+                    to={`/workflow?project=${encodeURIComponent(projectId)}`}
+                  >
+                    Continue workflow
+                  </Link>
+                </div>
+              ) : null}
+            </div>
+          ) : null}
           <pre className="max-h-48 overflow-auto rounded-md border border-bda-border bg-black/30 p-2 text-xs leading-relaxed text-bda-muted">
             {logPayload?.logs ||
               selectedJob.logs ||

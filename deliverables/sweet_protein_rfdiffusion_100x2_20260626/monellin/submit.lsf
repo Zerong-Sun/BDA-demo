@@ -1,0 +1,33 @@
+#!/bin/bash
+
+#BSUB -J RFdiffusion_monellin
+#BSUB -q 4v100-16-e5
+#BSUB -n 1
+#BSUB -gpu "num=1"
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+cd /work/bme-sunzr/bda/jobs/job_9ca5d2d649a9
+mkdir -p output work logs
+cp input/art_79d1e3c207524d58_2O9U_monellin_B50_A44_for_linker_design.pdb work/monellin_input.pdb
+
+source activate /work/bme-liz/miniconda3/envs/SE3nv-gpu
+
+cd work
+/work/bme-liz/software/RFdiffusion/scripts/run_inference.py \
+inference.input_pdb=./monellin_input.pdb \
+'contigmap.contigs=[A1-50/2-4/B1-19/B21-44]' \
+inference.num_designs=100 \
+inference.output_prefix=../output/monellin_design \
+diffuser.partial_T=0 \
+diffuser.T=50 \
+denoiser.noise_scale_ca=0.5 \
+denoiser.noise_scale_frame=0.5 \
+> ../logs/$LSB_JOBID.log 2>&1
+
+python collect_rfdiffusion_outputs.py \
+  --output-dir ../output \
+  --manifest ../input/manifest.json \
+  --prefix monellin_design \
+  >> ../logs/$LSB_JOBID.log 2>&1

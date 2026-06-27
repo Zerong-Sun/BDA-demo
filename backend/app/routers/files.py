@@ -46,6 +46,11 @@ class BatchArtifactDownloadRequest(BaseModel):
     filename: str = "artifacts.zip"
 
 
+class BatchCandidateDownloadRequest(BaseModel):
+    candidate_ids: list[str] = Field(default_factory=list, min_length=1, max_length=500)
+    filename: str = "candidate_structures.zip"
+
+
 def _safe_upload_filename(filename: str) -> str:
     base = Path(filename).name
     if not base or not SAFE_FILENAME_RE.match(base):
@@ -352,6 +357,78 @@ def batch_download_artifacts(
         raise
 
 
+@router.post("/candidates/batch-download")
+def batch_download_candidate_structures(
+    payload: BatchCandidateDownloadRequest,
+    background_tasks: BackgroundTasks,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    safe_filename = _safe_upload_filename(payload.filename)
+    if not safe_filename.lower().endswith(".zip"):
+        safe_filename = f"{safe_filename}.zip"
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp_path = Path(tmp.name)
+    tmp.close()
+    manifest: list[dict] = []
+    missing: list[str] = []
+    written = 0
+
+    try:
+        with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as archive:
+            for candidate_id in dict.fromkeys(payload.candidate_ids):
+                candidate = catalog.get_candidate(connection, candidate_id)
+                if candidate is None:
+                    missing.append(f"{candidate_id}: candidate_not_found")
+                    continue
+                if not verify_project_access(connection, user, candidate["project_id"]):
+                    raise HTTPException(status_code=403, detail="forbidden")
+
+                relative = candidate_structure_path(
+                    candidate.get("structure_file_path"),
+                    candidate.get("complex_file_path"),
+                )
+                if not relative:
+                    missing.append(f"{candidate_id}: structure_not_available")
+                    continue
+
+                try:
+                    path = resolve_artifact_path(relative)
+                except HTTPException as exc:
+                    missing.append(f"{candidate_id}: {exc.detail}")
+                    continue
+
+                arcname = f"{candidate_id}/{path.name}"
+                archive.write(path, arcname=arcname)
+                written += 1
+                manifest.append({
+                    "candidate_id": candidate_id,
+                    "project_id": candidate.get("project_id"),
+                    "family": candidate.get("family"),
+                    "structure_file_path": relative,
+                    "archive_path": arcname,
+                    "interface_score": candidate.get("interface_score"),
+                    "plddt": candidate.get("plddt"),
+                    "status": candidate.get("status"),
+                    "decision": candidate.get("decision"),
+                })
+
+            archive.writestr("manifest.json", json.dumps(manifest, indent=2))
+            if missing:
+                archive.writestr("missing_files.txt", "\n".join(missing) + "\n")
+
+        if written == 0:
+            tmp_path.unlink(missing_ok=True)
+            raise HTTPException(status_code=404, detail="no_candidate_structures_available")
+
+        background_tasks.add_task(tmp_path.unlink, missing_ok=True)
+        return FileResponse(tmp_path, media_type="application/zip", filename=safe_filename)
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
+
+
 @router.get("/artifacts/{artifact_id}/preview")
 def artifact_preview(
     artifact_id: str,
@@ -465,6 +542,26 @@ def candidate_structure_file(
     return FileResponse(path, media_type=media_type, filename=path.name)
 
 
+@router.head("/candidates/{candidate_id}/structure-file")
+def candidate_structure_file_head(
+    candidate_id: str,
+    connection=Depends(get_connection),
+    _user: dict = Depends(require_candidate_access),
+):
+    candidate = catalog.get_candidate(connection, candidate_id)
+    if candidate is None:
+        raise HTTPException(status_code=404, detail="candidate_not_found")
+    relative = candidate_structure_path(
+        candidate.get("structure_file_path"),
+        candidate.get("complex_file_path"),
+    )
+    if not relative:
+        raise HTTPException(status_code=404, detail="structure_not_available")
+    path = resolve_artifact_path(relative)
+    media_type = "chemical/x-pdb" if path.suffix.lower() == ".pdb" else "chemical/x-mmcif"
+    return FileResponse(path, media_type=media_type, filename=path.name)
+
+
 @router.get("/artifacts/uploads/{filename}")
 def uploaded_structure_preview(
     filename: str,
@@ -486,6 +583,21 @@ def download_artifact(
         filename = normalized.split("/", 1)[1]
         return uploaded_structure_preview(filename, _user=_user)
     path = resolve_artifact_path(normalized)
+    return FileResponse(path, filename=path.name)
+
+
+@router.head("/artifacts/{artifact_path:path}")
+def download_artifact_head(
+    artifact_path: str,
+    _user: dict = Depends(get_current_user),
+):
+    normalized = artifact_path.lstrip("/")
+    if normalized.startswith("uploads/"):
+        filename = normalized.split("/", 1)[1]
+        safe_name = _safe_upload_filename(filename)
+        path = resolve_artifact_path(f"uploads/{safe_name}")
+    else:
+        path = resolve_artifact_path(normalized)
     return FileResponse(path, filename=path.name)
 
 

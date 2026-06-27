@@ -37,5 +37,8 @@ echo "Open: http://127.0.0.1:5173/#/experiments?project=proj_pd1_0423"
 echo ""
 
 cd frontend
-npm install
+if [[ ! -d node_modules ]]; then
+  echo "Installing frontend dependencies..."
+  npm install
+fi
 npm run dev

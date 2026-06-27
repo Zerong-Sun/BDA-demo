@@ -78,6 +78,149 @@ async function applyVisualPreset(
   }
 }
 
+async function loadStructureFromAuthenticatedUrl(
+  viewer: MolstarViewer,
+  url: string,
+): Promise<void> {
+  const token = sessionStorage.getItem('bda_token')
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!response.ok) {
+    throw new Error(`Structure download failed (${response.status})`)
+  }
+  const disposition = response.headers.get('content-disposition') ?? ''
+  const filename = disposition.match(/filename="?([^";]+)"?/i)?.[1] ?? url
+  const text = await response.text()
+  await viewer.loadStructureFromData(text, structureFormatFromName(filename), {
+    dataLabel: filename,
+  })
+}
+
+interface PdbPreview {
+  atomCount: number
+  residueCount: number
+  chains: string[]
+  points: string
+}
+
+function parsePdbPreview(text: string): PdbPreview {
+  const residues = new Set<string>()
+  const chains = new Set<string>()
+  const coords: Array<{ x: number; y: number }> = []
+  let atomCount = 0
+
+  for (const line of text.split('\n')) {
+    if (!line.startsWith('ATOM') && !line.startsWith('HETATM')) continue
+    atomCount += 1
+    const chain = line.slice(21, 22).trim() || 'A'
+    const residue = line.slice(22, 26).trim()
+    const atomName = line.slice(12, 16).trim()
+    chains.add(chain)
+    residues.add(`${chain}:${residue}`)
+    if (atomName === 'CA') {
+      const x = Number.parseFloat(line.slice(30, 38))
+      const y = Number.parseFloat(line.slice(38, 46))
+      if (Number.isFinite(x) && Number.isFinite(y)) coords.push({ x, y })
+    }
+  }
+
+  if (coords.length === 0) {
+    return { atomCount, residueCount: residues.size, chains: [...chains], points: '' }
+  }
+
+  const minX = Math.min(...coords.map((coord) => coord.x))
+  const maxX = Math.max(...coords.map((coord) => coord.x))
+  const minY = Math.min(...coords.map((coord) => coord.y))
+  const maxY = Math.max(...coords.map((coord) => coord.y))
+  const width = Math.max(maxX - minX, 1)
+  const height = Math.max(maxY - minY, 1)
+  const points = coords
+    .map((coord) => {
+      const x = 24 + ((coord.x - minX) / width) * 272
+      const y = 24 + ((coord.y - minY) / height) * 172
+      return `${x.toFixed(1)},${y.toFixed(1)}`
+    })
+    .join(' ')
+
+  return { atomCount, residueCount: residues.size, chains: [...chains], points }
+}
+
+function StructureFallbackPreview({
+  sourceUrl,
+  file,
+}: Pick<MolStarViewerProps, 'sourceUrl' | 'file'>) {
+  const [preview, setPreview] = useState<PdbPreview | null>(null)
+
+  useEffect(() => {
+    let disposed = false
+
+    async function loadPreview() {
+      try {
+        let text: string | null = null
+        if (file) {
+          text = await file.text()
+        } else if (sourceUrl) {
+          const token = sessionStorage.getItem('bda_token')
+          const response = await fetch(sourceUrl, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          })
+          if (!response.ok) return
+          text = await response.text()
+        }
+        if (!disposed && text) setPreview(parsePdbPreview(text))
+      } catch {
+        if (!disposed) setPreview(null)
+      }
+    }
+
+    void loadPreview()
+    return () => {
+      disposed = true
+    }
+  }, [sourceUrl, file])
+
+  return (
+    <div className="absolute inset-0 flex flex-col justify-between bg-bda-bg p-4">
+      <div className="grid grid-cols-3 gap-2 text-xs">
+        <span className="rounded border border-bda-border bg-bda-panel px-2 py-1">
+          Atoms {preview?.atomCount ?? '...'}
+        </span>
+        <span className="rounded border border-bda-border bg-bda-panel px-2 py-1">
+          Residues {preview?.residueCount ?? '...'}
+        </span>
+        <span className="rounded border border-bda-border bg-bda-panel px-2 py-1">
+          Chains {preview?.chains.join(', ') || '...'}
+        </span>
+      </div>
+      <svg viewBox="0 0 320 220" className="min-h-0 flex-1">
+        <rect x="1" y="1" width="318" height="218" rx="6" className="fill-bda-panel stroke-bda-border" />
+        {preview?.points ? (
+          <>
+            <polyline
+              points={preview.points}
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="3"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+              className="text-bda-cyan"
+            />
+            <circle r="4" className="fill-bda-cyan">
+              <animateMotion dur="8s" repeatCount="indefinite" path={`M${preview.points.replaceAll(' ', ' L')}`} />
+            </circle>
+          </>
+        ) : (
+          <text x="160" y="110" textAnchor="middle" className="fill-bda-muted text-xs">
+            Loading PDB preview
+          </text>
+        )}
+      </svg>
+      <p className="text-xs text-bda-muted">PDB backbone preview</p>
+    </div>
+  )
+}
+
 export function MolStarViewer({
   sourceUrl,
   file,
@@ -157,10 +300,7 @@ export function MolStarViewer({
             { dataLabel: file.name },
           )
         } else if (sourceUrl) {
-          await activeViewer.loadStructureFromUrl(
-            sourceUrl,
-            structureFormatFromName(sourceUrl),
-          )
+          await loadStructureFromAuthenticatedUrl(activeViewer, sourceUrl)
         }
         await applyVisualPreset(activeViewer.plugin, representation, color)
         activeViewer.plugin.managers.camera.focusObject({ durationMs: 250 })
@@ -226,7 +366,10 @@ export function MolStarViewer({
             Initializing 3D viewer...
           </div>
         ) : null}
-        {error ? (
+        {error && (file || sourceUrl) ? (
+          <StructureFallbackPreview sourceUrl={sourceUrl} file={file} />
+        ) : null}
+        {error && !file && !sourceUrl ? (
           <div className="absolute bottom-2 left-2 right-2 rounded-md border border-bda-red/40 bg-bda-panel px-3 py-2 text-xs text-bda-red">
             {error}
           </div>

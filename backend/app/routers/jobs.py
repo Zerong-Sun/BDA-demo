@@ -55,6 +55,48 @@ def job_logs(
     return envelope({"job_id": job_id, "logs": logs})
 
 
+@router.post("/jobs/{job_id}/sync")
+def sync_job_result(
+    job_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_job_access),
+):
+    job = job_service.get_job(connection, job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="job_not_found")
+    adapter = get_compute_adapter()
+    try:
+        live = adapter.status(job_id, job.get("external_id"))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=503, detail=f"cluster_sync_failed:{exc}") from exc
+    if live.status not in ("blocked", "not_found"):
+        job = job_service.update_job_status(
+            connection,
+            job_id,
+            status=live.status,
+            logs=live.logs,
+            output_artifacts=live.output_artifacts or None,
+            error_message=live.error_message,
+        ) or job
+    outputs = None
+    if live.status == "completed" or job.get("status") == "completed":
+        try:
+            outputs = job_service.collect_job_outputs(connection, job_id)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=503, detail=f"collect_outputs_failed:{exc}") from exc
+        job = job_service.get_job(connection, job_id) or job
+    return envelope({
+        "job": job,
+        "live_status": live.status,
+        "outputs": outputs,
+        "next_actions": [
+            "Open Artifacts to download generated PDBs.",
+            "Open Candidates to review generated backbone entries.",
+            "Run ProteinMPNN on selected backbones after checking RFdiffusion output quality.",
+        ] if outputs and outputs.get("manifest_found") else [],
+    })
+
+
 @router.post("/jobs/{job_id}/cancel")
 def cancel_job(
     job_id: str,

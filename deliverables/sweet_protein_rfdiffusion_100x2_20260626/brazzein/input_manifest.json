@@ -1,0 +1,47 @@
+{
+  "job_id": "job_4de7a7ebdc11",
+  "project_id": "proj_sweetprotein_rfdiffusion_100x2_160d28",
+  "workflow_run_id": "run_proj_sweetprotein_rfdiffusion_100x2_160d28_bbe4a091",
+  "node_run_id": "node_080b9aac0f",
+  "plugin_id": "plugin_rfdiffusion",
+  "model_name": "RFdiffusion",
+  "inputs": [
+    {
+      "port": "target_structure",
+      "artifact_id": "art_f10c683ebad34b80",
+      "path": "/input/art_f10c683ebad34b80_4HE7_brazzein_clean_A1-54.pdb",
+      "format": "pdb",
+      "artifact_type": "target_structure",
+      "metadata": {
+        "atom_count": 441,
+        "chain_count": 1,
+        "chains": [
+          "A"
+        ],
+        "residue_count": 53
+      }
+    }
+  ],
+  "parameters": {
+    "design_mode": "scaffold_partial_diffusion",
+    "scaffold": "brazzein_53",
+    "inference.input_pdb": "",
+    "contigmap.contigs": "[53-53]",
+    "ppi.hotspot_res": "",
+    "inference.num_designs": 100,
+    "diffuser.partial_T": 5,
+    "diffuser.T": 50,
+    "denoiser.noise_scale_ca": 0.5,
+    "denoiser.noise_scale_frame": 0.5,
+    "contigmap.provide_seq": "[1-1,13-13,19-19,23-23,34-34,44-44,46-46,49-49]",
+    "preserve_disulfides": true,
+    "linker_design": null,
+    "charge_design_guidance": {
+      "stage": "ProteinMPNN_and_downstream_selection",
+      "goal": "retain or enrich solvent-exposed positive patches without globally overcharging the protein",
+      "warning": "RFdiffusion generates backbone geometry and does not optimize side-chain charge."
+    },
+    "copilot_basis": "research_seed_pending_primary_source_verification",
+    "requires_user_review": true
+  }
+}

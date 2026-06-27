@@ -20,6 +20,20 @@ describe('CandidateSchema', () => {
   it('rejects missing required numeric fields', () => {
     expect(() => CandidateSchema.parse({ ...validCandidate, interface_score: 'bad' })).toThrow()
   })
+
+  it('accepts generated backbones before scoring metrics exist', () => {
+    const parsed = CandidateSchema.parse({
+      ...validCandidate,
+      interface_score: null,
+      pred_kd: null,
+      plddt: null,
+      status: 'generated_backbone',
+      decision: 'Needs scoring',
+    })
+    expect(parsed.interface_score).toBeNull()
+    expect(parsed.pred_kd).toBeNull()
+    expect(parsed.plddt).toBeNull()
+  })
 })
 
 describe('CandidateListSchema', () => {

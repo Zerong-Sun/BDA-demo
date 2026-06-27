@@ -237,6 +237,17 @@ class RemoteLsfAdapter:
         except (OSError, subprocess.SubprocessError) as exc:
             raise RuntimeError(f"remote_lsf_ssh_failed:{exc}") from exc
 
+    def _ssh_error_summary(self, stderr: str) -> str:
+        lines = [
+            line.strip()
+            for line in stderr.splitlines()
+            if line.strip() and not line.startswith("** WARNING:")
+        ]
+        cleaned = "\n".join(lines)
+        if "Permission denied" in cleaned:
+            return "cluster_ssh_permission_denied"
+        return cleaned or "remote_lsf_command_failed"
+
     def _manifest_payload(self, job: JobSpec) -> dict:
         if not job.input_dir:
             return {}
@@ -261,6 +272,17 @@ class RemoteLsfAdapter:
     def _rfdiffusion_arg(self, key: str, value: object) -> str | None:
         if value is None or value == "":
             return None
+        if key == "contigmap.provide_seq" and isinstance(value, str):
+            match = re.fullmatch(r"\[\s*(\d+\s*,\s*)+\d+\s*\]", value)
+            if match:
+                values = [item.strip() for item in value.strip()[1:-1].split(",")]
+                value = "[" + ",".join(f"{item}-{item}" for item in values) + "]"
+        elif key == "contigmap.provide_seq" and isinstance(value, list):
+            normalized: list[str] = []
+            for item in value:
+                text = str(item)
+                normalized.append(text if "-" in text else f"{text}-{text}")
+            value = "[" + ",".join(normalized) + "]"
         if isinstance(value, bool):
             rendered = "true" if value else "false"
         elif isinstance(value, (dict, list)):
@@ -477,6 +499,10 @@ PY"""
             f"bjobs -noheader -o stat {shlex.quote(external_id)}",
             check=False,
         )
+        if result.returncode != 0:
+            stderr = result.stderr.decode("utf-8", errors="replace").strip()
+            if "Permission denied" in stderr or "ssh" in stderr.lower():
+                raise RuntimeError(self._ssh_error_summary(stderr))
         raw = result.stdout.decode("utf-8", errors="replace").strip().split()
         lsf_status = raw[0] if raw else ""
         status = self._LSF_STATUS.get(lsf_status)
@@ -485,6 +511,10 @@ PY"""
                 f"bhist -n 1 -noheader -o stat {shlex.quote(external_id)}",
                 check=False,
             )
+            if history.returncode != 0:
+                stderr = history.stderr.decode("utf-8", errors="replace").strip()
+                if "Permission denied" in stderr or "ssh" in stderr.lower():
+                    raise RuntimeError(self._ssh_error_summary(stderr))
             history_raw = history.stdout.decode("utf-8", errors="replace").strip().split()
             status = self._LSF_STATUS.get(history_raw[0] if history_raw else "", "not_found")
         logs = self.logs(job_id, external_id, tail=200)
@@ -502,8 +532,11 @@ PY"""
         safe_tail = min(max(int(tail), 1), 2000)
         result = self._run_ssh(
             f"cd {shlex.quote(remote_dir)} && "
-            f"tail -n {safe_tail} logs/{shlex.quote(external_id)}.out "
-            f"logs/{shlex.quote(external_id)}.err 2>/dev/null",
+            f"tail -n {safe_tail} "
+            f"{shlex.quote(external_id)}.out {shlex.quote(external_id)}.err "
+            f"logs/{shlex.quote(external_id)}.log "
+            f"logs/{shlex.quote(external_id)}.out logs/{shlex.quote(external_id)}.err "
+            "2>/dev/null",
             check=False,
         )
         return result.stdout.decode("utf-8", errors="replace")
