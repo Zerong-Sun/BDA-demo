@@ -130,7 +130,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams 
       <div className="mb-3 rounded-md border border-bda-border bg-bda-panel p-2">
         {!selectedNodeId ? (
           <p className="text-xs leading-relaxed text-bda-muted">
-            Manual LSF submit: 先在流程图里点选一个节点，再在这里手动填写队列或资源请求。
+            Manual LSF submission is available after selecting a workflow node. Use this panel to review scheduler resources before creating a cluster job.
           </p>
         ) : (
           <>
@@ -185,7 +185,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams 
                 />
               </label>
               <p className="text-[11px] leading-relaxed text-bda-muted">
-                用这个入口可以换队列或资源请求；会为当前选中节点创建新的 LSF job。
+                These scheduler overrides apply only to the selected node and will create a new LSF job using the current node parameters.
               </p>
               <button
                 type="button"

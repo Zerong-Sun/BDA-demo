@@ -16,15 +16,15 @@ import type { Project } from '../lib/api/projects'
 const projectCards: Record<string, { preview: string; action: string }> = {
   proj_pd1_0423: {
     preview: 'PD-1 binder structure preview and closed-loop validation',
-    action: '打开 PD-1 项目',
+    action: 'Open PD-1 project',
   },
   proj_nanocage_0518: {
     preview: 'Programmable protein cage cargo display planning',
-    action: '打开纳米笼项目',
+    action: 'Open nanocage project',
   },
   proj_enzyme_0507: {
     preview: 'Expression and thermal-shift constrained scaffold repair',
-    action: '打开酶修复项目',
+    action: 'Open enzyme repair project',
   },
 }
 
@@ -35,7 +35,7 @@ function projectCard(project: Project) {
   if (normalized.includes('sweetprotein') || normalized.includes('sweet_protein')) {
     return {
       preview: 'Sweet protein RFdiffusion run, uploaded inputs, LSF jobs, and downstream review',
-      action: '打开甜蛋白项目',
+      action: 'Open sweet-protein project',
     }
   }
   return {
@@ -110,8 +110,8 @@ export function ExperimentsPage() {
       />
       <div className="mb-6">
         <ProjectChooser
-          title="实验项目"
-          description="在这里选择或创建项目。工作流、候选物、实验结果和最终交付都会自动归档到当前项目。"
+          title="Research projects"
+          description="Select or create a project. Workflows, candidates, experimental results, and delivery packages are archived under the active project."
           compact
         />
       </div>
@@ -143,7 +143,7 @@ export function ExperimentsPage() {
               </span>
             </div>
           ) : (
-            <span className="text-xs text-bda-muted">选择或创建项目后，Copilot 会读取当前项目上下文。</span>
+            <span className="text-xs text-bda-muted">Select or create a project to make its context available to Copilot.</span>
           )}
         </div>
       </section>

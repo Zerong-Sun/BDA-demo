@@ -79,7 +79,7 @@ export function WorkflowResourceSidebar({
                     onClick={() => onPluginAdd(plugin)}
                   >
                     <Plus className="h-3.5 w-3.5" />
-                    添加到流程图
+                    Add to workflow graph
                   </button>
                 ) : null}
               </article>

@@ -68,7 +68,7 @@ function routeLabel(runId: string, metrics: unknown) {
 
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
-  const [goal, setGoal] = useState('设计 10000 个 PD-1 binder 候选，并筛到 48 个进入 BLI/SEC 验证')
+  const [goal, setGoal] = useState('Design 10,000 PD-1 binder candidates and nominate 48 constructs for BLI/SEC validation.')
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | undefined>()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -317,7 +317,7 @@ export function WorkflowPage() {
           </>
         )}
         {isDemoMode ? (
-          <span className="text-xs text-bda-muted">演示模式：读取项目已有演示数据，只读展示。</span>
+          <span className="text-xs text-bda-muted">Demo mode: displaying read-only reference project data.</span>
         ) : workflowRun ? (
           <span className="text-xs text-bda-muted">
             Run {workflowRun.workflow_run_id} · {workflowRun.status}
@@ -345,7 +345,7 @@ export function WorkflowPage() {
                   className="w-full resize-none rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="输入你想做的事情，例如：设计 10000 个候选并筛选 48 个进入湿实验"
+                  placeholder="Describe the design objective, e.g. generate 10,000 candidates and nominate 48 for experimental validation."
                 />
               </div>
               <button
@@ -355,16 +355,16 @@ export function WorkflowPage() {
                 onClick={() => generateRecommended.mutate()}
               >
                 <Sparkles className="h-4 w-4" />
-                生成推荐工作流
+                Generate recommended workflow
               </button>
             </div>
-            <p className="mt-3 text-xs text-bda-muted">新项目可以在这里生成推荐工作流；已有运行中的 workflow 会直接显示当前图。</p>
+            <p className="mt-3 text-xs text-bda-muted">For new projects, generate a project-bound workflow here. Active workflow runs are shown directly on the canvas.</p>
           </section>
         ) : null}
 
         {!workflowRunId && !isDemoMode ? (
           <div className="mb-4 rounded-lg border border-dashed border-bda-border bg-bda-panel p-6 text-center text-sm text-bda-muted">
-            <p>当前项目还没有工作流。你可以手动创建空 run，也可以直接输入目标生成一套项目绑定的推荐工作流。</p>
+            <p>This project does not have a workflow run yet. Create an empty run or enter an objective to generate a project-specific recommended workflow.</p>
           </div>
         ) : null}
 

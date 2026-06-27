@@ -127,20 +127,20 @@ function DecisionReview({
           disabled={!dirty || saving}
           onClick={() => void save()}
         >
-          保存 Patch
+          Save patch
         </button>
         <button
           className="rounded bg-bda-green px-3 py-1.5 text-sm text-bda-bg disabled:opacity-50"
           disabled={dirty || saving}
           onClick={() => onReview(decisionId, true)}
         >
-          批准并创建下一轮
+          Approve and create next round
         </button>
         <button
           className="rounded border border-bda-red px-3 py-1.5 text-sm text-bda-red"
           onClick={() => onReview(decisionId, false)}
         >
-          拒绝
+          Reject
         </button>
       </div>
     </div>
@@ -230,9 +230,9 @@ function LiteraturePanel() {
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-bda-cyan">Current project research</p>
-            <h2 className="font-semibold">{text(projectResearch.data?.brief?.title) || '当前项目还没有 Research brief'}</h2>
+            <h2 className="font-semibold">{text(projectResearch.data?.brief?.title) || 'No research brief has been created for this project.'}</h2>
             <p className="mt-1 max-w-4xl text-sm text-bda-muted">
-              {text(projectResearch.data?.brief?.objective) || '创建或确认研究任务后，brief、questions、findings 和 workflow plan 会显示在这里。'}
+              {text(projectResearch.data?.brief?.objective) || 'Once a research task is created or confirmed, the brief, questions, findings, and workflow plans will appear here.'}
             </p>
           </div>
           <div className="flex flex-wrap gap-2 text-xs text-bda-muted">
@@ -255,7 +255,7 @@ function LiteraturePanel() {
                 <p className="mt-2 text-bda-text">{text(item.statement)}</p>
                 {text(item.uncertainty) ? (
                   <p className="mt-2 rounded border border-bda-amber/30 bg-bda-amber/10 p-2 text-xs text-bda-amber">
-                    待确认：{text(item.uncertainty)}
+                    Uncertainty to resolve: {text(item.uncertainty)}
                   </p>
                 ) : null}
                 <div className="mt-3 space-y-1">
@@ -279,7 +279,7 @@ function LiteraturePanel() {
         ) : null}
         {referenceLinks.length ? (
           <details className="mt-4 rounded border border-bda-border bg-bda-bg p-3 text-sm">
-            <summary className="cursor-pointer text-bda-cyan">查看文献链接源（{referenceLinks.length}）</summary>
+            <summary className="cursor-pointer text-bda-cyan">View linked literature sources ({referenceLinks.length})</summary>
             <div className="mt-3 grid gap-1 md:grid-cols-2">
               {referenceLinks.slice(0, 40).map((url) => (
                 <a key={url} className="truncate text-xs text-bda-cyan hover:underline" href={url} target="_blank" rel="noreferrer">
@@ -293,24 +293,24 @@ function LiteraturePanel() {
       </section>
 
       <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
-        <h2 className="font-semibold">文献摄取与自动订阅</h2>
+        <h2 className="font-semibold">Literature ingestion and automated surveillance</h2>
         <p className="mt-1 text-xs leading-relaxed text-bda-muted">
-          检索本地库只查已经入库的文献；立即摄取会用当前 query 去 Europe PMC 在线检索并写入本地文献库。也可以先让 Copilot 帮你组织检索式、解读文献或整理成待入库摘要。
+          Local search queries the curated project library. Ingest now searches Europe PMC with the current query and writes reviewed metadata into the local literature store. Copilot can help formulate search strings, interpret papers, or prepare summaries before ingestion.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <input className="min-w-72 flex-1 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} />
-          <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => search.refetch()}><Search className="mr-1 inline h-4 w-4" />检索本地库</button>
+          <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => search.refetch()}><Search className="mr-1 inline h-4 w-4" />Search local library</button>
           <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={!isAdmin || ingest.isPending} onClick={() => ingest.mutate()}>
-            {ingest.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}立即摄取
+            {ingest.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : null}Ingest now
           </button>
-          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={!isAdmin} onClick={() => createSubscription.mutate()}>每日自动阅读</button>
+          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={!isAdmin} onClick={() => createSubscription.mutate()}>Create daily surveillance</button>
           <button className="rounded border border-bda-border px-3 py-2 text-sm hover:border-bda-cyan/50" onClick={() => setCopilotOpen(true)}>
-            <MessageSquare className="mr-1 inline h-4 w-4" />让 Copilot 解读/整理
+            <MessageSquare className="mr-1 inline h-4 w-4" />Ask Copilot to interpret or summarize
           </button>
         </div>
-        {!isAdmin ? <p className="mt-2 text-xs text-bda-muted">摄取、自动订阅和关系检测需要管理员权限；研究员仍可检索并审核证据。</p> : null}
+        {!isAdmin ? <p className="mt-2 text-xs text-bda-muted">Ingestion, automated surveillance, and relation detection require administrator privileges. Researchers may still search and review evidence.</p> : null}
         {ingest.isError || createSubscription.isError ? (
-          <p className="mt-2 text-xs text-bda-red">文献任务失败，请检查权限、网络和模型配置。</p>
+          <p className="mt-2 text-xs text-bda-red">Literature task failed. Check permissions, network access, and model configuration.</p>
         ) : null}
         {search.data?.items.map((item, index) => (
           <div key={`${text(item.document_id)}-${index}`} className="mt-3 rounded border border-bda-border p-3 text-sm">
@@ -332,10 +332,10 @@ function LiteraturePanel() {
         ))}
         {subscriptions.data?.items.map((item) => (
           <div key={item.subscription_id} className="mt-3 flex items-center justify-between rounded border border-bda-border p-3 text-sm">
-            <div><strong>{item.name}</strong><p className="text-xs text-bda-muted">每 {item.interval_hours} 小时 · 下次 {item.next_run_at}</p></div>
+            <div><strong>{item.name}</strong><p className="text-xs text-bda-muted">Every {item.interval_hours} hours · next run {item.next_run_at}</p></div>
             <div className="flex gap-2">
-              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? '暂停' : '启用'}</button>
-              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />运行</button>
+              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? 'Pause' : 'Enable'}</button>
+              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />Run now</button>
             </div>
           </div>
         ))}
@@ -343,7 +343,7 @@ function LiteraturePanel() {
 
       <section className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <h2 className="font-semibold">待审核科学主张</h2>
+          <h2 className="font-semibold">Scientific claims awaiting review</h2>
           {claims.data?.items.map((item) => (
             <article key={text(item.claim_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
               <strong>{claimTitle(item)}</strong>
@@ -351,17 +351,17 @@ function LiteraturePanel() {
               <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
               <blockquote className="mt-2 border-l-2 border-bda-cyan pl-2 text-xs text-bda-muted">{text(item.evidence_excerpt)}</blockquote>
               <div className="mt-2 flex gap-2">
-                <button className="text-bda-green" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'accepted' })}><Check className="inline h-4 w-4" /> 接受</button>
-                <button className="text-bda-red" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'rejected' })}><X className="inline h-4 w-4" /> 拒绝</button>
+                <button className="text-bda-green" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'accepted' })}><Check className="inline h-4 w-4" /> Accept</button>
+                <button className="text-bda-red" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'rejected' })}><X className="inline h-4 w-4" /> Reject</button>
               </div>
             </article>
           ))}
         </div>
         <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold">待审核主张关系</h2>
+            <h2 className="font-semibold">Claim relationships awaiting review</h2>
             <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={!isAdmin || detectRelations.isPending} onClick={() => detectRelations.mutate()}>
-              检测关系
+              Detect relationships
             </button>
           </div>
           {relations.data?.items.map((item) => (
@@ -369,8 +369,8 @@ function LiteraturePanel() {
               <span className="text-xs uppercase text-bda-cyan">{text(item.relation_type)}</span>
               <p>{text(item.source_statement)}</p><p className="text-bda-muted">↔ {text(item.target_statement)}</p>
               <div className="mt-2 flex gap-2">
-                <button className="text-bda-green" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'accepted' })}>接受</button>
-                <button className="text-bda-red" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'rejected' })}>拒绝</button>
+                <button className="text-bda-green" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'accepted' })}>Accept</button>
+                <button className="text-bda-red" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'rejected' })}>Reject</button>
               </div>
             </article>
           ))}
@@ -427,7 +427,7 @@ function CampaignPanel() {
   return (
     <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
       <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
-        <button className="w-full rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={!projectId || create.isPending} onClick={() => create.mutate()}>新建闭环 Campaign</button>
+        <button className="w-full rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={!projectId || create.isPending} onClick={() => create.mutate()}>Create closed-loop campaign</button>
         {campaigns.data?.items.map((item) => (
           <button key={item.campaign_id} className="mt-3 w-full rounded border border-bda-border p-3 text-left" onClick={() => setSelected(item.campaign_id)}>
             <strong>{item.name}</strong><p className="text-xs text-bda-muted">Round {item.current_round}/{item.max_rounds} · {item.status}</p>
@@ -436,7 +436,7 @@ function CampaignPanel() {
       </aside>
       <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
         {actionError ? <p className="mb-3 rounded border border-bda-red/40 p-2 text-sm text-bda-red">{actionError.message}</p> : null}
-        {!campaign ? <p className="text-bda-muted">选择或创建一个 Campaign。</p> : (
+        {!campaign ? <p className="text-bda-muted">Select or create a campaign.</p> : (
           <>
             <h2 className="text-lg font-semibold">{campaign.name}</h2>
             <p className="text-sm text-bda-muted">{campaign.objective}</p>
@@ -449,7 +449,7 @@ function CampaignPanel() {
                   <div className="flex justify-between"><strong>Round {round.round_number}</strong><span className="text-xs text-bda-cyan">{round.status} · {round.approval_status}</span></div>
                   <p className="mt-1 text-xs text-bda-muted">Workflow: {round.workflow_run_id}</p>
                   {round.status === 'ready_for_evaluation' || round.status === 'active' ? (
-                    <button className="mt-3 rounded border border-bda-border px-3 py-1.5 text-sm" onClick={() => evaluate.mutate({ id: campaign.campaign_id, round: round.round_number })}>评价本轮</button>
+                    <button className="mt-3 rounded border border-bda-border px-3 py-1.5 text-sm" onClick={() => evaluate.mutate({ id: campaign.campaign_id, round: round.round_number })}>Evaluate round</button>
                   ) : null}
                   {decisionId && text(decision?.status) === 'proposed' ? (
                     <DecisionReview
@@ -476,10 +476,10 @@ export function ResearchPage() {
   return (
     <div>
       <div className="mb-6 flex items-end justify-between">
-        <div><p className="text-xs uppercase tracking-wide text-bda-cyan">Research automation</p><h1 className="text-2xl font-semibold">知识学习与闭环研发</h1></div>
+        <div><p className="text-xs uppercase tracking-wide text-bda-cyan">Research automation</p><h1 className="text-2xl font-semibold">Knowledge learning and closed-loop development</h1></div>
         <div className="flex gap-2">
-          <button className={`rounded px-3 py-2 text-sm ${tab === 'literature' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('literature')}>文献与证据</button>
-          <button className={`rounded px-3 py-2 text-sm ${tab === 'campaigns' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('campaigns')}>Campaign 闭环</button>
+          <button className={`rounded px-3 py-2 text-sm ${tab === 'literature' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('literature')}>Literature and evidence</button>
+          <button className={`rounded px-3 py-2 text-sm ${tab === 'campaigns' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('campaigns')}>Campaign loop</button>
         </div>
       </div>
       {tab === 'literature' ? <LiteraturePanel /> : <CampaignPanel />}

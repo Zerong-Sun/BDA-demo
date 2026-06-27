@@ -41,7 +41,7 @@ export function CopilotSettings() {
           DeepSeek / OpenAI-compatible API
         </div>
         <p className="mt-1 text-xs text-bda-muted">
-          Key 只发送到当前 BDA 后端，不会显示完整值。当前是运行时配置，后端重启后需重新填写。
+          API keys are sent only to the active BDA backend and are never displayed in full. This is a runtime configuration and must be re-entered after a backend restart.
         </p>
       </div>
 

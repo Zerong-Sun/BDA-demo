@@ -12,8 +12,8 @@ interface ProjectChooserProps {
 }
 
 export function ProjectChooser({
-  title = '选择实验项目',
-  description = '工作流、候选物、实验结果和交付包都必须归属于一个实验项目。',
+  title = 'Select a research project',
+  description = 'Workflow runs, candidates, experimental results, and delivery packages must belong to a research project.',
   compact = false,
 }: ProjectChooserProps) {
   const queryClient = useQueryClient()
@@ -52,14 +52,14 @@ export function ProjectChooser({
 
       <div className="mt-4 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]">
         <label className="grid gap-1 text-xs text-bda-muted">
-          已有实验项目
+          Existing research project
           <select
-            aria-label="选择实验项目"
+            aria-label="Select research project"
             className="rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
           >
-            <option value="">请选择项目…</option>
+            <option value="">Select a project...</option>
             {projects.map((project) => (
               <option key={project.project_id} value={project.project_id}>
                 {project.project_name} · {project.status}
@@ -74,44 +74,44 @@ export function ProjectChooser({
           onClick={() => setCreating((value) => !value)}
         >
           <FolderPlus className="h-4 w-4" />
-          {appMode === 'demo' ? '演示模式只读' : '新建项目'}
+          {appMode === 'demo' ? 'Read-only demo' : 'Create project'}
         </button>
       </div>
 
       {creating ? (
         <div className="mt-4 grid gap-3 rounded-md border border-bda-border bg-bda-bg p-4">
           <label className="grid gap-1 text-xs text-bda-muted">
-            项目名称
+            Project name
             <input
               className="rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="例如：EGFR binder design"
+              placeholder="Example: EGFR binder design"
             />
           </label>
           <label className="grid gap-1 text-xs text-bda-muted">
-            项目类型
+            Project type
             <select
               className="rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
               value={projectType}
               onChange={(event) => setProjectType(event.target.value)}
             >
-              <option value="protein_design">蛋白质设计</option>
-              <option value="sweet_protein_design">甜蛋白设计</option>
-              <option value="binder_design">结合蛋白设计</option>
-              <option value="enzyme_design">酶设计</option>
-              <option value="biomaterial_design">可编程生物材料</option>
-              <option value="scaffold_redesign">蛋白支架改造</option>
+              <option value="protein_design">Protein design</option>
+              <option value="sweet_protein_design">Sweet-protein design</option>
+              <option value="binder_design">Binder design</option>
+              <option value="enzyme_design">Enzyme design</option>
+              <option value="biomaterial_design">Programmable biomaterials</option>
+              <option value="scaffold_redesign">Scaffold redesign</option>
             </select>
           </label>
           <label className="grid gap-1 text-xs text-bda-muted">
-            目标与说明
+            Objective and constraints
             <textarea
               rows={2}
               className="rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
               value={summary}
               onChange={(event) => setSummary(event.target.value)}
-              placeholder="描述靶点、设计目标和关键约束"
+              placeholder="Describe the target, design objective, and key constraints"
             />
           </label>
           <button
@@ -121,11 +121,11 @@ export function ProjectChooser({
             onClick={() => create.mutate()}
           >
             {create.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <FolderPlus className="h-4 w-4" />}
-            创建并选择
+            Create and select
           </button>
           {create.isError ? (
             <p className="text-xs text-bda-red">
-              {create.error instanceof Error ? create.error.message : '创建项目失败，请检查后端服务。'}
+              {create.error instanceof Error ? create.error.message : 'Project creation failed. Check the backend service.'}
             </p>
           ) : null}
         </div>

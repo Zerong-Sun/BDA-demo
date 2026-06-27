@@ -36,7 +36,7 @@ export function ComputeStatusStrip() {
       {clusterHealth?.mode === 'remote_lsf' ? (
         <>
           <span className={clusterHealth.connected ? 'text-bda-green' : 'text-bda-amber'}>
-            南科大 LSF: {clusterHealth.connected ? 'connected' : 'unreachable'}
+            SUSTech LSF: {clusterHealth.connected ? 'connected' : 'unreachable'}
           </span>
           {clusterHealth.connected && clusterHealth.queues.length > 0 ? (
             <span className="max-w-full truncate text-xs text-bda-muted" title={clusterHealth.queues.join('\n')}>

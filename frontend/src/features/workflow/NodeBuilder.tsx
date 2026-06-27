@@ -83,9 +83,9 @@ function formatPluginList(pluginIds?: string[]): string | null {
 
 function ChainMetadata({ metadata }: { metadata: ParameterSchemaMetadata }) {
   const rows = [
-    ['互斥', formatPluginList(metadata.exclusiveWith)],
-    ['推荐前序', formatPluginList(metadata.recommendedAfter)],
-    ['推荐后续', formatPluginList(metadata.recommendedBefore)],
+    ['Exclusive with', formatPluginList(metadata.exclusiveWith)],
+    ['Recommended after', formatPluginList(metadata.recommendedAfter)],
+    ['Recommended before', formatPluginList(metadata.recommendedBefore)],
   ].filter((row): row is [string, string] => Boolean(row[1]))
 
   if (!metadata.workflowNote && rows.length === 0) return null
