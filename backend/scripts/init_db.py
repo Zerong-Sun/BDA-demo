@@ -91,6 +91,13 @@ def seed_sweet_protein_project(connection: sqlite3.Connection) -> None:
     seed_project(connection)
 
 
+def reconcile_local_projects(connection: sqlite3.Connection) -> None:
+    from backend.app.repositories.catalog import ensure_all_project_workspaces, reconcile_local_projects as reconcile
+
+    reconcile(connection)
+    ensure_all_project_workspaces(connection)
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -106,6 +113,7 @@ def init_db(seed: bool = True) -> Path:
         register_builtin_plugins(connection)
         if seed:
             seed_sweet_protein_project(connection)
+        reconcile_local_projects(connection)
         register_builtin_knowledge(connection)
         register_model_parameter_catalog(connection)
         connection.commit()

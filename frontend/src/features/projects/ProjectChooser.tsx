@@ -62,7 +62,7 @@ export function ProjectChooser({
             <option value="">Select a project...</option>
             {projects.map((project) => (
               <option key={project.project_id} value={project.project_id}>
-                {project.project_name} · {project.status}
+                {project.project_name} · {project.status} · {project.local_workspace?.status ?? 'local pending'}
               </option>
             ))}
           </select>
@@ -126,6 +126,11 @@ export function ProjectChooser({
           {create.isError ? (
             <p className="text-xs text-bda-red">
               {create.error instanceof Error ? create.error.message : 'Project creation failed. Check the backend service.'}
+            </p>
+          ) : null}
+          {create.isSuccess && create.data.local_workspace ? (
+            <p className="text-xs text-bda-muted">
+              Local workspace ready at {create.data.local_workspace.root}. Cloud sync is {create.data.cloud_sync?.status ?? 'not configured'}.
             </p>
           ) : null}
         </div>

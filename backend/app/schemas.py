@@ -21,6 +21,10 @@ class CreateProjectRequest(BaseModel):
     summary: str | None = Field(default=None, max_length=2000)
 
 
+class ProjectSyncRequest(BaseModel):
+    target: str = Field(default="local", pattern="^(local|cloud)$")
+
+
 class CandidateExplanationRequest(BaseModel):
     candidate_id: str
 

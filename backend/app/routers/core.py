@@ -12,7 +12,8 @@ from ..auth.deps import (
 )
 from ..db import get_connection
 from ..repositories import catalog
-from ..schemas import CreateProjectRequest
+from ..schemas import CreateProjectRequest, ProjectSyncRequest
+from ..services import project_storage
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -63,6 +64,16 @@ def projects(
     return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
 
 
+@router.get("/projects/local-index")
+def local_projects_index(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    restored = catalog.reconcile_local_projects(connection)
+    manifests = project_storage.list_project_manifests()
+    return envelope({"items": manifests, "restored_project_ids": restored})
+
+
 @router.post("/projects")
 def create_project(
     payload: CreateProjectRequest,
@@ -98,6 +109,19 @@ def create_project(
         created_by=user.get("user_id") or user.get("username"),
     )
     return envelope(item)
+
+
+@router.post("/projects/{project_id}/sync")
+def sync_project(
+    project_id: str,
+    payload: ProjectSyncRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    item = catalog.get_project(connection, project_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    return envelope(project_storage.sync_project_manifest(item, target=payload.target))
 
 
 @router.get("/projects/{project_id}")

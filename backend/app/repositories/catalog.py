@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from ..services import project_storage
 from .base import decode_row, decode_rows, get_by_id, list_table
 
 KD_VALUE_RE = re.compile(r"([\d.]+)")
@@ -19,17 +20,69 @@ def list_projects_paginated(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict], int]:
+    reconcile_local_projects(connection)
     count_row = connection.execute("SELECT COUNT(*) AS total FROM projects").fetchone()
     total = int(count_row["total"]) if count_row else 0
     rows = connection.execute(
         "SELECT * FROM projects ORDER BY created_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
-    return decode_rows(rows), total
+    return [_with_storage_status(item) for item in decode_rows(rows)], total
 
 
 def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
-    return get_by_id(connection, "projects", "project_id", project_id)
+    item = get_by_id(connection, "projects", "project_id", project_id)
+    return _with_storage_status(item) if item else None
+
+
+def _with_storage_status(project: dict) -> dict:
+    project_storage.ensure_project_directory(project, source="catalog")
+    return {
+        **project,
+        "local_workspace": project_storage.storage_summary(project["project_id"]),
+        "cloud_sync": project_storage.cloud_sync_summary(project["project_id"]),
+    }
+
+
+def reconcile_local_projects(connection: sqlite3.Connection) -> list[str]:
+    """Restore minimal database rows for projects that still have local manifests."""
+    restored: list[str] = []
+    for manifest in project_storage.list_project_manifests():
+        project_id = str(manifest.get("project_id") or "")
+        if not project_id:
+            continue
+        row = connection.execute("SELECT 1 FROM projects WHERE project_id = ? LIMIT 1", (project_id,)).fetchone()
+        if row:
+            continue
+        connection.execute(
+            """
+            INSERT INTO projects (
+                project_id, project_name, project_type, status, owner_id,
+                organization_id, summary, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                manifest.get("project_name") or project_id,
+                manifest.get("project_type") or "protein_design",
+                manifest.get("status") or "draft",
+                manifest.get("owner_id"),
+                manifest.get("organization_id"),
+                manifest.get("summary"),
+                manifest.get("created_at") or project_storage.now_iso(),
+                manifest.get("updated_at") or project_storage.now_iso(),
+            ),
+        )
+        restored.append(project_id)
+    if restored:
+        connection.commit()
+    return restored
+
+
+def ensure_all_project_workspaces(connection: sqlite3.Connection) -> None:
+    rows = connection.execute("SELECT * FROM projects ORDER BY created_at DESC").fetchall()
+    for project in decode_rows(rows):
+        project_storage.ensure_project_directory(project, source="catalog")
 
 
 def get_project_research_summary(connection: sqlite3.Connection, project_id: str) -> dict:
@@ -92,6 +145,9 @@ def create_project(
             """,
             (project_id, owner_id),
         )
+    project = get_by_id(connection, "projects", "project_id", project_id) or {}
+    if project:
+        project_storage.ensure_project_directory(project, source="api")
     return get_project(connection, project_id) or {}
 
 
