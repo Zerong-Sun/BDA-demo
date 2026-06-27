@@ -61,6 +61,8 @@ function routeLabel(runId: string, metrics: unknown) {
   const route = String(parseRecord(metrics).route ?? '')
   if (route === 'monellin_redesign') return 'Monellin route'
   if (route === 'brazzein_redesign') return 'Brazzein route'
+  if (route === 'monellin') return 'Monellin route'
+  if (route === 'brazzein') return 'Brazzein route'
   if (runId.includes('449a8216')) return 'Monellin route'
   if (runId.includes('bbe4a091')) return 'Brazzein route'
   return runId.replace(/^run_/, '').slice(-18)
@@ -296,6 +298,18 @@ export function WorkflowPage() {
           </button>
         ) : isDemoMode ? null : (
           <>
+            {workflowRunId ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm font-medium text-bda-text hover:border-bda-cyan/50 disabled:opacity-50"
+                disabled={createWorkflow.isPending}
+                onClick={() => createWorkflow.mutate()}
+                title="Create an additional workflow route under the active project"
+              >
+                <Plus className="h-4 w-4" />
+                New route
+              </button>
+            ) : null}
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"

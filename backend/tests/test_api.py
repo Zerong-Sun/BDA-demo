@@ -23,6 +23,24 @@ def test_projects_list(client: TestClient, auth_headers: dict[str, str]):
     assert len(data["items"]) >= 1
 
 
+def test_sweet_protein_seeded_project_routes_and_scripts(client: TestClient, auth_headers: dict[str, str]):
+    project_id = "proj_sweetprotein_rfdiffusion_100x2_160d28"
+    projects = client.get(f"{API}/projects?limit=20", headers=auth_headers)
+    assert projects.status_code == 200
+    assert any(item["project_id"] == project_id for item in projects.json()["data"]["items"])
+
+    runs = client.get(f"{API}/projects/{project_id}/workflow-runs", headers=auth_headers)
+    assert runs.status_code == 200
+    route_names = {item["summary_metrics_json"]["route"] for item in runs.json()["data"]["items"]}
+    assert route_names == {"monellin", "brazzein"}
+
+    scripts = client.get(f"{API}/script-assets?model_plugin_id=plugin_rfdiffusion", headers=auth_headers)
+    assert scripts.status_code == 200
+    paths = {item["relative_path"] for item in scripts.json()["data"]["items"]}
+    assert "sweetprotein/monellin/submit.lsf" in paths
+    assert "sweetprotein/brazzein/submit.lsf" in paths
+
+
 def test_project_overview(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/projects/proj_pd1_0423/overview", headers=auth_headers)
     assert response.status_code == 200

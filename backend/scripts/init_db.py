@@ -85,6 +85,12 @@ def register_model_parameter_catalog(connection: sqlite3.Connection) -> None:
     sync_plugin_parameters(connection, registry.list_model_plugins(connection))
 
 
+def seed_sweet_protein_project(connection: sqlite3.Connection) -> None:
+    from backend.scripts.seed_sweet_protein import seed_sweet_protein_project as seed_project
+
+    seed_project(connection)
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -98,6 +104,8 @@ def init_db(seed: bool = True) -> Path:
             connection.executescript(SEED.read_text())
             seed_admin_user(connection)
         register_builtin_plugins(connection)
+        if seed:
+            seed_sweet_protein_project(connection)
         register_builtin_knowledge(connection)
         register_model_parameter_catalog(connection)
         connection.commit()
