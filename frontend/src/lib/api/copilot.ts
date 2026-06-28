@@ -301,11 +301,83 @@ export async function streamCopilotMessage(
   }
 }
 
-export function planRoute(projectId: string, target = 'PD-1') {
-  return apiRequest<Record<string, unknown>>('/copilot/route-plan', {
+export const RouteModuleSchema = z.object({
+  module_id: z.string(),
+  model_plugin_id: z.string(),
+  model_name: z.string(),
+  node_type: z.string(),
+  available: z.boolean(),
+  summary: z.string(),
+  default_parameters: z.record(z.string(), z.unknown()).optional(),
+  parameter_schema: z.record(z.string(), z.unknown()).optional(),
+})
+
+export const RouteOptionSchema = z.object({
+  route_id: z.string(),
+  label: z.string(),
+  rank: z.number(),
+  recommended: z.boolean(),
+  summary: z.string(),
+  rationale: z.array(z.string()),
+  modules: z.array(RouteModuleSchema),
+  risks: z.array(z.string()),
+  estimated_steps: z.number(),
+})
+
+export const RoutePlanSchema = z.object({
+  mode: z.string(),
+  project_id: z.string().nullable().optional(),
+  target: z.string(),
+  objective: z.string(),
+  constraints: z.record(z.string(), z.unknown()),
+  knowledge_context: z.array(z.object({
+    knowledge_entry_id: z.string(),
+    title: z.string(),
+    category: z.string(),
+    summary: z.string(),
+  })),
+  analysis_trace: z.array(z.string()),
+  route_options: z.array(RouteOptionSchema),
+})
+
+export const AppliedRoutePlanSchema = z.object({
+  workflow_run: z.object({ workflow_run_id: z.string() }).passthrough(),
+  nodes: z.array(z.object({ node_run_id: z.string() }).passthrough()),
+  edges: z.array(z.object({ edge_id: z.string() }).passthrough()),
+  route: RouteOptionSchema,
+  knowledge_context: RoutePlanSchema.shape.knowledge_context,
+  analysis_trace: z.array(z.string()),
+})
+
+export type RoutePlan = z.infer<typeof RoutePlanSchema>
+export type RouteOption = z.infer<typeof RouteOptionSchema>
+export type RouteModule = z.infer<typeof RouteModuleSchema>
+
+export function planRoute(payload: {
+  project_id: string
+  target?: string
+  objective: string
+  constraints?: Record<string, unknown>
+}) {
+  return apiRequest<RoutePlan>('/copilot/route-plan', {
     method: 'POST',
-    body: JSON.stringify({ project_id: projectId, target }),
-  })
+    body: JSON.stringify(payload),
+  }, RoutePlanSchema)
+}
+
+export function applyRoutePlan(payload: {
+  project_id: string
+  route_id: string
+  objective: string
+  selected_module_ids: string[]
+  target?: string
+  constraints?: Record<string, unknown>
+}) {
+  return apiRequest<z.infer<typeof AppliedRoutePlanSchema>>(
+    '/copilot/route-plan/apply',
+    { method: 'POST', body: JSON.stringify(payload) },
+    AppliedRoutePlanSchema,
+  )
 }
 
 export function explainCandidate(candidateId: string) {

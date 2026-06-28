@@ -28,8 +28,10 @@ from ..schemas import (
     LiteratureIngestRequest,
     LiteratureSubscriptionRequest,
     ResultInterpretationRequest,
+    RoutePlanApplyRequest,
     RoutePlanRequest,
 )
+from ..services import route_planner
 from ..settings import get_settings
 from ..utils.response import envelope
 
@@ -597,23 +599,34 @@ def route_plan(
     user: dict = Depends(get_current_user),
 ):
     _ensure_project_access(connection, user, payload.project_id)
-    nodes = catalog.list_workflow_nodes(connection, "run_pd1_round1") if payload.project_id else []
-    return envelope({
-        "mode": "rule_based_demo",
-        "route": [
-            "target_intake",
-            "RFdiffusion backbone generation",
-            "ProteinMPNN sequence design",
-            "AlphaFold2 complex prediction",
-            "Rosetta relax / interface scoring",
-            "BDA filters",
-            "Wet-lab validation",
-        ],
-        "compute_status": "not_connected",
-        "note": "Demo mode returns a precomputed PD-1 binder route.",
-        "input_summary": payload.model_dump(),
-        "existing_node_count": len(nodes),
-    })
+    return envelope(route_planner.plan_routes(
+        connection,
+        project_id=payload.project_id,
+        target=payload.target,
+        objective=payload.objective,
+        constraints=payload.constraints,
+    ))
+
+
+@router.post("/route-plan/apply")
+def apply_route_plan(
+    payload: RoutePlanApplyRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    _ensure_project_access(connection, user, payload.project_id)
+    try:
+        return envelope(route_planner.apply_route_plan(
+            connection,
+            project_id=payload.project_id,
+            route_id=payload.route_id,
+            objective=payload.objective,
+            selected_module_ids=payload.selected_module_ids,
+            target=payload.target,
+            constraints=payload.constraints,
+        ))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @router.post("/candidate-explanation")
