@@ -2,7 +2,6 @@ from subprocess import CompletedProcess
 
 import httpx
 import pytest
-
 from backend.app.copilot import cluster, research
 
 

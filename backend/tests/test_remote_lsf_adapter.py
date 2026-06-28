@@ -2,7 +2,6 @@ from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
-
 from backend.app.compute.adapter import JobSpec
 from backend.app.compute.factory import RemoteLsfAdapter
 

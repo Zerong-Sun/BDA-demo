@@ -1,7 +1,6 @@
-from fastapi.testclient import TestClient
-
 from backend.app.compute.factory import LocalProcessAdapter
 from backend.app.services import job_service
+from fastapi.testclient import TestClient
 
 API = "/api/v1"
 

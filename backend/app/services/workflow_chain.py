@@ -5,7 +5,6 @@ import sqlite3
 
 from ..repositories import catalog
 
-
 WORKFLOW_CHAIN = [
     ("backbone_generation", "RFdiffusion", "bda/rfdiffusion:1.1.0"),
     ("sequence_design", "ProteinMPNN", "bda/proteinmpnn:1.0.0"),

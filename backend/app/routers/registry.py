@@ -1,5 +1,5 @@
-import sqlite3
 import re
+import sqlite3
 import tempfile
 import uuid
 from pathlib import Path
@@ -9,8 +9,7 @@ from pydantic import BaseModel, Field
 
 from ..auth.deps import get_current_user, require_role
 from ..db import get_connection
-from ..repositories import registry
-from ..repositories import model_catalog
+from ..repositories import model_catalog, registry
 from ..utils.response import envelope
 
 router = APIRouter()

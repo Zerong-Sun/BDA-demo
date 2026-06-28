@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -60,7 +60,7 @@ SCRIPT_ASSETS = [
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _json(value: Any) -> str:
@@ -428,7 +428,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
 
     artifact_ids: list[str] = []
     for pdb in sorted(output_dir.glob(f"{cfg['output_prefix']}*.pdb")):
-        artifact_id = "art_" + hashlib.sha256(f"{cfg['job_id']}:{pdb.name}".encode("utf-8")).hexdigest()[:16]
+        artifact_id = "art_" + hashlib.sha256(f"{cfg['job_id']}:{pdb.name}".encode()).hexdigest()[:16]
         relative_path = f"jobs/{cfg['job_id']}/outputs/{pdb.name}"
         _artifact_row(
             connection,

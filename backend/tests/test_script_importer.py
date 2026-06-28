@@ -1,10 +1,10 @@
 import sqlite3
 from pathlib import Path
 
+from backend.app.copilot.tools import execute_tool
 from backend.app.plugins.defaults import register_default_model_plugins
 from backend.app.repositories import model_catalog
 from backend.app.services.script_importer import consistency_report, import_script_tree, parse_script
-from backend.app.copilot.tools import execute_tool
 
 
 def _connection() -> sqlite3.Connection:

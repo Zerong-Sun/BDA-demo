@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query
 
@@ -97,5 +97,5 @@ def health_detail(
         checks["minio"] = "local_mode"
 
     checks["compute"] = settings.bda_compute_mode
-    checks["timestamp"] = datetime.now(timezone.utc).isoformat()
+    checks["timestamp"] = datetime.now(UTC).isoformat()
     return envelope(checks)

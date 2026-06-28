@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import json
-import shlex
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -533,7 +533,7 @@ PY"""
             "cd work",
             "/work/bme-liz/software/RFdiffusion/scripts/run_inference.py \\",
             run_command,
-            f"> ../logs/$LSB_JOBID.log 2>&1",
+            "> ../logs/$LSB_JOBID.log 2>&1",
             collect_script.strip(),
         ])
         return "\n".join(directives) + "\n"
@@ -555,7 +555,7 @@ PY"""
             f"cp input/{shlex.quote(name)} work/pdb/{shlex.quote(name)}"
             for name in pdb_names
         ) or "find input -maxdepth 1 -type f -name '*.pdb' -exec cp {} work/pdb/ \\;"
-        collect_script = f"""
+        collect_script = """
 python - <<'PY' >> logs/$LSB_JOBID.log 2>&1
 import csv
 import json
@@ -592,12 +592,12 @@ with combined_fasta.open("w", encoding="utf-8") as fasta_out:
     for fasta in sorted(seq_dir.glob("*.fa")) + sorted(seq_dir.glob("*.fasta")):
         backbone = fasta.stem
         for index, (header, sequence) in enumerate(list(read_fasta(fasta))[1:], start=1):
-            design_id = f"{{backbone}}_mpnn_seq{{index}}"
-            fasta_out.write(f">{{design_id}}\\n")
+            design_id = f"{backbone}_mpnn_seq{index}"
+            fasta_out.write(f">{design_id}\\n")
             for start in range(0, len(sequence), 60):
                 fasta_out.write(sequence[start:start + 60] + "\\n")
             match = score_re.search(header)
-            records.append({{
+            records.append({
                 "design_id": design_id,
                 "backbone": backbone,
                 "source_fasta": fasta.name,
@@ -605,47 +605,47 @@ with combined_fasta.open("w", encoding="utf-8") as fasta_out:
                 "sequence_index": index,
                 "sequence_length": len(sequence),
                 "mpnn_score": float(match.group(1)) if match else None,
-            }})
+            })
 
 with score_csv.open("w", encoding="utf-8", newline="") as handle:
     writer = csv.DictWriter(handle, fieldnames=["design_id", "backbone", "sequence_index", "sequence_length", "mpnn_score"])
     writer.writeheader()
     for record in records:
-        writer.writerow({{key: record.get(key) for key in writer.fieldnames}})
+        writer.writerow({key: record.get(key) for key in writer.fieldnames})
 
 (output_dir / "proteinmpnn_run.json").write_text(
-    json.dumps({{
+    json.dumps({
         "sequence_count": len(records),
-        "parameters": json.loads(Path("input/manifest.json").read_text(encoding="utf-8")).get("parameters") or {{}},
+        "parameters": json.loads(Path("input/manifest.json").read_text(encoding="utf-8")).get("parameters") or {},
         "records": records,
-    }}, indent=2),
+    }, indent=2),
     encoding="utf-8",
 )
 (output_dir / "manifest.json").write_text(
-    json.dumps({{
-        "outputs": {{
-            "sequence_set": [{{
+    json.dumps({
+        "outputs": {
+            "sequence_set": [{
                 "path": "sweetprotein_mpnn5_designs.fasta",
                 "format": "fasta",
                 "artifact_type": "sequence_set",
                 "display_name": "sweetprotein_mpnn5_designs.fasta",
-                "metadata": {{"sequence_count": len(records), "source_port": "sequence_set"}},
-            }}],
-            "score_table": [{{
+                "metadata": {"sequence_count": len(records), "source_port": "sequence_set"},
+            }],
+            "score_table": [{
                 "path": "proteinmpnn_scores.csv",
                 "format": "csv",
                 "artifact_type": "score_table",
                 "display_name": "proteinmpnn_scores.csv",
-            }}],
-            "run_manifest": [{{
+            }],
+            "run_manifest": [{
                 "path": "proteinmpnn_run.json",
                 "format": "json",
                 "artifact_type": "manifest",
                 "display_name": "proteinmpnn_run.json",
-            }}],
-        }},
-        "metrics": {{"designed": len(records), "backbones": len(list(Path("work/pdb").glob("*.pdb")))}},
-    }}, indent=2),
+            }],
+        },
+        "metrics": {"designed": len(records), "backbones": len(list(Path("work/pdb").glob("*.pdb")))},
+    }, indent=2),
     encoding="utf-8",
 )
 if not records:

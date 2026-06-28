@@ -5,26 +5,25 @@ import re
 import shutil
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ..config import ARTIFACTS_ROOT
 from ..compute.adapter import JobSpec
 from ..compute.factory import get_compute_adapter
+from ..config import ARTIFACTS_ROOT
 from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog, registry
 from ..repositories.base import decode_row, decode_rows, get_by_id
 from ..services.artifact_store import get_artifact_store
 from ..services.artifacts import artifact_format_for_filename, infer_artifact_metadata, sha256_file
 
-
 ARTIFACT_STORAGE_PREFIX = "artifact://"
 LEGACY_ARTIFACT_STORAGE_PREFIXES = ("local://",)
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def create_job(
@@ -497,7 +496,7 @@ def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
     requirements = plugin.get("resource_requirement_json") or {}
     if isinstance(requirements, str):
         requirements = json.loads(requirements)
-    env = dict((requirements.get("runtime_env") or {}))
+    env = dict(requirements.get("runtime_env") or {})
     gpu_count = requirements.get("gpu_count") or 0
     if gpu_count:
         env.setdefault("BDA_GPU", "1")

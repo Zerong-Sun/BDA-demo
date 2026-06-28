@@ -1,5 +1,4 @@
 import pytest
-
 from backend.app.db import connect, release_connection
 from backend.app.repositories import catalog
 from backend.app.repositories.base import (

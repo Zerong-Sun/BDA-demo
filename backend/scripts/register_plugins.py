@@ -7,9 +7,9 @@ templates, resource requirements, and UI-renderable parameter definitions.
 
 from __future__ import annotations
 
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent

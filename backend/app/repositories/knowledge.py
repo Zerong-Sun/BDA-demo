@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import sqlite3
 import re
+import sqlite3
 
 from .base import decode_row, decode_rows
 

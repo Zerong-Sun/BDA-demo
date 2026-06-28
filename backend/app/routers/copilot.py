@@ -1,6 +1,7 @@
 import json
 import sqlite3
 import uuid
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
@@ -8,6 +9,7 @@ from sse_starlette.sse import EventSourceResponse
 
 from ..auth.deps import get_current_user, require_role
 from ..auth.service import verify_project_access
+from ..copilot import cluster
 from ..copilot.biomaterials_skill import (
     BIOMATERIALS_SYSTEM_PROMPT,
     DOMAIN_REFUSAL,
@@ -30,7 +32,6 @@ from ..schemas import (
 )
 from ..settings import get_settings
 from ..utils.response import envelope
-from ..copilot import cluster
 
 router = APIRouter(prefix="/copilot")
 

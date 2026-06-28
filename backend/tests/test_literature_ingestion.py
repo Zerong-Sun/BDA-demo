@@ -2,9 +2,7 @@ import sqlite3
 from pathlib import Path
 
 import pytest
-
-from backend.app.repositories import literature
-from backend.app.repositories import literature_subscriptions
+from backend.app.repositories import literature, literature_subscriptions
 from backend.app.services import literature_ingestion
 from backend.app.services.literature_subscription_service import (
     run_due_subscriptions,

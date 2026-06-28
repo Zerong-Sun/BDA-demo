@@ -1,7 +1,7 @@
 import os
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -92,7 +92,8 @@ def seed_sweet_protein_project(connection: sqlite3.Connection) -> None:
 
 
 def reconcile_local_projects(connection: sqlite3.Connection) -> None:
-    from backend.app.repositories.catalog import ensure_all_project_workspaces, reconcile_local_projects as reconcile
+    from backend.app.repositories.catalog import ensure_all_project_workspaces
+    from backend.app.repositories.catalog import reconcile_local_projects as reconcile
 
     reconcile(connection)
     ensure_all_project_workspaces(connection)

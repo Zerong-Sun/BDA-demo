@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.requests import Request
@@ -41,7 +41,7 @@ class AuditLogMiddleware(BaseHTTPMiddleware):
                     None,
                     request.query_params.get("project_id"),
                     json.dumps({"status_code": response.status_code}),
-                    datetime.now(timezone.utc).isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
             connection.commit()

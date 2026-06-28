@@ -48,8 +48,8 @@ _RETRY_KWARGS = {
 
 @celery_app.task(name="bda.poll_job_status", bind=True, **_RETRY_KWARGS)
 def poll_job_status(self, job_id: str) -> dict:
-    from .db import connect
     from .compute.factory import get_compute_adapter
+    from .db import connect
     from .services import job_service
 
     connection = connect()

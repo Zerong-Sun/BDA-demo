@@ -13,10 +13,11 @@ from pydantic import BaseModel, Field
 
 from ..auth.deps import get_current_user, require_candidate_access, require_project_access
 from ..auth.service import verify_project_access
+from ..config import REPO_ROOT
 from ..db import get_connection
 from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog
-from ..config import REPO_ROOT
+from ..services.artifact_store import get_artifact_store
 from ..services.artifacts import (
     artifact_format_for_filename,
     candidate_structure_path,
@@ -28,7 +29,6 @@ from ..services.artifacts import (
     resolve_artifact_path,
     sha256_file,
 )
-from ..services.artifact_store import get_artifact_store
 from ..settings import get_settings
 from ..utils.response import envelope
 

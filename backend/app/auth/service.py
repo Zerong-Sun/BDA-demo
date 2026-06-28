@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import Depends, HTTPException, status
@@ -44,7 +44,7 @@ def verify_password(plain: str, hashed: str) -> bool:
 def create_access_token(data: dict[str, Any], expires_minutes: int | None = None) -> str:
     settings = get_settings()
     to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(
+    expire = datetime.now(UTC) + timedelta(
         minutes=expires_minutes or settings.bda_jwt_expire_minutes
     )
     to_encode.update({"exp": expire})
@@ -91,7 +91,7 @@ def create_user(
             hash_password(password),
             role,
             display_name or username,
-            datetime.now(timezone.utc).isoformat(),
+            datetime.now(UTC).isoformat(),
         ),
     )
     return get_user_by_username(connection, username) or {}

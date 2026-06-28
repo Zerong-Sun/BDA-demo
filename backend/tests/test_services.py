@@ -1,12 +1,10 @@
 import pytest
-from fastapi import HTTPException
-
 from backend.app.services.artifacts import (
     candidate_structure_path,
     parse_pdb_metadata,
     resolve_artifact_path,
 )
-
+from fastapi import HTTPException
 
 SAMPLE_PDB = """\
 ATOM      1  N   ALA A   1      11.104   6.134  -6.504  1.00  0.00           N
