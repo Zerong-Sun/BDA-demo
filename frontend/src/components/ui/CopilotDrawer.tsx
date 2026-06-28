@@ -56,9 +56,9 @@ export function CopilotDrawer({ open, onClose, pageContext }: CopilotDrawerProps
       </button>
       <div className="flex items-start justify-between border-b border-bda-border p-4">
         <div>
-          <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
+          <p className="text-xs uppercase tracking-wide text-bda-cyan">BDA Copilot</p>
           <h2 className="text-lg font-semibold">{t.experiments.copilotTitle}</h2>
-          <p className="mt-1 text-xs text-bda-muted">Reads project, page, workflow, and selected context.</p>
+          <p className="mt-1 text-xs text-bda-muted">One Copilot for project, knowledge, workflow, tools, and LLM context.</p>
         </div>
         <div className="flex items-center gap-1">
           <button

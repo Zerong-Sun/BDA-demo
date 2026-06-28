@@ -4,36 +4,23 @@ import json
 import sqlite3
 from typing import Any
 
-from ..settings import get_settings
 from .biomaterials_skill import BIOMATERIALS_SYSTEM_PROMPT
+from .provider import get_llm_provider
 
 
 def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
-    from openai import OpenAI
-
     from .tools import COPILOT_TOOLS, execute_tool
 
-    settings = get_settings()
-    client = OpenAI(base_url=settings.llm_api_base, api_key=settings.llm_api_key)
-    provider_options = (
-        {"extra_body": {"thinking": {"type": "disabled"}}}
-        if "api.deepseek.com" in settings.llm_api_base.lower()
-        else {}
-    )
-
+    provider = get_llm_provider()
     messages = [{"role": m.role, "content": m.content} for m in payload.messages]
     system = BIOMATERIALS_SYSTEM_PROMPT
 
-    response = client.chat.completions.create(
-        model=settings.llm_model,
-        messages=[{"role": "system", "content": system}, *messages],
+    response = provider.chat(
+        [{"role": "system", "content": system}, *messages],
         tools=COPILOT_TOOLS,
-        tool_choice="auto",
-        **provider_options,
     )
 
-    choice = response.choices[0]
-    message = choice.message
+    message = response.raw.choices[0].message if response.raw else response
 
     if message.tool_calls:
         tool_results = []
@@ -74,23 +61,19 @@ def chat_with_llm(connection: sqlite3.Connection, payload: Any) -> dict:
                 {"role": "tool", "tool_call_id": call.id, "content": json.dumps(result, default=str)}
             )
 
-        followup = client.chat.completions.create(
-            model=settings.llm_model,
-            messages=followup_messages,
-            **provider_options,
-        )
-        final_message = followup.choices[0].message.content or "Completed the requested analysis."
+        followup = provider.chat(followup_messages)
+        final_message = followup.content or "Completed the requested analysis."
 
         return {
             "mode": "llm_with_tools",
             "message": final_message,
             "skill_used": payload.skill or last_tool_name or "general",
-            "structured": {"tool_results": tool_results},
+            "structured": {"tool_results": tool_results, "copilot_runtime": "single_bda_copilot"},
         }
 
     return {
         "mode": "llm",
         "message": message.content or "",
         "skill_used": payload.skill or "general",
-        "structured": {"project_id": payload.project_id},
+        "structured": {"project_id": payload.project_id, "copilot_runtime": "single_bda_copilot"},
     }

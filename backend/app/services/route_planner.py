@@ -172,12 +172,18 @@ def plan_routes(
             "estimated_steps": len(modules),
         })
 
+    legacy_route = [
+        module["model_name"]
+        for module in (route_options[0]["modules"] if route_options else [])
+    ]
     return {
         "mode": "knowledge_guided_rule_planner",
         "project_id": project_id,
         "target": target_text,
         "objective": objective_text,
         "constraints": constraints or {},
+        "route": legacy_route,
+        "note": "Route options are knowledge-guided; use route_options for selectable routes and modules.",
         "knowledge_context": [
             {
                 "knowledge_entry_id": item["knowledge_entry_id"],
