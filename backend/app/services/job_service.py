@@ -442,9 +442,15 @@ def get_job(connection: sqlite3.Connection, job_id: str) -> dict[str, Any] | Non
     return decode_row(row)
 
 
-def list_workflow_jobs(connection: sqlite3.Connection, workflow_run_id: str) -> list[dict[str, Any]]:
+def list_workflow_jobs(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    *,
+    chronological: bool = False,
+) -> list[dict[str, Any]]:
+    order_by = "created_at ASC, rowid ASC" if chronological else "created_at DESC, rowid DESC"
     rows = connection.execute(
-        "SELECT * FROM jobs WHERE workflow_run_id = ? ORDER BY created_at DESC, rowid DESC",
+        f"SELECT * FROM jobs WHERE workflow_run_id = ? ORDER BY {order_by}",
         (workflow_run_id,),
     ).fetchall()
     return decode_rows(rows)

@@ -6,6 +6,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from ..compute.adapter import ComputeAdapter, JobHandle, JobSpec, JobStatus
@@ -253,11 +254,13 @@ class RemoteLsfAdapter:
         self._gpu_queue = settings.bda_lsf_default_gpu_queue
         self._connect_timeout = settings.bda_lsf_connect_timeout_seconds
         self._plugin_commands = settings.lsf_plugin_commands
+        self._ssh_password = settings.bda_lsf_ssh_password
 
-    def _ssh_args(self) -> list[str]:
+    def _ssh_args(self, *, batch_mode: bool = True) -> list[str]:
         return [
             "ssh",
-            "-o", "BatchMode=yes",
+            "-o", f"BatchMode={'yes' if batch_mode else 'no'}",
+            "-o", "NumberOfPasswordPrompts=1",
             "-o", f"ConnectTimeout={self._connect_timeout}",
             self._host,
         ]
@@ -275,6 +278,9 @@ class RemoteLsfAdapter:
         timeout: int = 30,
         check: bool = True,
     ) -> subprocess.CompletedProcess[bytes]:
+        password = getattr(self, "_ssh_password", "")
+        if password:
+            return self._run_ssh_with_password(command, input_data=input_data, timeout=timeout, check=check)
         try:
             return subprocess.run(
                 [*self._ssh_args(), command],
@@ -285,6 +291,75 @@ class RemoteLsfAdapter:
             )
         except (OSError, subprocess.SubprocessError) as exc:
             raise RuntimeError(f"remote_lsf_ssh_failed:{exc}") from exc
+
+    def _run_ssh_with_password(
+        self,
+        command: str,
+        *,
+        input_data: bytes | None = None,
+        timeout: int = 30,
+        check: bool = True,
+    ) -> subprocess.CompletedProcess[bytes]:
+        local_input_path: str | None = None
+        try:
+            ssh_command = shlex.join([*self._ssh_args(batch_mode=False), command])
+            local_command = ssh_command
+            if input_data is not None:
+                with tempfile.NamedTemporaryFile(delete=False) as handle:
+                    handle.write(input_data)
+                    local_input_path = handle.name
+                local_command = f"cat {shlex.quote(local_input_path)} | {ssh_command}"
+            expect_script = """
+log_user 1
+set timeout $env(BDA_LSF_EXPECT_TIMEOUT)
+set pass $env(BDA_LSF_SSH_PASSWORD)
+spawn -noecho sh -c $env(BDA_LSF_LOCAL_COMMAND)
+expect {
+  -re "(?i)password:" {
+    log_user 0
+    send -- "$pass\\r"
+    log_user 1
+    exp_continue
+  }
+  eof
+}
+set result [wait]
+exit [lindex $result 3]
+"""
+            env = {
+                **os.environ,
+                "BDA_LSF_SSH_PASSWORD": str(getattr(self, "_ssh_password", "")),
+                "BDA_LSF_EXPECT_TIMEOUT": str(timeout),
+                "BDA_LSF_LOCAL_COMMAND": local_command,
+            }
+            result = subprocess.run(
+                ["expect", "-c", expect_script],
+                capture_output=True,
+                timeout=timeout + 5,
+                check=False,
+                env=env,
+            )
+            if check and result.returncode != 0:
+                raise subprocess.CalledProcessError(
+                    result.returncode,
+                    ["ssh", self._host, command],
+                    output=result.stdout,
+                    stderr=result.stderr,
+                )
+            return subprocess.CompletedProcess(
+                args=["ssh", self._host, command],
+                returncode=result.returncode,
+                stdout=result.stdout,
+                stderr=result.stderr,
+            )
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise RuntimeError(f"remote_lsf_ssh_failed:{exc}") from exc
+        finally:
+            if local_input_path:
+                try:
+                    os.unlink(local_input_path)
+                except OSError:
+                    pass
 
     def _ssh_error_summary(self, stderr: str) -> str:
         lines = [
@@ -994,16 +1069,17 @@ PY"""
         )
         text = result.stdout.decode("utf-8", errors="replace")
         lines = [line.strip() for line in text.splitlines() if line.strip()]
-        connected = result.returncode == 0 and bool(lines) and lines[0] == "BDA_LSF_OK"
+        connected = result.returncode == 0 and "BDA_LSF_OK" in lines
+        ok_marker = lines.index("BDA_LSF_OK") if "BDA_LSF_OK" in lines else -1
         all_marker = lines.index("BDA_LSF_ALL_QUEUES") if "BDA_LSF_ALL_QUEUES" in lines else len(lines)
         return {
             "mode": "remote_lsf",
             "connected": connected,
             "host": self._host,
             "remote_root": self._remote_root,
-            "queues": lines[1:all_marker] if connected else [],
+            "queues": lines[ok_marker + 1:all_marker] if connected else [],
             "all_queues": lines[all_marker + 1:] if connected and all_marker < len(lines) else [],
-            "reason": None if connected else result.stderr.decode("utf-8", errors="replace").strip(),
+            "reason": None if connected else (result.stderr + result.stdout).decode("utf-8", errors="replace").strip(),
         }
 
 

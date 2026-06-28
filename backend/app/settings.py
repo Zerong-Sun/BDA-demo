@@ -38,6 +38,9 @@ class Settings(BaseSettings):
     bda_lsf_default_cpu_queue: str = "v3-64"
     bda_lsf_default_gpu_queue: str = "gpu-bme-liz"
     bda_lsf_connect_timeout_seconds: int = 10
+    # Optional local-development password fallback for clusters where SSH keys
+    # are unavailable. Leave empty in shared/production deployments.
+    bda_lsf_ssh_password: str = ""
     # JSON object keyed by model_plugin_id. Values are trusted remote wrapper
     # commands maintained by the BDA administrator, never supplied by the UI.
     bda_lsf_plugin_commands_json: str = "{}"

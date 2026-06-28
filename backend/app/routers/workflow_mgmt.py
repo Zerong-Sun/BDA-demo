@@ -50,7 +50,7 @@ def _graph_payload(connection: sqlite3.Connection, workflow_run_id: str) -> dict
         "nodes": catalog.list_workflow_nodes(connection, workflow_run_id),
         "edges": catalog.list_workflow_edges(connection, workflow_run_id),
         "artifacts": artifact_repo.list_workflow_artifacts(connection, workflow_run_id),
-        "jobs": job_service.list_workflow_jobs(connection, workflow_run_id),
+        "jobs": job_service.list_workflow_jobs(connection, workflow_run_id, chronological=True),
     }
 
 
