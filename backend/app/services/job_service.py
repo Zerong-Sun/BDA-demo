@@ -278,6 +278,33 @@ def _register_generated_candidate(
     artifact_format = str(artifact.get("format") or "").lower()
     artifact_type = str(artifact.get("artifact_type") or "").lower()
     source_port = str(entry.get("port") or "").lower()
+    metadata = artifact.get("metadata_json") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    if artifact_type in {"predicted_structure", "complex_structure"} or source_port in {"predicted_structure", "complex_structure"}:
+        raw_candidate_id = entry.get("candidate_id") or metadata.get("candidate_id")
+        if not raw_candidate_id:
+            return
+        candidate_id = str(raw_candidate_id)
+        if not candidate_id.startswith("cand_"):
+            candidate_id = f"cand_{candidate_id}"
+        storage_uri = str(artifact.get("storage_uri") or "")
+        structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
+        connection.execute(
+            """
+            UPDATE candidates
+            SET complex_file_path = ?,
+                plddt = COALESCE(?, plddt),
+                status = 'folded',
+                next_action = 'Review AlphaFold2/Superfold pLDDT and continue developability scoring.'
+            WHERE candidate_id = ? AND project_id = ?
+            """,
+            (structure_file_path, metadata.get("plddt"), candidate_id, project_id),
+        )
+        return
     if artifact_format not in {"pdb", "mmcif", "cif"} and not any(
         token in artifact_type or token in source_port
         for token in ("structure", "backbone", "pdb", "model")
@@ -291,12 +318,6 @@ def _register_generated_candidate(
     candidate_id = safe_id if safe_id.startswith("cand_") else f"cand_{safe_id}"
     storage_uri = str(artifact.get("storage_uri") or "")
     structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
-    metadata = artifact.get("metadata_json") or {}
-    if isinstance(metadata, str):
-        try:
-            metadata = json.loads(metadata)
-        except json.JSONDecodeError:
-            metadata = {}
     connection.execute(
         """
         INSERT INTO candidates (

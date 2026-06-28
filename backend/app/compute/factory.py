@@ -620,7 +620,8 @@ PY"""
     def _render_alphafold2_lsf_script(self, job: JobSpec) -> str:
         manifest = self._manifest_payload(job)
         parameters = manifest.get("parameters") or {}
-        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or "4v100-16-e5"
+        force_cpu = bool(parameters.get("force_cpu")) or job.env.get("BDA_GPU") == "0"
+        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or (self._cpu_queue if force_cpu else "4v100-16-e5")
         cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT") or parameters.get("jackhmmer_n_cpu") or 8))
         resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=1]"
         gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
@@ -644,6 +645,7 @@ records = []
 
 def candidate_name(path):
     name = path.stem
+    name = re.sub(r"_model_\\d+_ptm_seed_\\d+_(?:unrelaxed|relaxed|prediction_results)$", "", name)
     for suffix in ("_unrelaxed_rank_001", "_relaxed_rank_001", "_rank_001", "_model_1"):
         if name.endswith(suffix):
             return name[: -len(suffix)]
@@ -660,16 +662,18 @@ def read_json_score(path):
         plddt = sum(float(value) for value in values) / len(values)
     elif isinstance(values, (int, float)):
         plddt = float(values)
+    elif isinstance(payload.get("mean_plddt"), (int, float)):
+        plddt = float(payload["mean_plddt"])
     return {
         "plddt": plddt,
-        "ptm": payload.get("ptm"),
+        "ptm": payload.get("ptm") or payload.get("pTMscore"),
         "iptm": payload.get("iptm"),
         "pae": payload.get("pae") or payload.get("predicted_aligned_error"),
     }
 
 score_by_candidate = {}
 for path in output_dir.rglob("*.json"):
-    if "timings" in path.name or path.name == "manifest.json":
+    if "timings" in path.name or path.name in {"manifest.json", "alphafold2_run.json"}:
         continue
     scores = read_json_score(path)
     if any(value is not None for value in scores.values()):
@@ -791,7 +795,6 @@ PY"""
             f"#BSUB -J AlphaFold2_{job.job_id.removeprefix('job_')[:10]}",
             f"#BSUB -q {queue}",
             f"#BSUB -n {cpu_count}",
-            f'#BSUB -gpu "{gpu_requirement}"',
             f'#BSUB -R "{resource_requirement}"',
             "#BSUB -o logs/%J.out",
             "#BSUB -e logs/%J.err",
@@ -799,17 +802,22 @@ PY"""
             "set -Eeuo pipefail",
             f"cd {shlex.quote(remote_dir)}",
             "mkdir -p output work/input_fasta work/single_fasta logs",
+            "PYTHON_BIN=$(command -v python3 || command -v python)",
             fasta_copy_lines,
-            split_script.strip(),
-            "if [[ -f /work/bme-liz/miniconda3/etc/profile.d/conda.sh ]]; then source /work/bme-liz/miniconda3/etc/profile.d/conda.sh; conda activate mlfold; else source activate /work/bme-liz/miniconda3/envs/mlfold; fi",
+            split_script.strip().replace("python - <<'PY'", '"$PYTHON_BIN" - <<\'PY\''),
+            "source deactivate base >/dev/null 2>&1 || true",
+            "conda deactivate >/dev/null 2>&1 || true",
+            "export CUDA_VISIBLE_DEVICES=\"\"" if force_cpu else "true",
             "for fasta_file in work/single_fasta/*.fasta; do",
             "  name=$(basename \"$fasta_file\" .fasta)",
             "  mkdir -p \"output/$name\"",
-            f"  /work/bme-liz/software/superfold/superfold \"$fasta_file\" --models {models} --max_recycle {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
+            f"  /work/bme-liz/software/superfold/superfold \"$fasta_file\" --models {models} --max_recycles {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
             "done",
-            collect_script.strip(),
+            collect_script.strip().replace("python - <<'PY'", '"$PYTHON_BIN" - <<\'PY\''),
             "echo '[DONE] AlphaFold2/Superfold finished.'",
         ]
+        if not force_cpu:
+            directives.insert(6, f'#BSUB -gpu "{gpu_requirement}"')
         return "\n".join(directives) + "\n"
 
     def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:

@@ -70,7 +70,7 @@ def test_lsf_script_renders_builtin_alphafold2_runner(tmp_path: Path):
 
     assert "#BSUB -J AlphaFold2_test123" in script
     assert "/work/bme-liz/software/superfold/superfold" in script
-    assert "--max_recycle 3" in script
+    assert "--max_recycles 3" in script
     assert "alphafold2_confidence.csv" in script
     assert "predicted_structure" in script
     assert job.command not in script
