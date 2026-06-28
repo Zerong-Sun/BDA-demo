@@ -17,16 +17,55 @@ const columnHelper = createColumnHelper<Candidate>()
 interface CandidateTableProps {
   data: Candidate[]
   selectedId?: string
+  selectedIds?: Set<string>
   onSelect: (candidate: Candidate) => void
+  onToggleCandidate?: (candidateId: string) => void
+  onTogglePage?: () => void
 }
 
-export function CandidateTable({ data, selectedId, onSelect }: CandidateTableProps) {
+export function CandidateTable({
+  data,
+  selectedId,
+  selectedIds,
+  onSelect,
+  onToggleCandidate,
+  onTogglePage,
+}: CandidateTableProps) {
   const [sorting, setSorting] = useState<SortingState>([
     { id: 'interface_score', desc: true },
   ])
+  const allPageSelected = data.length > 0 && data.every((item) => selectedIds?.has(item.candidate_id))
+  const somePageSelected = data.some((item) => selectedIds?.has(item.candidate_id))
 
   const columns = useMemo(
     () => [
+      columnHelper.display({
+        id: 'select',
+        header: () => (
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-bda-cyan"
+            checked={allPageSelected}
+            ref={(element) => {
+              if (element) element.indeterminate = somePageSelected && !allPageSelected
+            }}
+            aria-label={allPageSelected ? 'Clear page selection' : 'Select page candidates'}
+            onChange={onTogglePage}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ),
+        cell: (info) => (
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-bda-cyan"
+            checked={selectedIds?.has(info.row.original.candidate_id) ?? false}
+            aria-label={`Select ${info.row.original.candidate_id}`}
+            onChange={() => onToggleCandidate?.(info.row.original.candidate_id)}
+            onClick={(event) => event.stopPropagation()}
+          />
+        ),
+        enableSorting: false,
+      }),
       columnHelper.accessor('candidate_id', {
         header: 'Candidate',
         cell: (info) => (
@@ -41,9 +80,18 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
         ),
       }),
       columnHelper.accessor('family', { header: 'Family' }),
-      columnHelper.accessor('interface_score', { header: 'Affinity' }),
-      columnHelper.accessor('pred_kd', { header: 'Pred Kd' }),
-      columnHelper.accessor('plddt', { header: 'pLDDT' }),
+      columnHelper.accessor('interface_score', {
+        header: 'Affinity',
+        cell: (info) => info.getValue() ?? 'Not scored',
+      }),
+      columnHelper.accessor('pred_kd', {
+        header: 'Pred Kd',
+        cell: (info) => info.getValue() ?? 'Not scored',
+      }),
+      columnHelper.accessor('plddt', {
+        header: 'pLDDT',
+        cell: (info) => info.getValue() ?? 'Not scored',
+      }),
       columnHelper.accessor('solubility_score', {
         header: 'Solubility',
         cell: (info) => info.getValue() ?? '—',
@@ -76,7 +124,7 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
         ),
       }),
     ],
-    [],
+    [allPageSelected, onToggleCandidate, onTogglePage, selectedIds, somePageSelected],
   )
 
   // TanStack Table intentionally exposes mutable function references.
@@ -115,6 +163,7 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
                   const ariaSort =
                     sorted === 'asc' ? 'ascending' : sorted === 'desc' ? 'descending' : 'none'
                   const toggleSort = header.column.getToggleSortingHandler()
+                  const content = flexRender(header.column.columnDef.header, header.getContext())
                   return (
                     <th
                       key={header.id}
@@ -122,17 +171,21 @@ export function CandidateTable({ data, selectedId, onSelect }: CandidateTablePro
                       aria-sort={ariaSort}
                       className="px-3 py-2"
                     >
-                      <button
-                        type="button"
-                        className="flex w-full items-center gap-1 text-left uppercase tracking-wide hover:text-bda-text"
-                        onClick={toggleSort}
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {{
-                          asc: ' ↑',
-                          desc: ' ↓',
-                        }[sorted as string] ?? null}
-                      </button>
+                      {header.column.getCanSort() ? (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-1 text-left uppercase tracking-wide hover:text-bda-text"
+                          onClick={toggleSort}
+                        >
+                          {content}
+                          {{
+                            asc: ' ↑',
+                            desc: ' ↓',
+                          }[sorted as string] ?? null}
+                        </button>
+                      ) : (
+                        content
+                      )}
                     </th>
                   )
                 })}

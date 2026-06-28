@@ -18,6 +18,9 @@ class JobSpec:
     input_dir: str | None = None
     output_dir: str | None = None
     work_dir: str | None = None
+    queue_name: str | None = None
+    resource_requirement: str | None = None
+    gpu_requirement: str | None = None
 
 
 @dataclass
@@ -36,6 +39,8 @@ class JobStatus:
 
 
 class ComputeAdapter(Protocol):
+    def render_script(self, job: JobSpec) -> str: ...
+
     def submit(self, job: JobSpec) -> JobHandle: ...
 
     def status(self, job_id: str, external_id: str | None = None) -> JobStatus: ...

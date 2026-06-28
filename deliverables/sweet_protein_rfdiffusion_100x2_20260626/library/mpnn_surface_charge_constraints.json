@@ -1,0 +1,58 @@
+{
+  "purpose": "Reusable constraints for the ProteinMPNN stage after RFdiffusion backbone generation.",
+  "global_rules": {
+    "objective": "Retain or enrich correctly positioned solvent-exposed positive patches while preserving fold, linker geometry, disulfides, solubility, and diversity.",
+    "do_not": [
+      "Do not maximize total net positive charge globally.",
+      "Do not assume that every Lys/Arg substitution improves sweetness.",
+      "Do not mutate buried residues solely to change charge.",
+      "Do not treat predicted receptor binding as receptor activation or sweetness."
+    ],
+    "required_downstream_checks": [
+      "Solvent accessibility and electrostatic surface calculation",
+      "Monomer fold prediction and confidence",
+      "Aggregation and nonspecific-binding risk",
+      "Human TAS1R2/TAS1R3 functional activation assay",
+      "Approved sensory testing only after safety and ethics review"
+    ]
+  },
+  "monellin": {
+    "reference_construct": "MNEI: natural chain B + Gly-Phe linker + natural chain A",
+    "preserve_or_review_positions": {
+      "linker_reference": [51, 52],
+      "experimentally_discussed_charge_pattern": [7, 28, 39, 65, 88],
+      "stability_or_aggregation_sensitive": [16, 23, 41]
+    },
+    "design_notes": [
+      "Y65R and Q28K are literature-supported examples of position-specific positive-charge engineering.",
+      "M42R, Y63R, and D68R illustrate that adding a positive charge at the wrong position can reduce sweetness.",
+      "C41S and E23Q are literature precedents to evaluate separately for aggregation and stability; they are not automatic defaults."
+    ]
+  },
+  "brazzein": {
+    "reference_construct": "RCSB 4HE7 modeled 53-residue chain",
+    "fixed_modeled_cysteine_positions_1_indexed": [3, 15, 21, 25, 36, 46, 48, 51],
+    "fixed_modeled_cysteine_positions_0_indexed": [2, 14, 20, 24, 35, 45, 47, 50],
+    "design_notes": [
+      "Preserve all eight modeled cysteines during the first ProteinMPNN round.",
+      "Treat surface charge as a spatial pattern and retain multiple sequence families for later receptor-function screening."
+    ]
+  },
+  "primary_references": [
+    {
+      "title": "Solution structure of a sweet protein: NMR study of MNEI, a single chain monellin",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/11152608/",
+      "relevance": "MNEI is a 96-residue construct linking natural monellin chains B and A with a Gly-Phe dipeptide."
+    },
+    {
+      "title": "Sweeter and stronger: enhancing sweetness and stability of the single chain monellin MNEI through molecular design",
+      "url": "https://doi.org/10.1038/srep34045",
+      "relevance": "Shows that charge placement, not global positive charge alone, is important; reports Y65R, Q28K and counterexamples."
+    },
+    {
+      "title": "RFdiffusion official usage documentation",
+      "url": "https://github.com/RosettaCommons/RFdiffusion",
+      "relevance": "Defines contig motif/linker syntax, partial-diffusion length constraints, and conservative noise guidance."
+    }
+  ]
+}

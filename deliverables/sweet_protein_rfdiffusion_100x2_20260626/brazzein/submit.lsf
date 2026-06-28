@@ -1,0 +1,34 @@
+#!/bin/bash
+
+#BSUB -J RFdiffusion_brazzein
+#BSUB -q 8v100-32-sc
+#BSUB -n 1
+#BSUB -gpu "num=1"
+#BSUB -R "span[ptile=1]"
+#BSUB -o %J.out
+#BSUB -e %J.err
+
+cd /work/bme-sunzr/bda/jobs/job_4de7a7ebdc11
+mkdir -p output work logs
+cp input/art_f10c683ebad34b80_4HE7_brazzein_clean_A1-54.pdb work/brazzein_input.pdb
+
+source activate /work/bme-liz/miniconda3/envs/SE3nv-gpu
+
+cd work
+/work/bme-liz/software/RFdiffusion/scripts/run_inference.py \
+inference.input_pdb=./brazzein_input.pdb \
+'contigmap.contigs=[53-53]' \
+'contigmap.provide_seq=[1-1,13-13,19-19,23-23,34-34,44-44,46-46,49-49]' \
+inference.num_designs=100 \
+inference.output_prefix=../output/brazzein_design \
+diffuser.partial_T=5 \
+diffuser.T=50 \
+denoiser.noise_scale_ca=0.5 \
+denoiser.noise_scale_frame=0.5 \
+> ../logs/$LSB_JOBID.log 2>&1
+
+python collect_rfdiffusion_outputs.py \
+  --output-dir ../output \
+  --manifest ../input/manifest.json \
+  --prefix brazzein_design \
+  >> ../logs/$LSB_JOBID.log 2>&1

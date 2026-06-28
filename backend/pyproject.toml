@@ -1,0 +1,20 @@
+[project]
+name = "bda-backend"
+version = "0.1.0"
+description = "BDA Workbench FastAPI backend"
+requires-python = ">=3.13"
+readme = "../README.md"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+src = ["app", "tests", "scripts"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["B008", "E501", "UP038"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".."]
+addopts = "-q"

@@ -16,6 +16,11 @@ frontend/.npm-cache/
 backend/.venv/
 backend/db/*.sqlite3
 backend/db/*.sqlite3-*
+backend/db/recovery-*/
+
+# Generated delivery packages (keep README/manifests if needed locally)
+deliverables/**/*.zip
+deliverables/**/downloads/
 backend/artifacts/*
 !backend/artifacts/structures/
 !backend/artifacts/structures/**

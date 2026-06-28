@@ -10,7 +10,7 @@
 
 - `README.md`
 - `docs/ARCHITECTURE.md`
-- `docs/DATA_MODEL.md`
 - `docs/PRD02_后端与工作流接入规划.md`
-- `docs/PLAN_甜味蛋白研发Copilot与自动工作流.md`
 - `docs/COPILOT_科研检索与集群任务指南.md`
+- `docs/DEV_GUIDE_接口与模型卡片扩展.md`
+- `docs/COPILOT_DEEPSEEK_配置指南.md`

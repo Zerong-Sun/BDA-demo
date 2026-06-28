@@ -1,3 +1,4 @@
+import { MarkerType } from '@xyflow/react'
 import type { WorkflowEdge, WorkflowNode } from '../../lib/schemas/workflow'
 import type { BdaWorkflowEdge, BdaWorkflowNode, WorkflowNodeData, WorkflowNodeStatus } from './workflowTypes'
 
@@ -94,6 +95,10 @@ function parsePosition(node: WorkflowNode, index: number): { x: number; y: numbe
 export function footerFromMetrics(node: WorkflowNode): string {
   const metrics = parseMetrics(node.metrics_json)
   const parts: string[] = []
+  if (metrics.backbone_count != null && metrics.sequences_per_backbone != null) {
+    parts.push(`${metrics.backbone_count} backbones`)
+    parts.push(`${metrics.sequences_per_backbone} seq/backbone`)
+  }
   if (metrics.generated != null) parts.push(`${metrics.generated} generated`)
   if (metrics.designed != null) parts.push(`${metrics.designed} designed`)
   if (metrics.folded != null) parts.push(`${metrics.folded} folded`)
@@ -101,7 +106,7 @@ export function footerFromMetrics(node: WorkflowNode): string {
   if (metrics.ordered != null) parts.push(`${metrics.ordered} ordered`)
   if (metrics.bli_positive != null) parts.push(`${metrics.bli_positive} BLI hits`)
   if (metrics.inputs_confirmed != null) parts.push(`${metrics.inputs_confirmed} inputs confirmed`)
-  if (parts.length > 0) return parts[0]
+  if (parts.length > 0) return parts.slice(0, 3).join(' · ')
   const estimate = formatEstimateFooter(node)
   if (estimate) return estimate
   return node.logs?.split('.')[0] ?? node.status
@@ -136,7 +141,10 @@ export function mapApiNodesToGraph(apiNodes: WorkflowNode[]): {
     id: `e-${node.node_run_id}-${apiNodes[index + 1].node_run_id}`,
     source: node.node_run_id,
     target: apiNodes[index + 1].node_run_id,
+    sourceHandle: 'output',
+    targetHandle: 'input',
     type: 'workflowEdge',
+    markerEnd: { type: MarkerType.ArrowClosed, color: '#39d2d8' },
     animated: apiNodes[index + 1].status === 'running',
   }))
 
@@ -155,9 +163,10 @@ export function mapApiGraphToGraph(apiNodes: WorkflowNode[], apiEdges: WorkflowE
       id: edge.edge_id,
       source: edge.source_node_run_id,
       target: edge.target_node_run_id,
-      sourceHandle: edge.source_port,
-      targetHandle: edge.target_port,
+      sourceHandle: 'output',
+      targetHandle: 'input',
       type: 'workflowEdge',
+      markerEnd: { type: MarkerType.ArrowClosed, color: edge.edge_type === 'feedback' ? '#f7b84b' : '#39d2d8' },
       animated: edge.edge_type === 'data',
       label: edge.edge_type === 'feedback' ? 'feedback' : undefined,
       data: {

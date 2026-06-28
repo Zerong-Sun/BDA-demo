@@ -4,10 +4,14 @@ import {
   ComputeNodeSchema,
   MethodPluginSchema,
   ModelPluginSchema,
+  ScriptAssetSchema,
+  ScriptUploadResultSchema,
   ServerConnectionSchema,
   type ComputeNode,
   type MethodPlugin,
   type ModelPlugin,
+  type ScriptAsset,
+  type ScriptUploadResult,
   type ServerConnection,
 } from '../schemas/registry'
 
@@ -54,6 +58,7 @@ export interface ClusterHealth {
   host?: string
   remote_root?: string
   queues: string[]
+  all_queues?: string[]
   reason?: string | null
 }
 
@@ -76,5 +81,29 @@ export function validateModelPlugin(modelPluginId: string) {
   return apiRequest<{ model_plugin_id: string; valid: boolean; status: string }>(
     `/model-plugins/${modelPluginId}/validate-schema`,
     { method: 'POST' },
+  )
+}
+
+export function listScriptAssets(modelPluginId?: string): Promise<ScriptAsset[]> {
+  const query = modelPluginId ? `?model_plugin_id=${encodeURIComponent(modelPluginId)}` : ''
+  return apiRequest<{ items: ScriptAsset[] }>(
+    `/script-assets${query}`,
+    {},
+    undefined,
+  ).then((response) => response.items.map((item) => ScriptAssetSchema.parse(item)))
+}
+
+export function uploadScriptAsset(
+  file: File,
+  options: { modelPluginId?: string; relativePath?: string } = {},
+): Promise<ScriptUploadResult> {
+  const form = new FormData()
+  form.append('file', file)
+  if (options.modelPluginId) form.append('model_plugin_id', options.modelPluginId)
+  if (options.relativePath) form.append('relative_path', options.relativePath)
+  return apiRequest<ScriptUploadResult>(
+    '/script-assets/upload',
+    { method: 'POST', body: form },
+    ScriptUploadResultSchema,
   )
 }

@@ -6,7 +6,7 @@ import re
 import shlex
 import subprocess
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -33,7 +33,7 @@ BLOCKED_PATTERNS = [
 
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def _draft_path(draft_id: str) -> Path:

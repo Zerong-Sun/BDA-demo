@@ -1,11 +1,12 @@
 import os
 import sqlite3
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Iterator
 
 from ..config import DEFAULT_DB_PATH
 from ..settings import get_settings
-from .pool import get_pool, release_connection as _release_from_pool
+from .pool import get_pool
+from .pool import release_connection as _release_from_pool
 
 
 def database_path() -> Path:

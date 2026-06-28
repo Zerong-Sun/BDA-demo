@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { Download } from 'lucide-react'
 import { MolStarViewerLazy } from '../pdb-viewer/MolStarViewerLazy'
 import { artifactUrl, structureFileUrl } from '../../lib/api/client'
+import { downloadCandidateStructures } from '../../lib/api/candidates'
 import { explainCandidate } from '../../lib/api/copilot'
 import type { Candidate } from '../../lib/schemas/candidate'
 import { ScoreBars } from './ScoreBars'
@@ -20,6 +22,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
   const showToast = useToastStore((s) => s.show)
   const [structureMode, setStructureMode] = useState<'monomer' | 'complex'>('monomer')
   const [explanation, setExplanation] = useState<string | null>(null)
+  const [isDownloading, setIsDownloading] = useState(false)
 
   if (!candidate) {
     return (
@@ -47,6 +50,22 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
       setExplanation(`${result.recommendation} ${result.reasons.join(' ')}`)
     } catch {
       showToast('Failed to load candidate explanation', 'error')
+    }
+  }
+
+  const downloadStructure = async () => {
+    setIsDownloading(true)
+    try {
+      await downloadCandidateStructures(
+        [candidate.candidate_id],
+        `${candidate.candidate_id}_structure.zip`,
+      )
+      showToast('Candidate structure downloaded', 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Candidate download failed'
+      showToast(message, 'error')
+    } finally {
+      setIsDownloading(false)
     }
   }
 
@@ -95,7 +114,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
       />
       <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-bda-muted">
         <div>
-          {t.candidates.predKd}: <span className="text-bda-text">{candidate.pred_kd}</span>
+          {t.candidates.predKd}: <span className="text-bda-text">{candidate.pred_kd ?? 'Not scored'}</span>
         </div>
         <div>
           MD drift: <span className="text-bda-text">{candidate.interface_pae ?? '—'} Å</span>
@@ -131,6 +150,15 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
         >
           {t.candidates.viewLabResults}
         </Link>
+        <button
+          type="button"
+          className="inline-flex items-center gap-1 rounded-md border border-bda-border px-3 py-1.5 text-sm hover:bg-bda-panel-hover disabled:opacity-50"
+          disabled={!hasStructure || isDownloading}
+          onClick={() => void downloadStructure()}
+        >
+          <Download className="h-4 w-4" />
+          {isDownloading ? 'Downloading...' : 'Download structure'}
+        </button>
       </div>
       <div className="mt-4 rounded-md border border-bda-border bg-bda-bg p-3 text-sm">
         <span className="text-xs uppercase text-bda-muted">Next action</span>

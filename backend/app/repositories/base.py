@@ -41,7 +41,6 @@ JSON_COLUMNS = {
     "output_hints_json",
     "parse_warnings_json",
     "default_value_json",
-    "constraints_json",
     "normalized_value_json",
     "context_json",
     "budget_json",

@@ -1,0 +1,310 @@
+{
+  "2O9U": {
+    "file_id": "423f01aa-3f2d-40a8-8b53-460cb2b4512b",
+    "filename": "2O9U.pdb",
+    "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+    "atom_count": 1217,
+    "chain_count": 1,
+    "chains": [
+      "X"
+    ],
+    "residue_count": 96,
+    "preview_url": "/api/v1/artifacts/uploads/423f01aa-3f2d-40a8-8b53-460cb2b4512b.pdb",
+    "artifact": {
+      "artifact_id": "art_773887adb59f41d7",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "workflow_run_id": null,
+      "node_run_id": null,
+      "artifact_type": "target_structure",
+      "format": "pdb",
+      "storage_uri": "artifact://uploads/423f01aa-3f2d-40a8-8b53-460cb2b4512b.pdb",
+      "display_name": "2O9U.pdb",
+      "size_bytes": 236358,
+      "checksum": "8f93fbfc9d0dffa997b99e92af7f6bd461c337505038576684067989bdc7a2ed",
+      "metadata_json": {
+        "atom_count": 1217,
+        "chain_count": 1,
+        "chains": [
+          "X"
+        ],
+        "residue_count": 96
+      },
+      "created_by": "user_22892b7c8f",
+      "created_at": "2026-06-25 12:53:18",
+      "download_url": "/api/v1/artifacts/art_773887adb59f41d7/download",
+      "preview_url": "/api/v1/artifacts/art_773887adb59f41d7/preview"
+    },
+    "target": {
+      "target_id": "target_proj_sweetprotein_under100aa_202606_dad57c_upload",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "target_name": "2O9U",
+      "target_type": "protein",
+      "pdb_id": null,
+      "chain_ids": "X",
+      "sequence": null,
+      "structure_file_path": "uploads/423f01aa-3f2d-40a8-8b53-460cb2b4512b.pdb",
+      "cleaned_structure_file_path": null,
+      "epitope_residues": null,
+      "metadata_json": {
+        "atom_count": 1217,
+        "chain_count": 1,
+        "chains": [
+          "X"
+        ],
+        "residue_count": 96,
+        "upload_filename": "2O9U.pdb",
+        "source": "upload-pdb"
+      }
+    }
+  },
+  "4HE7": {
+    "file_id": "b7089c9f-9f8e-41d5-a821-086a96c250b4",
+    "filename": "4HE7.pdb",
+    "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+    "atom_count": 463,
+    "chain_count": 1,
+    "chains": [
+      "A"
+    ],
+    "residue_count": 53,
+    "preview_url": "/api/v1/artifacts/uploads/b7089c9f-9f8e-41d5-a821-086a96c250b4.pdb",
+    "artifact": {
+      "artifact_id": "art_ef06a6dd66d7495b",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "workflow_run_id": null,
+      "node_run_id": null,
+      "artifact_type": "target_structure",
+      "format": "pdb",
+      "storage_uri": "artifact://uploads/b7089c9f-9f8e-41d5-a821-086a96c250b4.pdb",
+      "display_name": "4HE7.pdb",
+      "size_bytes": 113238,
+      "checksum": "0f87c1998c9e9cb11f1ca06f9856127ac0552f3eb5b4edd3944e3d596be6dfe0",
+      "metadata_json": {
+        "atom_count": 463,
+        "chain_count": 1,
+        "chains": [
+          "A"
+        ],
+        "residue_count": 53
+      },
+      "created_by": "user_22892b7c8f",
+      "created_at": "2026-06-25 12:53:18",
+      "download_url": "/api/v1/artifacts/art_ef06a6dd66d7495b/download",
+      "preview_url": "/api/v1/artifacts/art_ef06a6dd66d7495b/preview"
+    },
+    "target": {
+      "target_id": "target_proj_sweetprotein_under100aa_202606_dad57c_upload",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "target_name": "4HE7",
+      "target_type": "protein",
+      "pdb_id": null,
+      "chain_ids": "A",
+      "sequence": null,
+      "structure_file_path": "uploads/b7089c9f-9f8e-41d5-a821-086a96c250b4.pdb",
+      "cleaned_structure_file_path": null,
+      "epitope_residues": null,
+      "metadata_json": {
+        "atom_count": 463,
+        "chain_count": 1,
+        "chains": [
+          "A"
+        ],
+        "residue_count": 53,
+        "upload_filename": "4HE7.pdb",
+        "source": "upload-pdb"
+      }
+    }
+  },
+  "2DS2": {
+    "file_id": "32324473-7d96-4acc-b58e-880eca3c92d7",
+    "filename": "2DS2.pdb",
+    "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+    "atom_count": 1676,
+    "chain_count": 4,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "residue_count": 189,
+    "preview_url": "/api/v1/artifacts/uploads/32324473-7d96-4acc-b58e-880eca3c92d7.pdb",
+    "artifact": {
+      "artifact_id": "art_509963755a94408c",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "workflow_run_id": null,
+      "node_run_id": null,
+      "artifact_type": "target_structure",
+      "format": "pdb",
+      "storage_uri": "artifact://uploads/32324473-7d96-4acc-b58e-880eca3c92d7.pdb",
+      "display_name": "2DS2.pdb",
+      "size_bytes": 168156,
+      "checksum": "aa7761868d70f39a4b0a0d3c49c0b244808edab197c7ba64ac0957300a5a4eb4",
+      "metadata_json": {
+        "atom_count": 1676,
+        "chain_count": 4,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "residue_count": 189
+      },
+      "created_by": "user_22892b7c8f",
+      "created_at": "2026-06-25 12:53:18",
+      "download_url": "/api/v1/artifacts/art_509963755a94408c/download",
+      "preview_url": "/api/v1/artifacts/art_509963755a94408c/preview"
+    },
+    "target": {
+      "target_id": "target_proj_sweetprotein_under100aa_202606_dad57c_upload",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "target_name": "2DS2",
+      "target_type": "protein",
+      "pdb_id": null,
+      "chain_ids": "A,B,C,D",
+      "sequence": null,
+      "structure_file_path": "uploads/32324473-7d96-4acc-b58e-880eca3c92d7.pdb",
+      "cleaned_structure_file_path": null,
+      "epitope_residues": null,
+      "metadata_json": {
+        "atom_count": 1676,
+        "chain_count": 4,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "residue_count": 189,
+        "upload_filename": "2DS2.pdb",
+        "source": "upload-pdb"
+      }
+    }
+  },
+  "2DPF": {
+    "file_id": "38f8fac8-bc90-48a4-a793-9f416be18035",
+    "filename": "2DPF.pdb",
+    "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+    "atom_count": 4051,
+    "chain_count": 4,
+    "chains": [
+      "A",
+      "B",
+      "C",
+      "D"
+    ],
+    "residue_count": 444,
+    "preview_url": "/api/v1/artifacts/uploads/38f8fac8-bc90-48a4-a793-9f416be18035.pdb",
+    "artifact": {
+      "artifact_id": "art_d68b0a1f101b407d",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "workflow_run_id": null,
+      "node_run_id": null,
+      "artifact_type": "target_structure",
+      "format": "pdb",
+      "storage_uri": "artifact://uploads/38f8fac8-bc90-48a4-a793-9f416be18035.pdb",
+      "display_name": "2DPF.pdb",
+      "size_bytes": 368388,
+      "checksum": "a4efc54336e27a66c69d2f7b248c6f7f88a2fd4d9624ca11a6983bb08d637971",
+      "metadata_json": {
+        "atom_count": 4051,
+        "chain_count": 4,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "residue_count": 444
+      },
+      "created_by": "user_22892b7c8f",
+      "created_at": "2026-06-25 12:53:18",
+      "download_url": "/api/v1/artifacts/art_d68b0a1f101b407d/download",
+      "preview_url": "/api/v1/artifacts/art_d68b0a1f101b407d/preview"
+    },
+    "target": {
+      "target_id": "target_proj_sweetprotein_under100aa_202606_dad57c_upload",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "target_name": "2DPF",
+      "target_type": "protein",
+      "pdb_id": null,
+      "chain_ids": "A,B,C,D",
+      "sequence": null,
+      "structure_file_path": "uploads/38f8fac8-bc90-48a4-a793-9f416be18035.pdb",
+      "cleaned_structure_file_path": null,
+      "epitope_residues": null,
+      "metadata_json": {
+        "atom_count": 4051,
+        "chain_count": 4,
+        "chains": [
+          "A",
+          "B",
+          "C",
+          "D"
+        ],
+        "residue_count": 444,
+        "upload_filename": "2DPF.pdb",
+        "source": "upload-pdb"
+      }
+    }
+  },
+  "2O9U_clean": {
+    "file_id": "b4167144-5701-4533-a52c-a9c6824f2f2e",
+    "filename": "2O9U_MNEI_clean_A1-96.pdb",
+    "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+    "atom_count": 790,
+    "chain_count": 1,
+    "chains": [
+      "A"
+    ],
+    "residue_count": 96,
+    "preview_url": "/api/v1/artifacts/uploads/b4167144-5701-4533-a52c-a9c6824f2f2e.pdb",
+    "artifact": {
+      "artifact_id": "art_b7df775ee2c54186",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "workflow_run_id": null,
+      "node_run_id": null,
+      "artifact_type": "target_structure",
+      "format": "pdb",
+      "storage_uri": "artifact://uploads/b4167144-5701-4533-a52c-a9c6824f2f2e.pdb",
+      "display_name": "2O9U_MNEI_clean_A1-96.pdb",
+      "size_bytes": 63998,
+      "checksum": "fe339b7bd83f6a0f80423c81b5c895c0f1cfecdb442fa11376c27840fa71bc5c",
+      "metadata_json": {
+        "atom_count": 790,
+        "chain_count": 1,
+        "chains": [
+          "A"
+        ],
+        "residue_count": 96
+      },
+      "created_by": "user_22892b7c8f",
+      "created_at": "2026-06-25 12:53:18",
+      "download_url": "/api/v1/artifacts/art_b7df775ee2c54186/download",
+      "preview_url": "/api/v1/artifacts/art_b7df775ee2c54186/preview"
+    },
+    "target": {
+      "target_id": "target_proj_sweetprotein_under100aa_202606_dad57c_upload",
+      "project_id": "proj_sweetprotein_under100aa_202606_dad57c",
+      "target_name": "2O9U_MNEI_clean_A1-96",
+      "target_type": "protein",
+      "pdb_id": null,
+      "chain_ids": "A",
+      "sequence": null,
+      "structure_file_path": "uploads/b4167144-5701-4533-a52c-a9c6824f2f2e.pdb",
+      "cleaned_structure_file_path": null,
+      "epitope_residues": null,
+      "metadata_json": {
+        "atom_count": 790,
+        "chain_count": 1,
+        "chains": [
+          "A"
+        ],
+        "residue_count": 96,
+        "upload_filename": "2O9U_MNEI_clean_A1-96.pdb",
+        "source": "upload-pdb"
+      }
+    }
+  }
+}

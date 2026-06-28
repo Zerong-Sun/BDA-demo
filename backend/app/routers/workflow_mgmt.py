@@ -50,7 +50,7 @@ def _graph_payload(connection: sqlite3.Connection, workflow_run_id: str) -> dict
         "nodes": catalog.list_workflow_nodes(connection, workflow_run_id),
         "edges": catalog.list_workflow_edges(connection, workflow_run_id),
         "artifacts": artifact_repo.list_workflow_artifacts(connection, workflow_run_id),
-        "jobs": job_service.list_workflow_jobs(connection, workflow_run_id),
+        "jobs": job_service.list_workflow_jobs(connection, workflow_run_id, chronological=True),
     }
 
 
@@ -162,7 +162,7 @@ def patch_workflow_node(
         connection,
         node_run_id,
         position_json=json.dumps(payload.position) if payload.position else None,
-        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json else None,
+        parameters_json=json.dumps(payload.parameters_json) if payload.parameters_json is not None else None,
         status=payload.status,
     )
     if node is None:

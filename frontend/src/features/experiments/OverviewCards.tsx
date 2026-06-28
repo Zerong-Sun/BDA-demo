@@ -38,7 +38,7 @@ export function OverviewCards({ overview }: OverviewCardsProps) {
         value={remoteConnected || computeAvailable ? 'Connected' : 'Offline'}
         supporting={
           remoteConnected
-            ? `南科大 LSF · ${clusterHealth.queues.length} queues visible`
+            ? `SUSTech LSF · ${clusterHealth.queues.length} queues visible`
             : computeLabel
         }
       />

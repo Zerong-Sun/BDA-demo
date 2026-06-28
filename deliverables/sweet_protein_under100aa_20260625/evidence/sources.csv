@@ -1,0 +1,13 @@
+entity,source_type,identifier,url,purpose
+single-chain monellin,RCSB PDB,2O9U,https://www.rcsb.org/structure/2O9U,high-resolution MNEI structure
+monellin chain A,UniProt,P02881,https://www.uniprot.org/uniprotkb/P02881/entry,natural chain sequence
+monellin chain B,UniProt,P02882,https://www.uniprot.org/uniprotkb/P02882/entry,natural chain sequence
+brazzein,UniProt,P56552,https://www.uniprot.org/uniprotkb/P56552/entry,sequence and disulfides
+brazzein,RCSB PDB,4HE7,https://www.rcsb.org/structure/4HE7,crystal structure
+mabinlin-1,UniProt,P80351,https://www.uniprot.org/uniprotkb/P80351/entry,chains and disulfides
+mabinlin-2,UniProt,P30233,https://www.uniprot.org/uniprotkb/P30233/entry,precursor chains and disulfides
+mabinlin-2,RCSB PDB,2DS2,https://www.rcsb.org/structure/2DS2,crystal structure
+mabinlin-3,UniProt,P80352,https://www.uniprot.org/uniprotkb/P80352/entry,chains and disulfides
+curculin-1,UniProt,P19667,https://www.uniprot.org/uniprotkb/P19667/entry,mature chain and disulfides
+curculin-2,UniProt,Q6F495,https://www.uniprot.org/uniprotkb/Q6F495/entry,mature chain and disulfides
+curculin-1,RCSB PDB,2DPF,https://www.rcsb.org/structure/2DPF,homodimer crystal structure

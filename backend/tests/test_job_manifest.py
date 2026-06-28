@@ -1,7 +1,6 @@
 import json
 
 import pytest
-
 from backend.app.config import ARTIFACTS_ROOT
 from backend.app.db import connect, release_connection
 from backend.app.repositories import registry

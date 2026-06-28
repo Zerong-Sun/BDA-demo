@@ -7,9 +7,9 @@ import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
-import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates } from '../features/workflow/workflowTypes'
+import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates, type NodeTemplate } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
-import { getLatestWorkflowRunOrNull } from '../lib/api/projects'
+import { getLatestWorkflowRunOrNull, listProjectWorkflowRuns } from '../lib/api/projects'
 import { addWorkflowNode, createWorkflowRun, getWorkflowGraph, saveWorkflowLayout, submitWorkflowRun } from '../lib/api/workflow'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
@@ -18,10 +18,69 @@ import { useToastStore } from '../components/ui/toastStore'
 import { useI18n } from '../lib/i18n'
 import type { Artifact } from '../lib/schemas/artifact'
 import { ProjectContextBar } from '../features/projects/ProjectContextBar'
+import type { ModelPlugin } from '../lib/schemas/registry'
+
+function workflowNodeTypeForPlugin(plugin: ModelPlugin) {
+  if (plugin.model_name === 'RFdiffusion') return 'backbone_generation'
+  if (plugin.model_name === 'ProteinMPNN') return 'sequence_generation'
+  if (['AlphaFold2', 'AlphaFold 3', 'Boltz', 'Chai-1'].includes(plugin.model_name)) return 'fold_prediction'
+  if (plugin.model_name === 'Rosetta') return 'scoring'
+  if (plugin.model_name === 'BindCraft') return 'workflow_pipeline'
+  return plugin.model_type
+}
+
+function templateForPlugin(plugin: ModelPlugin): NodeTemplate {
+  return {
+    id: plugin.model_plugin_id,
+    icon: plugin.model_name === 'RFdiffusion' ? 'wand-sparkles' : 'activity',
+    title: plugin.model_name,
+    body: plugin.description ?? `${plugin.model_type} model plugin`,
+    resource: plugin.model_type.includes('manual') ? 'manual' : plugin.model_type.includes('gpu') ? 'gpu' : 'cpu',
+    nodeType: workflowNodeTypeForPlugin(plugin),
+    modelName: plugin.model_name,
+    modelVersion: plugin.version,
+    pluginId: plugin.model_plugin_id,
+    parameterSchema: plugin.parameter_schema_json,
+  }
+}
+
+function parseRecord(value: unknown): Record<string, unknown> {
+  if (!value) return {}
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {}
+    } catch {
+      return {}
+    }
+  }
+  return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function routeLabel(runId: string, metrics: unknown) {
+  const route = String(parseRecord(metrics).route ?? '')
+  if (route === 'monellin_redesign') return 'Monellin route'
+  if (route === 'brazzein_redesign') return 'Brazzein route'
+  if (route === 'monellin') return 'Monellin route'
+  if (route === 'brazzein') return 'Brazzein route'
+  if (runId.includes('449a8216')) return 'Monellin route'
+  if (runId.includes('bbe4a091')) return 'Brazzein route'
+  return runId.replace(/^run_/, '').slice(-18)
+}
+
+function parseLayoutNodeCount(run: { layout_json?: string | null }) {
+  if (!run.layout_json) return 0
+  try {
+    const parsed = JSON.parse(run.layout_json) as { nodes?: unknown[] }
+    return Array.isArray(parsed.nodes) ? parsed.nodes.length : 0
+  } catch {
+    return 0
+  }
+}
 
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
-  const [goal, setGoal] = useState('设计 10000 个 PD-1 binder 候选，并筛到 48 个进入 BLI/SEC 验证')
+  const [goal, setGoal] = useState('Design 10,000 PD-1 binder candidates and nominate 48 constructs for BLI/SEC validation.')
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | undefined>()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -47,8 +106,38 @@ export function WorkflowPage() {
     enabled: Boolean(projectId),
   })
 
+  const { data: projectWorkflowRuns = [] } = useQuery({
+    queryKey: ['workflow-runs', projectId],
+    queryFn: () => listProjectWorkflowRuns(projectId),
+    enabled: Boolean(projectId),
+  })
+
+  const routeIds = useMemo(() => new Set(projectWorkflowRuns.map((run) => run.workflow_run_id)), [projectWorkflowRuns])
+  const preferredWorkflowRun = useMemo(() => {
+    if (projectWorkflowRuns.length === 0) return latestWorkflowRun ?? null
+    return [...projectWorkflowRuns].sort((a, b) => {
+      const aNodes = parseLayoutNodeCount(a)
+      const bNodes = parseLayoutNodeCount(b)
+      if (aNodes !== bNodes) return bNodes - aNodes
+      if (a.status !== b.status) {
+        if (a.status === 'completed') return -1
+        if (b.status === 'completed') return 1
+      }
+      return a.workflow_run_id.localeCompare(b.workflow_run_id)
+    })[0] ?? latestWorkflowRun ?? null
+  }, [latestWorkflowRun, projectWorkflowRuns])
+
+  const cachedWorkflowRun = projectWorkflowRuns.find((run) => run.workflow_run_id === applicationWorkflowRunId)
+  const cachedNodeCount = cachedWorkflowRun ? parseLayoutNodeCount(cachedWorkflowRun) : 0
+  const preferredNodeCount = preferredWorkflowRun ? parseLayoutNodeCount(preferredWorkflowRun) : 0
+  const cachedWorkflowRunId =
+    applicationWorkflowRunId && routeIds.has(applicationWorkflowRunId) && (cachedNodeCount > 0 || preferredNodeCount === 0)
+      ? applicationWorkflowRunId
+      : undefined
+
   const workflowRunId =
-    applicationWorkflowRunId ??
+    cachedWorkflowRunId ??
+    preferredWorkflowRun?.workflow_run_id ??
     latestWorkflowRun?.workflow_run_id
 
   const { data: workflowGraph } = useQuery({
@@ -190,10 +279,45 @@ export function WorkflowPage() {
     onError: () => showToast('Failed to start workflow', 'error'),
   })
 
+  const addPluginNode = async (plugin: ModelPlugin) => {
+    if (!workflowRunId || readOnly) return
+    try {
+      await canvasRef.current?.addNodeFromTemplate(templateForPlugin(plugin), plugin.model_name, [], {})
+      showToast(`Added ${plugin.model_name} to workflow`, 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Failed to add plugin node', 'error')
+    }
+  }
+
   return (
     <section>
       <ProjectContextBar />
       <ComputeStatusStrip />
+
+      {projectWorkflowRuns.length > 1 ? (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2">
+          <span className="text-xs uppercase tracking-wide text-bda-cyan">Routes</span>
+          {projectWorkflowRuns.map((run) => (
+            <button
+              key={run.workflow_run_id}
+              type="button"
+              className={`rounded-md border px-3 py-1.5 text-xs ${
+                run.workflow_run_id === workflowRunId
+                  ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
+                  : 'border-bda-border text-bda-muted hover:border-bda-cyan/50 hover:text-bda-text'
+              }`}
+              onClick={() => {
+                setProjectWorkflowRunId(projectId, run.workflow_run_id)
+                setSelectedNodeId(null)
+                setSelectedArtifactId(undefined)
+              }}
+            >
+              {routeLabel(run.workflow_run_id, run.summary_metrics_json)} · {run.status}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {!workflowRunId && !isDemoMode ? (
@@ -208,6 +332,18 @@ export function WorkflowPage() {
           </button>
         ) : isDemoMode ? null : (
           <>
+            {workflowRunId ? (
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm font-medium text-bda-text hover:border-bda-cyan/50 disabled:opacity-50"
+                disabled={createWorkflow.isPending}
+                onClick={() => createWorkflow.mutate()}
+                title="Create an additional workflow route under the active project"
+              >
+                <Plus className="h-4 w-4" />
+                New route
+              </button>
+            ) : null}
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
@@ -229,7 +365,7 @@ export function WorkflowPage() {
           </>
         )}
         {isDemoMode ? (
-          <span className="text-xs text-bda-muted">演示模式：读取项目已有演示数据，只读展示。</span>
+          <span className="text-xs text-bda-muted">Demo mode: displaying read-only reference project data.</span>
         ) : workflowRun ? (
           <span className="text-xs text-bda-muted">
             Run {workflowRun.workflow_run_id} · {workflowRun.status}
@@ -244,7 +380,7 @@ export function WorkflowPage() {
         error={workflowQueryError}
         onRetry={() => void refetchWorkflow()}
       >
-        {!isDemoMode ? (
+        {!isDemoMode && (!workflowRunId || workflowNodes.length === 0) ? (
           <section className="mb-4 rounded-lg border border-bda-border bg-bda-panel p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
               <div className="min-w-0 flex-1">
@@ -257,7 +393,7 @@ export function WorkflowPage() {
                   className="w-full resize-none rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="输入你想做的事情，例如：设计 10000 个候选并筛选 48 个进入湿实验"
+                  placeholder="Describe the design objective, e.g. generate 10,000 candidates and nominate 48 for experimental validation."
                 />
               </div>
               <button
@@ -267,18 +403,16 @@ export function WorkflowPage() {
                 onClick={() => generateRecommended.mutate()}
               >
                 <Sparkles className="h-4 w-4" />
-                生成推荐工作流
+                Generate recommended workflow
               </button>
             </div>
-            <p className="mt-3 text-xs text-bda-muted">
-              点击生成后才会在画布中创建真实节点和连线；生成前当前项目工作流保持为空。
-            </p>
+            <p className="mt-3 text-xs text-bda-muted">For new projects, generate a project-bound workflow here. Active workflow runs are shown directly on the canvas.</p>
           </section>
         ) : null}
 
         {!workflowRunId && !isDemoMode ? (
           <div className="mb-4 rounded-lg border border-dashed border-bda-border bg-bda-panel p-6 text-center text-sm text-bda-muted">
-            <p>当前项目还没有工作流。你可以手动创建空 run，也可以直接输入目标生成一套项目绑定的推荐工作流。</p>
+            <p>This project does not have a workflow run yet. Create an empty run or enter an objective to generate a project-specific recommended workflow.</p>
           </div>
         ) : null}
 
@@ -287,6 +421,7 @@ export function WorkflowPage() {
             <WorkflowResourceSidebar
               projectId={projectId}
               artifacts={visibleArtifacts}
+              selectedNode={selectedNode}
               selectedArtifactId={selectedArtifactId}
               onArtifactUploaded={(artifact) => {
                 setArtifacts((current) => [artifact, ...current.filter((item) => item.artifact_id !== artifact.artifact_id)])
@@ -298,6 +433,8 @@ export function WorkflowPage() {
                 setSelectedArtifactId(artifact.artifact_id)
                 setSelectedNodeId(null)
               }}
+              onPluginAdd={(plugin) => void addPluginNode(plugin)}
+              readOnly={readOnly || !workflowRunId}
             />
           </div>
 
@@ -337,7 +474,7 @@ export function WorkflowPage() {
                   readOnly={readOnly}
                   onNodeSelected={(nodeId) => {
                     setSelectedNodeId(nodeId)
-                    if (nodeId) setSelectedArtifactId(undefined)
+                    setSelectedArtifactId(undefined)
                   }}
                   onNodeAdded={() =>
                     queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })

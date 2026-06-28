@@ -1,29 +1,29 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import sqlite3
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from ..config import ARTIFACTS_ROOT
 from ..compute.adapter import JobSpec
 from ..compute.factory import get_compute_adapter
+from ..config import ARTIFACTS_ROOT
 from ..repositories import artifacts as artifact_repo
 from ..repositories import catalog, registry
 from ..repositories.base import decode_row, decode_rows, get_by_id
 from ..services.artifact_store import get_artifact_store
 from ..services.artifacts import artifact_format_for_filename, infer_artifact_metadata, sha256_file
 
-
 ARTIFACT_STORAGE_PREFIX = "artifact://"
 LEGACY_ARTIFACT_STORAGE_PREFIXES = ("local://",)
 
 
 def _now_iso() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def create_job(
@@ -247,6 +247,109 @@ def _manifest_outputs(output_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return normalized
 
 
+def _candidate_family_for_artifact(entry: dict[str, Any], artifact: dict[str, Any], job: dict[str, Any]) -> str:
+    metadata = artifact.get("metadata_json") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    return str(
+        entry.get("family")
+        or entry.get("route")
+        or metadata.get("route")
+        or metadata.get("source_port")
+        or job.get("plugin_id")
+        or "generated"
+    )
+
+
+def _register_generated_candidate(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str | None,
+    job: dict[str, Any],
+    artifact: dict[str, Any],
+    entry: dict[str, Any],
+) -> None:
+    if not project_id or not job.get("workflow_run_id"):
+        return
+    artifact_format = str(artifact.get("format") or "").lower()
+    artifact_type = str(artifact.get("artifact_type") or "").lower()
+    source_port = str(entry.get("port") or "").lower()
+    metadata = artifact.get("metadata_json") or {}
+    if isinstance(metadata, str):
+        try:
+            metadata = json.loads(metadata)
+        except json.JSONDecodeError:
+            metadata = {}
+    if artifact_type in {"predicted_structure", "complex_structure"} or source_port in {"predicted_structure", "complex_structure"}:
+        raw_candidate_id = entry.get("candidate_id") or metadata.get("candidate_id")
+        if not raw_candidate_id:
+            return
+        candidate_id = str(raw_candidate_id)
+        if not candidate_id.startswith("cand_"):
+            candidate_id = f"cand_{candidate_id}"
+        storage_uri = str(artifact.get("storage_uri") or "")
+        structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
+        connection.execute(
+            """
+            UPDATE candidates
+            SET complex_file_path = ?,
+                plddt = COALESCE(?, plddt),
+                status = 'folded',
+                next_action = 'Review AlphaFold2/Superfold pLDDT and continue developability scoring.'
+            WHERE candidate_id = ? AND project_id = ?
+            """,
+            (structure_file_path, metadata.get("plddt"), candidate_id, project_id),
+        )
+        return
+    if artifact_format not in {"pdb", "mmcif", "cif"} and not any(
+        token in artifact_type or token in source_port
+        for token in ("structure", "backbone", "pdb", "model")
+    ):
+        return
+    task = catalog.get_project_design_task(connection, project_id)
+    if task is None:
+        return
+    raw_id = entry.get("candidate_id") or Path(str(artifact.get("display_name") or artifact["artifact_id"])).stem
+    safe_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", str(raw_id)).strip("_")[:80] or artifact["artifact_id"]
+    candidate_id = safe_id if safe_id.startswith("cand_") else f"cand_{safe_id}"
+    storage_uri = str(artifact.get("storage_uri") or "")
+    structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
+    connection.execute(
+        """
+        INSERT INTO candidates (
+            candidate_id, project_id, task_id, workflow_run_id, family, sequence,
+            structure_file_path, complex_file_path, interface_score, pred_kd,
+            plddt, interface_pae, rosetta_score, interface_energy, clash_count,
+            buried_sasa, solubility_score, aggregation_risk, expression_risk,
+            status, decision, next_action
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                  'generated_backbone', 'Needs scoring', 'Run sequence design, folding, and scoring.')
+        ON CONFLICT(candidate_id) DO UPDATE SET
+            project_id=excluded.project_id,
+            task_id=excluded.task_id,
+            workflow_run_id=excluded.workflow_run_id,
+            family=excluded.family,
+            sequence=COALESCE(excluded.sequence, candidates.sequence),
+            structure_file_path=excluded.structure_file_path,
+            status=excluded.status,
+            decision=excluded.decision,
+            next_action=excluded.next_action
+        """,
+        (
+            candidate_id,
+            project_id,
+            task["task_id"],
+            job["workflow_run_id"],
+            _candidate_family_for_artifact(entry, artifact, job),
+            entry.get("sequence") or metadata.get("sequence"),
+            structure_file_path,
+        ),
+    )
+
+
 def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str, Any]:
     job = get_job(connection, job_id)
     if job is None:
@@ -307,6 +410,13 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
             created_by="system",
         )
         registered.append(artifact)
+        _register_generated_candidate(
+            connection,
+            project_id=project_id,
+            job=job,
+            artifact=artifact,
+            entry=entry,
+        )
 
     result = {
         "manifest_found": True,
@@ -331,9 +441,15 @@ def get_job(connection: sqlite3.Connection, job_id: str) -> dict[str, Any] | Non
     return decode_row(row)
 
 
-def list_workflow_jobs(connection: sqlite3.Connection, workflow_run_id: str) -> list[dict[str, Any]]:
+def list_workflow_jobs(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    *,
+    chronological: bool = False,
+) -> list[dict[str, Any]]:
+    order_by = "created_at ASC, rowid ASC" if chronological else "created_at DESC, rowid DESC"
     rows = connection.execute(
-        "SELECT * FROM jobs WHERE workflow_run_id = ? ORDER BY created_at",
+        f"SELECT * FROM jobs WHERE workflow_run_id = ? ORDER BY {order_by}",
         (workflow_run_id,),
     ).fetchall()
     return decode_rows(rows)
@@ -380,11 +496,134 @@ def _plugin_runtime_env(plugin: dict | None) -> dict[str, str]:
     requirements = plugin.get("resource_requirement_json") or {}
     if isinstance(requirements, str):
         requirements = json.loads(requirements)
-    env = dict((requirements.get("runtime_env") or {}))
+    env = dict(requirements.get("runtime_env") or {})
     gpu_count = requirements.get("gpu_count") or 0
     if gpu_count:
         env.setdefault("BDA_GPU", "1")
     return env
+
+
+def _plugin_for_node(connection: sqlite3.Connection, node: dict[str, Any]) -> dict | None:
+    if not node.get("model_name"):
+        return None
+    plugins = registry.list_model_plugins(connection)
+    return next((p for p in plugins if p.get("model_name") == node.get("model_name")), None)
+
+
+def _node_parameters(node: dict[str, Any]) -> dict[str, Any]:
+    parameters = node.get("parameters_json") or {}
+    if isinstance(parameters, str):
+        try:
+            parsed = json.loads(parameters)
+            return parsed if isinstance(parsed, dict) else {}
+        except json.JSONDecodeError:
+            return {}
+    return parameters if isinstance(parameters, dict) else {}
+
+
+def _node_with_parameters(node: dict[str, Any], parameters: dict[str, Any] | None) -> dict[str, Any]:
+    if parameters is None:
+        return node
+    merged = {**_node_parameters(node), **parameters}
+    return {**node, "parameters_json": merged}
+
+
+def _build_node_job_spec(
+    connection: sqlite3.Connection,
+    *,
+    node: dict[str, Any],
+    job: dict[str, Any],
+    plugin: dict | None,
+    compute_node_id: str | None = None,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> tuple[JobSpec, dict[str, Any]]:
+    plugin_id = (plugin or {}).get("model_plugin_id") or job.get("plugin_id") or "unknown"
+    runtime_env = _plugin_runtime_env(plugin)
+    if queue_name:
+        runtime_env["BDA_LSF_QUEUE"] = queue_name
+    if cpu_count:
+        runtime_env["BDA_CPU_COUNT"] = str(max(1, min(int(cpu_count), 256)))
+    if resource_requirement:
+        runtime_env["BDA_LSF_RESOURCE"] = resource_requirement
+    if gpu_requirement:
+        runtime_env["BDA_LSF_GPU"] = gpu_requirement
+
+    workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
+    spec = JobSpec(
+        job_id=job["job_id"],
+        workflow_run_id=node.get("workflow_run_id"),
+        node_run_id=node.get("node_run_id"),
+        plugin_id=plugin_id,
+        container_image=(plugin or {}).get("container_image") or "bda/demo:latest",
+        command=(plugin or {}).get("command_template") or "echo demo",
+        input_artifacts=job.get("input_artifacts") or {},
+        compute_node_id=compute_node_id,
+        env=runtime_env,
+        input_dir=workspace["input_dir"],
+        output_dir=workspace["output_dir"],
+        work_dir=workspace["work_dir"],
+        queue_name=queue_name,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
+    return spec, workspace
+
+
+def preview_node_job_script(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    *,
+    override_params: dict[str, Any] | None = None,
+    compute_node_id: str | None = None,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> dict[str, Any]:
+    node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
+    if node is None:
+        raise ValueError("node_not_found")
+    preview_node = _node_with_parameters(node, override_params)
+    plugin = _plugin_for_node(connection, preview_node)
+    plugin_id = (plugin or {}).get("model_plugin_id", "unknown")
+    job = {
+        "job_id": f"job_preview_{uuid.uuid4().hex[:10]}",
+        "workflow_run_id": preview_node.get("workflow_run_id"),
+        "node_run_id": node_run_id,
+        "plugin_id": plugin_id,
+        "input_artifacts": resolve_node_input_artifacts(connection, preview_node),
+        "compute_node_id": compute_node_id,
+    }
+    spec, workspace = _build_node_job_spec(
+        connection,
+        node=preview_node,
+        job=job,
+        plugin=plugin,
+        compute_node_id=compute_node_id,
+        queue_name=queue_name,
+        cpu_count=cpu_count,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
+    adapter = get_compute_adapter()
+    try:
+        script = adapter.render_script(spec)
+    except RuntimeError as exc:
+        raise ValueError(str(exc)) from exc
+    return {
+        "job_id": spec.job_id,
+        "plugin_id": plugin_id,
+        "script": script,
+        "input_manifest": workspace["input_manifest"],
+        "local_workspace": {
+            "input_dir": workspace["input_dir"],
+            "output_dir": workspace["output_dir"],
+            "work_dir": workspace["work_dir"],
+        },
+    }
 
 
 def _enqueue_poll(job_id: str) -> None:
@@ -396,15 +635,29 @@ def _enqueue_poll(job_id: str) -> None:
         pass
 
 
-def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_node_id: str | None = None) -> dict:
+def submit_node_job(
+    connection: sqlite3.Connection,
+    node_run_id: str,
+    compute_node_id: str | None = None,
+    *,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+    override_params: dict[str, Any] | None = None,
+) -> dict:
     node = get_by_id(connection, "workflow_node_runs", "node_run_id", node_run_id)
     if node is None:
         raise ValueError("node_not_found")
+    if override_params is not None:
+        node = _node_with_parameters(node, override_params)
+        catalog.update_workflow_node(
+            connection,
+            node_run_id,
+            parameters_json=json.dumps(_node_parameters(node)),
+        )
 
-    plugin = None
-    if node.get("model_name"):
-        plugins = registry.list_model_plugins(connection)
-        plugin = next((p for p in plugins if p.get("model_name") == node.get("model_name")), None)
+    plugin = _plugin_for_node(connection, node)
 
     plugin_id = (plugin or {}).get("model_plugin_id", "unknown")
     job = create_job(
@@ -416,30 +669,22 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
         compute_node_id=compute_node_id,
     )
 
-    runtime_env = _plugin_runtime_env(plugin)
-    container_image = (plugin or {}).get("container_image") or "bda/demo:latest"
-    command = (plugin or {}).get("command_template") or "echo demo"
-    workspace = prepare_job_workspace(connection, job=job, node=node, plugin=plugin)
+    spec, workspace = _build_node_job_spec(
+        connection,
+        node=node,
+        job=job,
+        plugin=plugin,
+        compute_node_id=compute_node_id,
+        queue_name=queue_name,
+        cpu_count=cpu_count,
+        resource_requirement=resource_requirement,
+        gpu_requirement=gpu_requirement,
+    )
     update_job_status(
         connection,
         job["job_id"],
         status="staging",
         output_artifacts={"input_manifest": workspace["input_manifest"]},
-    )
-
-    spec = JobSpec(
-        job_id=job["job_id"],
-        workflow_run_id=node.get("workflow_run_id"),
-        node_run_id=node_run_id,
-        plugin_id=plugin_id,
-        container_image=container_image,
-        command=command,
-        input_artifacts=job.get("input_artifacts") or {},
-        compute_node_id=compute_node_id,
-        env=runtime_env,
-        input_dir=workspace["input_dir"],
-        output_dir=workspace["output_dir"],
-        work_dir=workspace["work_dir"],
     )
     adapter = get_compute_adapter()
     try:
@@ -465,14 +710,31 @@ def submit_node_job(connection: sqlite3.Connection, node_run_id: str, compute_no
     return get_job(connection, job["job_id"]) or job
 
 
-def submit_workflow_jobs(connection: sqlite3.Connection, workflow_run_id: str, compute_node_id: str | None = None) -> list[dict]:
+def submit_workflow_jobs(
+    connection: sqlite3.Connection,
+    workflow_run_id: str,
+    compute_node_id: str | None = None,
+    *,
+    queue_name: str | None = None,
+    cpu_count: int | None = None,
+    resource_requirement: str | None = None,
+    gpu_requirement: str | None = None,
+) -> list[dict]:
     nodes = catalog.list_workflow_nodes(connection, workflow_run_id)
     jobs = []
     for node in nodes:
         if node.get("status") in ("completed", "running", "queued"):
             continue
         try:
-            job = submit_node_job(connection, node["node_run_id"], compute_node_id)
+            job = submit_node_job(
+                connection,
+                node["node_run_id"],
+                compute_node_id,
+                queue_name=queue_name,
+                cpu_count=cpu_count,
+                resource_requirement=resource_requirement,
+                gpu_requirement=gpu_requirement,
+            )
             jobs.append(job)
         except ValueError:
             continue

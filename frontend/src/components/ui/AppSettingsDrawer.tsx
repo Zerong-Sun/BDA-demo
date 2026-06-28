@@ -34,11 +34,11 @@ export function AppSettingsDrawer() {
       <header className="sticky top-0 z-10 flex items-start justify-between border-b border-bda-border bg-bda-panel p-4">
         <div>
           <p className="text-xs uppercase tracking-wide text-bda-cyan">Settings</p>
-          <h2 className="text-lg font-semibold">应用设置与连接验证</h2>
+          <h2 className="text-lg font-semibold">Application settings and connection validation</h2>
         </div>
         <button
           type="button"
-          aria-label="关闭设置"
+          aria-label="Close settings"
           className="rounded-md border border-bda-border p-1.5 hover:bg-bda-panel-hover"
           onClick={() => setSettingsOpen(false)}
         >
@@ -49,7 +49,7 @@ export function AppSettingsDrawer() {
       <section className="space-y-3 border-b border-bda-border p-4">
         <div className="flex items-center gap-2 text-sm font-medium">
           <Settings className="h-4 w-4 text-bda-cyan" />
-          使用模式
+          Operating mode
         </div>
         <div className="grid grid-cols-2 gap-2">
           <button
@@ -60,8 +60,8 @@ export function AppSettingsDrawer() {
             )}
             onClick={() => setAppMode('application')}
           >
-            <strong className="block text-sm">应用模式</strong>
-            <span className="mt-1 block text-xs text-bda-muted">创建真实项目、工作流和集群任务。</span>
+            <strong className="block text-sm">Application mode</strong>
+            <span className="mt-1 block text-xs text-bda-muted">Create live projects, workflow runs, and cluster jobs.</span>
           </button>
           <button
             type="button"
@@ -75,8 +75,8 @@ export function AppSettingsDrawer() {
               if (demoProject) setProjectId(demoProject.project_id)
             }}
           >
-            <strong className="block text-sm">演示模式</strong>
-            <span className="mt-1 block text-xs text-bda-muted">只读查看预置项目和示例数据。</span>
+            <strong className="block text-sm">Demo mode</strong>
+            <span className="mt-1 block text-xs text-bda-muted">Review curated reference projects and seeded data in read-only mode.</span>
           </button>
         </div>
       </section>
@@ -85,7 +85,7 @@ export function AppSettingsDrawer() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Server className="h-4 w-4 text-bda-cyan" />
-            服务连接
+            Service connections
           </div>
           <button
             type="button"
@@ -93,21 +93,21 @@ export function AppSettingsDrawer() {
             onClick={refreshConnections}
           >
             <RefreshCw className={`h-3.5 w-3.5 ${backend.isFetching || cluster.isFetching ? 'animate-spin' : ''}`} />
-            重新验证
+            Revalidate
           </button>
         </div>
         <ConnectionRow
-          label="BDA 后端"
+          label="BDA backend"
           connected={backend.isSuccess}
-          detail={backend.data ? `${backend.data.database} · ${backend.data.compute}` : backend.error instanceof Error ? backend.error.message : '等待验证'}
+          detail={backend.data ? `${backend.data.database} · ${backend.data.compute}` : backend.error instanceof Error ? backend.error.message : 'Awaiting validation'}
         />
         <ConnectionRow
-          label="南科大 LSF 集群"
+          label="SUSTech LSF cluster"
           connected={cluster.data?.connected === true}
           detail={
             cluster.data?.connected
               ? `${cluster.data.host ?? 'qm'} · ${cluster.data.queues.length} queues`
-              : cluster.data?.reason ?? '等待验证'
+              : cluster.data?.reason ?? 'Awaiting validation'
           }
         />
       </section>
@@ -126,7 +126,7 @@ function ConnectionRow({ label, connected, detail }: { label: string; connected:
       </div>
       <span className={`inline-flex items-center gap-1 text-xs ${connected ? 'text-bda-green' : 'text-bda-red'}`}>
         {connected ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-        {connected ? '已连接' : '未连接'}
+        {connected ? 'Connected' : 'Disconnected'}
       </span>
     </div>
   )

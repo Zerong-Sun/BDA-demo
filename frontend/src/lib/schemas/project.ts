@@ -7,6 +7,24 @@ export const ProjectSchema = z.object({
   status: z.string(),
   owner_id: z.string().nullable().optional(),
   summary: z.string().nullable().optional(),
+  local_workspace: z
+    .object({
+      backend: z.string(),
+      status: z.string(),
+      root: z.string(),
+      manifest: z.string(),
+      layout: z.array(z.string()).optional(),
+    })
+    .nullable()
+    .optional(),
+  cloud_sync: z
+    .object({
+      status: z.string(),
+      cloud_uri: z.string().nullable().optional(),
+      last_synced_at: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
 })
 
 export type Project = z.infer<typeof ProjectSchema>

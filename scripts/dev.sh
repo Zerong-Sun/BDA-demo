@@ -15,7 +15,7 @@ elif ! "$PYTHON" -c "import uvicorn" 2>/dev/null; then
 fi
 
 echo "Initializing database..."
-"$PYTHON" backend/scripts/init_db.py
+"$PYTHON" backend/scripts/init_db.py --if-missing
 
 echo "Starting backend on :8100..."
 "$PYTHON" -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8100 --reload &
@@ -37,5 +37,8 @@ echo "Open: http://127.0.0.1:5173/#/experiments?project=proj_pd1_0423"
 echo ""
 
 cd frontend
-npm install
+if [[ ! -d node_modules ]]; then
+  echo "Installing frontend dependencies..."
+  npm install
+fi
 npm run dev

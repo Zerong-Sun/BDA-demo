@@ -1,14 +1,15 @@
+import re
 import sqlite3
+import tempfile
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 
 from ..auth.deps import get_current_user, require_role
 from ..db import get_connection
-from ..repositories import registry
-from ..repositories import model_catalog
+from ..repositories import model_catalog, registry
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -169,6 +170,56 @@ def script_assets(
         model_plugin_id=model_plugin_id,
     )
     return envelope({"items": items, "total": len(items), "model_plugin_id": model_plugin_id})
+
+
+@router.post("/script-assets/upload")
+async def upload_script_asset(
+    model_plugin_id: str | None = Form(default=None),
+    relative_path: str | None = Form(default=None),
+    file: UploadFile = File(...),
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(get_current_user),
+):
+    if user.get("role") == "viewer":
+        raise HTTPException(status_code=403, detail="forbidden")
+    filename = Path(file.filename or "").name
+    if not filename:
+        raise HTTPException(status_code=422, detail="filename_required")
+    suffix = Path(filename).suffix.lower()
+    from ..services.script_importer import SUPPORTED_SUFFIXES, import_script_file
+
+    if suffix not in SUPPORTED_SUFFIXES:
+        raise HTTPException(status_code=400, detail="unsupported_script_type")
+    if model_plugin_id and registry.get_model_plugin(connection, model_plugin_id) is None:
+        raise HTTPException(status_code=404, detail="model_plugin_not_found")
+
+    requested_path = (relative_path or filename).strip().replace("\\", "/")
+    if requested_path.startswith("/") or ".." in Path(requested_path).parts:
+        raise HTTPException(status_code=422, detail="invalid_relative_path")
+    if not re.fullmatch(r"[A-Za-z0-9._/\-]+", requested_path):
+        raise HTTPException(status_code=422, detail="invalid_relative_path")
+    if not Path(requested_path).suffix:
+        requested_path = f"{requested_path.rstrip('/')}/{filename}"
+    upload_path = f"uploaded-scripts/{requested_path}"
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="empty_script")
+    with tempfile.NamedTemporaryFile(suffix=suffix) as handle:
+        handle.write(raw)
+        handle.flush()
+        item = import_script_file(
+            connection,
+            Path(handle.name),
+            relative_path=upload_path,
+            model_plugin_id=model_plugin_id,
+            metadata={
+                "uploaded_by": user.get("user_id"),
+                "original_filename": filename,
+                "upload_size_bytes": len(raw),
+            },
+        )
+    return envelope({"success": True, "item": item})
 
 
 @router.post("/model-parameter-catalog/import-qm-scripts")

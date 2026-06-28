@@ -4,6 +4,7 @@ import sqlite3
 from pathlib import Path
 from typing import Any
 
+from ..services import project_storage
 from .base import decode_row, decode_rows, get_by_id, list_table
 
 KD_VALUE_RE = re.compile(r"([\d.]+)")
@@ -19,17 +20,103 @@ def list_projects_paginated(
     limit: int = 50,
     offset: int = 0,
 ) -> tuple[list[dict], int]:
+    reconcile_local_projects(connection)
     count_row = connection.execute("SELECT COUNT(*) AS total FROM projects").fetchone()
     total = int(count_row["total"]) if count_row else 0
     rows = connection.execute(
         "SELECT * FROM projects ORDER BY created_at DESC LIMIT ? OFFSET ?",
         (limit, offset),
     ).fetchall()
-    return decode_rows(rows), total
+    return [_with_storage_status(item) for item in decode_rows(rows)], total
 
 
 def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
-    return get_by_id(connection, "projects", "project_id", project_id)
+    item = get_by_id(connection, "projects", "project_id", project_id)
+    return _with_storage_status(item) if item else None
+
+
+def _with_storage_status(project: dict) -> dict:
+    project_storage.ensure_project_directory(project, source="catalog")
+    return {
+        **project,
+        "local_workspace": project_storage.storage_summary(project["project_id"]),
+        "cloud_sync": project_storage.cloud_sync_summary(project["project_id"]),
+    }
+
+
+def reconcile_local_projects(connection: sqlite3.Connection) -> list[str]:
+    """Restore minimal database rows for projects that still have local manifests."""
+    restored: list[str] = []
+    for manifest in project_storage.list_project_manifests():
+        project_id = str(manifest.get("project_id") or "")
+        if not project_id:
+            continue
+        row = connection.execute("SELECT 1 FROM projects WHERE project_id = ? LIMIT 1", (project_id,)).fetchone()
+        if row:
+            continue
+        connection.execute(
+            """
+            INSERT INTO projects (
+                project_id, project_name, project_type, status, owner_id,
+                organization_id, summary, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                project_id,
+                manifest.get("project_name") or project_id,
+                manifest.get("project_type") or "protein_design",
+                manifest.get("status") or "draft",
+                manifest.get("owner_id"),
+                manifest.get("organization_id"),
+                manifest.get("summary"),
+                manifest.get("created_at") or project_storage.now_iso(),
+                manifest.get("updated_at") or project_storage.now_iso(),
+            ),
+        )
+        restored.append(project_id)
+    if restored:
+        connection.commit()
+    return restored
+
+
+def ensure_all_project_workspaces(connection: sqlite3.Connection) -> None:
+    rows = connection.execute("SELECT * FROM projects ORDER BY created_at DESC").fetchall()
+    for project in decode_rows(rows):
+        project_storage.ensure_project_directory(project, source="catalog")
+
+
+def get_project_research_summary(connection: sqlite3.Connection, project_id: str) -> dict:
+    brief = connection.execute(
+        "SELECT * FROM research_briefs WHERE project_id = ? ORDER BY updated_at DESC LIMIT 1",
+        (project_id,),
+    ).fetchone()
+    if brief is None:
+        return {"brief": None, "questions": [], "findings": [], "runs": [], "workflow_plans": []}
+    brief_payload = decode_row(brief)
+    brief_id = brief_payload["research_brief_id"]
+    questions = connection.execute(
+        "SELECT * FROM research_questions WHERE research_brief_id = ? ORDER BY priority, created_at",
+        (brief_id,),
+    ).fetchall()
+    findings = connection.execute(
+        "SELECT * FROM research_findings WHERE research_brief_id = ? ORDER BY created_at",
+        (brief_id,),
+    ).fetchall()
+    runs = connection.execute(
+        "SELECT * FROM research_runs WHERE research_brief_id = ? ORDER BY created_at DESC LIMIT 10",
+        (brief_id,),
+    ).fetchall()
+    plans = connection.execute(
+        "SELECT * FROM workflow_plans WHERE research_brief_id = ? ORDER BY updated_at DESC LIMIT 10",
+        (brief_id,),
+    ).fetchall()
+    return {
+        "brief": brief_payload,
+        "questions": decode_rows(questions),
+        "findings": decode_rows(findings),
+        "runs": decode_rows(runs),
+        "workflow_plans": decode_rows(plans),
+    }
 
 
 def create_project(
@@ -58,7 +145,63 @@ def create_project(
             """,
             (project_id, owner_id),
         )
+    project = get_by_id(connection, "projects", "project_id", project_id) or {}
+    if project:
+        project_storage.ensure_project_directory(project, source="api")
     return get_project(connection, project_id) or {}
+
+
+def ensure_project_workspace(
+    connection: sqlite3.Connection,
+    *,
+    project_id: str,
+    project_type: str,
+    objective: str,
+    created_by: str | None,
+) -> dict[str, str]:
+    """Create the minimum real workspace records a new project needs."""
+    task_id = f"task_{project_id}_draft"
+    workflow_run_id = f"run_{project_id}_draft"
+    brief_id = f"brief_{project_id}_draft"
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO design_tasks (
+            task_id, project_id, task_type, objective, constraints_json,
+            model_route_json, status, created_by
+        ) VALUES (?, ?, ?, ?, '{}', '[]', 'draft', ?)
+        """,
+        (task_id, project_id, project_type or "protein_design", objective, created_by),
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO workflow_runs (
+            workflow_run_id, task_id, status, compute_resource,
+            summary_metrics_json, layout_json, output_directory
+        ) VALUES (?, ?, 'draft', 'local', '{}', '{"nodes":[],"edges":[]}', NULL)
+        """,
+        (workflow_run_id, task_id),
+    )
+    connection.execute(
+        """
+        INSERT OR IGNORE INTO research_briefs (
+            research_brief_id, project_id, title, objective, product_context,
+            constraints_json, source_material_json, assumptions_json,
+            status, created_by
+        ) VALUES (?, ?, ?, ?, 'food_ingredient', '{}', '[]', '{}', 'planned', ?)
+        """,
+        (
+            brief_id,
+            project_id,
+            f"{project_type or 'Project'} research brief",
+            objective,
+            created_by,
+        ),
+    )
+    return {
+        "task_id": task_id,
+        "workflow_run_id": workflow_run_id,
+        "research_brief_id": brief_id,
+    }
 
 
 def list_project_candidates(connection: sqlite3.Connection, project_id: str) -> list[dict]:
@@ -258,7 +401,43 @@ def get_latest_project_workflow_run(connection: sqlite3.Connection, project_id: 
     return get_by_id(connection, "workflow_runs", "workflow_run_id", row["workflow_run_id"]) if row else None
 
 
+def list_project_workflow_runs(connection: sqlite3.Connection, project_id: str) -> list[dict]:
+    rows = connection.execute(
+        """
+        SELECT wr.*
+        FROM workflow_runs wr
+        JOIN design_tasks dt ON dt.task_id = wr.task_id
+        WHERE dt.project_id = ?
+        ORDER BY COALESCE(wr.start_time, wr.end_time, '') DESC, wr.rowid DESC
+        """,
+        (project_id,),
+    ).fetchall()
+    return decode_rows(rows)
+
+
 def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str) -> dict[str, int]:
+    row = connection.execute(
+        """
+        SELECT
+          SUM(CASE WHEN status IN ('generated_backbone', 'generated') THEN 1 ELSE 0 END) AS generated,
+          SUM(CASE WHEN status IN ('sequence_designed', 'designed') THEN 1 ELSE 0 END) AS designed,
+          SUM(CASE WHEN status IN ('folded', 'structure_predicted') OR plddt IS NOT NULL THEN 1 ELSE 0 END) AS folded,
+          SUM(CASE WHEN status IN ('scored', 'ranked') OR rosetta_score IS NOT NULL OR solubility_score IS NOT NULL THEN 1 ELSE 0 END) AS scored,
+          SUM(CASE WHEN status IN ('ordered', 'validated') OR decision IN ('Anchor', 'Order', 'Retest') THEN 1 ELSE 0 END) AS ordered
+        FROM candidates
+        WHERE project_id = ?
+        """,
+        (project_id,),
+    ).fetchone()
+    counts = decode_row(row) if row else {}
+    if counts and any(counts.get(key) for key in ("generated", "designed", "folded", "scored", "ordered")):
+        return {
+            "generated": int(counts.get("generated") or 0),
+            "designed": int(counts.get("designed") or 0),
+            "folded": int(counts.get("folded") or 0),
+            "scored": int(counts.get("scored") or 0),
+            "ordered": int(counts.get("ordered") or 0),
+        }
     run = get_latest_project_workflow_run(connection, project_id)
     if run is None:
         return {"generated": 0, "designed": 0, "folded": 0, "scored": 0, "ordered": 0}
@@ -266,7 +445,7 @@ def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str
     if isinstance(metrics, str):
         metrics = json.loads(metrics)
     return {
-        "generated": int(metrics.get("generated", 0)),
+        "generated": int(metrics.get("generated", metrics.get("generated_backbones", 0))),
         "designed": int(metrics.get("designed", 0)),
         "folded": int(metrics.get("folded", 0)),
         "scored": int(metrics.get("scored", 0)),

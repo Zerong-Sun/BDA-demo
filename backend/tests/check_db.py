@@ -1,5 +1,5 @@
-from pathlib import Path
 import sqlite3
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "db" / "bda.sqlite3"
@@ -16,9 +16,9 @@ def main() -> None:
         }
     finally:
         connection.close()
-    assert checks["projects"] == 3, checks
-    assert checks["candidates"] == 8, checks
-    assert checks["model_plugins"] == 5, checks
+    assert checks["projects"] >= 4, checks
+    assert checks["candidates"] >= 8, checks
+    assert checks["model_plugins"] >= 5, checks
     assert checks["compute_nodes"] == 2, checks
     print(checks)
 

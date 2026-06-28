@@ -65,12 +65,18 @@ function fallbackFields(modelName?: string): ParameterFieldDefinition[] {
       { key: 'contigmap.contigs', label: 'Contigs', type: 'string', default: '[A1-150/0 70-100]', help: 'Hydra contig list, e.g. target residues plus chain break and binder length range.' },
       { key: 'ppi.hotspot_res', label: 'Hotspot residues', type: 'string', default: '[A59,A83,A91]' },
       { key: 'inference.num_designs', label: 'Number of designs', type: 'integer', default: 100, min: 1, max: 100000 },
+      { key: 'inference.output_prefix', label: 'Output prefix', type: 'string', default: 'outputs/rfdiffusion/design', advanced: true },
       { key: 'diffuser.partial_T', label: 'Partial diffusion steps', type: 'integer', default: 0, min: 0, max: 50, advanced: true },
+      { key: 'diffuser.T', label: 'Diffusion steps', type: 'integer', default: 50, min: 1, max: 200, advanced: true },
       { key: 'denoiser.noise_scale_ca', label: 'CA noise scale', type: 'number', default: 1.0, min: 0, max: 5, advanced: true },
       { key: 'denoiser.noise_scale_frame', label: 'Frame noise scale', type: 'number', default: 1.0, min: 0, max: 5, advanced: true },
       { key: 'contigmap.inpaint_seq', label: 'Inpaint sequence', type: 'string', default: '', advanced: true },
       { key: 'contigmap.inpaint_str', label: 'Inpaint structure', type: 'string', default: '', advanced: true },
+      { key: 'contigmap.provide_seq', label: 'Provide sequence', type: 'string', default: '', advanced: true },
       { key: 'inference.ckpt_override_path', label: 'Checkpoint override', type: 'enum', default: '', options: ['', 'models/ActiveSite_ckpt.pt', 'models/Complex_beta_ckpt.pt'], advanced: true },
+      { key: 'inference.symmetry', label: 'Symmetry', type: 'string', default: '', advanced: true },
+      { key: 'potentials.guiding_potentials', label: 'Guiding potentials', type: 'json', default: '[]', advanced: true },
+      { key: 'potentials.guide_scale', label: 'Potential guide scale', type: 'number', default: 1.0, min: 0, max: 20, advanced: true },
     ]
   }
   if (modelName === 'ProteinMPNN') {

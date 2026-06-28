@@ -1,5 +1,5 @@
-import sqlite3
 import re
+import sqlite3
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -12,7 +12,8 @@ from ..auth.deps import (
 )
 from ..db import get_connection
 from ..repositories import catalog
-from ..schemas import CreateProjectRequest
+from ..schemas import CreateProjectRequest, ProjectSyncRequest
+from ..services import project_storage
 from ..utils.response import envelope
 
 router = APIRouter()
@@ -43,6 +44,15 @@ def project_overview(
     return envelope(item)
 
 
+@router.get("/projects/{project_id}/research-summary")
+def project_research_summary(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    return envelope(catalog.get_project_research_summary(connection, project_id))
+
+
 @router.get("/projects")
 def projects(
     limit: int = Query(default=50, ge=1, le=200),
@@ -52,6 +62,16 @@ def projects(
 ):
     items, total = catalog.list_projects_paginated(connection, limit=limit, offset=offset)
     return envelope({"items": items, "total": total, "limit": limit, "offset": offset})
+
+
+@router.get("/projects/local-index")
+def local_projects_index(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(get_current_user),
+):
+    restored = catalog.reconcile_local_projects(connection)
+    manifests = project_storage.list_project_manifests()
+    return envelope({"items": manifests, "restored_project_ids": restored})
 
 
 @router.post("/projects")
@@ -81,7 +101,27 @@ def create_project(
         organization_id=organization["organization_id"] if organization else None,
         summary=payload.summary.strip() if payload.summary else None,
     )
+    catalog.ensure_project_workspace(
+        connection,
+        project_id=project_id,
+        project_type=project_type,
+        objective=payload.summary.strip() if payload.summary else f"Plan and run {name}.",
+        created_by=user.get("user_id") or user.get("username"),
+    )
     return envelope(item)
+
+
+@router.post("/projects/{project_id}/sync")
+def sync_project(
+    project_id: str,
+    payload: ProjectSyncRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    item = catalog.get_project(connection, project_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    return envelope(project_storage.sync_project_manifest(item, target=payload.target))
 
 
 @router.get("/projects/{project_id}")
@@ -187,6 +227,16 @@ def project_latest_workflow_run(
     if item is None:
         raise HTTPException(status_code=404, detail="workflow_run_not_found")
     return envelope(item)
+
+
+@router.get("/projects/{project_id}/workflow-runs")
+def project_workflow_runs(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_project_access),
+):
+    items = catalog.list_project_workflow_runs(connection, project_id)
+    return envelope({"items": items, "total": len(items)})
 
 
 @router.get("/workflow-runs/{workflow_run_id}")

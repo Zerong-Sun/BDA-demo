@@ -51,3 +51,38 @@ export const ServerConnectionSchema = z.object({
 })
 
 export type ServerConnection = z.infer<typeof ServerConnectionSchema>
+
+export const ScriptAssetSchema = z.object({
+  script_asset_id: z.string(),
+  source_id: z.string().optional(),
+  model_plugin_id: z.string().nullable().optional(),
+  relative_path: z.string(),
+  language: z.string(),
+  scheduler: z.string().nullable().optional(),
+  content_hash: z.string(),
+  resource_config_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  environment_json: z.union([z.string(), z.record(z.string(), z.unknown())]).optional(),
+  parse_warnings_json: z.union([z.string(), z.array(z.string())]).optional(),
+  status: z.string().optional(),
+  updated_at: z.string().optional(),
+})
+
+export type ScriptAsset = z.infer<typeof ScriptAssetSchema>
+
+export const ScriptUploadResultSchema = z.object({
+  success: z.boolean(),
+  item: z.object({
+    script_asset_id: z.string(),
+    source_id: z.string(),
+    relative_path: z.string(),
+    model_plugin_id: z.string().nullable().optional(),
+    content_hash: z.string(),
+    language: z.string(),
+    scheduler: z.string().nullable().optional(),
+    parameter_observations: z.number(),
+    parse_warnings: z.number(),
+    warnings: z.array(z.string()),
+  }),
+})
+
+export type ScriptUploadResult = z.infer<typeof ScriptUploadResultSchema>

@@ -2,7 +2,8 @@ import { Database, Download, FileText } from 'lucide-react'
 import clsx from 'clsx'
 import type { Artifact } from '../../lib/schemas/artifact'
 import { formatBytes } from '../../lib/schemas/artifact'
-import { API_BASE } from '../../lib/api/client'
+import { downloadArtifact } from '../../lib/api/artifacts'
+import { useToastStore } from '../../components/ui/toastStore'
 
 interface ArtifactBrowserProps {
   artifacts: Artifact[]
@@ -10,16 +11,17 @@ interface ArtifactBrowserProps {
   onSelect: (artifact: Artifact) => void
 }
 
-function artifactDownloadHref(artifact: Artifact): string | undefined {
-  const url = artifact.download_url ?? artifact.preview_url
-  if (url) {
-    if (url.startsWith('/api/')) return url
-    return `${API_BASE}${url.startsWith('/') ? url : `/${url}`}`
-  }
-  return undefined
-}
-
 export function ArtifactBrowser({ artifacts, selectedArtifactId, onSelect }: ArtifactBrowserProps) {
+  const showToast = useToastStore((s) => s.show)
+
+  const download = async (artifact: Artifact) => {
+    try {
+      await downloadArtifact(artifact)
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'Artifact download failed', 'error')
+    }
+  }
+
   return (
     <div className="space-y-2">
       {artifacts.length === 0 ? (
@@ -28,7 +30,14 @@ export function ArtifactBrowser({ artifacts, selectedArtifactId, onSelect }: Art
         </div>
       ) : (
         artifacts.map((artifact) => {
-          const href = artifactDownloadHref(artifact)
+          const hasDownload = Boolean(artifact.download_url ?? artifact.preview_url)
+          const badges = [
+            artifact.metadata?.route ? String(artifact.metadata.route) : null,
+            artifact.metadata?.sequence_count != null ? `${artifact.metadata.sequence_count} sequences` : null,
+            artifact.metadata?.row_count != null ? `${artifact.metadata.row_count} rows` : null,
+            artifact.metadata?.backbone_count != null ? `${artifact.metadata.backbone_count} backbones` : null,
+            artifact.metadata?.source_lsf_job_id ? `LSF ${artifact.metadata.source_lsf_job_id}` : null,
+          ].filter(Boolean) as string[]
           return (
             <button
               key={artifact.artifact_id}
@@ -57,15 +66,35 @@ export function ArtifactBrowser({ artifacts, selectedArtifactId, onSelect }: Art
                   <p className="mt-1 truncate text-xs text-bda-muted">
                     {artifact.artifact_type} · {formatBytes(artifact.size_bytes)}
                   </p>
-                  {href ? (
-                    <a
+                  {badges.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {badges.slice(0, 3).map((badge) => (
+                        <span key={badge} className="rounded border border-bda-border px-1.5 py-0.5 text-[10px] text-bda-muted">
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                  {hasDownload ? (
+                    <span
                       className="mt-2 inline-flex items-center gap-1 text-xs text-bda-cyan hover:underline"
-                      href={href}
-                      onClick={(event) => event.stopPropagation()}
+                      role="button"
+                      tabIndex={0}
+                      onClick={(event) => {
+                        event.stopPropagation()
+                        void download(artifact)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          event.stopPropagation()
+                          void download(artifact)
+                        }
+                      }}
                     >
                       <Download className="h-3 w-3" />
-                      Download / preview
-                    </a>
+                      Download
+                    </span>
                   ) : null}
                 </div>
               </div>

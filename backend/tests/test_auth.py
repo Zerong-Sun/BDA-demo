@@ -1,6 +1,4 @@
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.app.auth.service import (
     authenticate_user,
     hash_password,
@@ -8,6 +6,7 @@ from backend.app.auth.service import (
     verify_password,
 )
 from backend.app.db import connect, release_connection
+from fastapi.testclient import TestClient
 
 
 def test_validate_password_strength_accepts_mixed():

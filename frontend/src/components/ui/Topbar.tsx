@@ -72,7 +72,7 @@ export function Topbar() {
           onChange={(e) => setProjectId(e.target.value)}
           aria-label={t.common.selectProject}
         >
-          <option value="">未选择项目</option>
+          <option value="">No project selected</option>
           {projects.map((project) => (
             <option key={project.project_id} value={project.project_id}>
               {project.project_name}
@@ -90,13 +90,13 @@ export function Topbar() {
               : 'border-bda-amber/40 text-bda-amber',
           )}
         >
-          {appMode === 'application' ? '应用模式' : '演示模式'}
+          {appMode === 'application' ? 'Application mode' : 'Demo mode'}
         </span>
         <CopilotToggleButton active={copilotOpen} onClick={() => setCopilotOpen(!copilotOpen)} />
         <button
           type="button"
-          aria-label="应用设置"
-          title="应用设置"
+          aria-label="Application settings"
+          title="Application settings"
           className="rounded-md border border-bda-border p-1.5 hover:bg-bda-panel"
           onClick={() => setSettingsOpen(true)}
         >
@@ -127,7 +127,7 @@ export function Topbar() {
           className="rounded-md border border-bda-border px-2 py-1 hover:bg-bda-panel"
           onClick={() => setLanguage(language === 'en' ? 'zh' : 'en')}
         >
-          {language === 'en' ? '中文' : 'EN'}
+          {language === 'en' ? 'Chinese' : 'EN'}
         </button>
       </div>
     </header>

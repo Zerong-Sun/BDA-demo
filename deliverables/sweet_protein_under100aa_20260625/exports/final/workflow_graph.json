@@ -1,0 +1,308 @@
+{
+  "workflow_run": {
+    "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+    "task_id": "task_proj_sweetprotein_under100aa_202606_dad57c_draft",
+    "status": "draft",
+    "start_time": null,
+    "end_time": null,
+    "compute_resource": "local",
+    "summary_metrics_json": {},
+    "layout_json": "{\"nodes\":[],\"edges\":[]}",
+    "output_directory": null
+  },
+  "nodes": [
+    {
+      "node_run_id": "node_a2ddff6f86",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "research_review",
+      "node_name": "Evidence and assumption review",
+      "status": "completed",
+      "model_name": null,
+      "model_version": null,
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "review_gate": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 80, \"y\": 100}"
+    },
+    {
+      "node_run_id": "node_98d6068033",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "structure_preparation",
+      "node_name": "Receptor and scaffold preparation",
+      "status": "completed",
+      "model_name": null,
+      "model_version": null,
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "receptor": "human TAS1R2/TAS1R3",
+        "verify_structure_version": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 380, \"y\": 100}"
+    },
+    {
+      "node_run_id": "node_f1ba985523",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "backbone_generation",
+      "node_name": "Constrained scaffold redesign",
+      "status": "requires_review",
+      "model_name": "RFdiffusion",
+      "model_version": "1.1.0",
+      "input_files_json": {
+        "target_structure": {
+          "artifact_id": "art_b7df775ee2c54186"
+        }
+      },
+      "output_files_json": [],
+      "parameters_json": {
+        "design_mode": "scaffold_partial_diffusion",
+        "scaffold": "MNEI / single-chain monellin, cleaned chain A residues 1-96",
+        "inference.input_pdb": "",
+        "contigmap.contigs": "[A1-96]",
+        "ppi.hotspot_res": "",
+        "inference.num_designs": 300,
+        "diffuser.partial_T": 10,
+        "diffuser.T": 50,
+        "denoiser.noise_scale_ca": 0.5,
+        "denoiser.noise_scale_frame": 0.5,
+        "preserve_disulfides": false,
+        "copilot_basis": "research_seed_pending_primary_source_verification",
+        "requires_user_review": true,
+        "inference.output_prefix": ""
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 680, \"y\": 100}"
+    },
+    {
+      "node_run_id": "node_4714184e9d",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "sequence_generation",
+      "node_name": "ProteinMPNN sequence design",
+      "status": "not_started",
+      "model_name": "ProteinMPNN",
+      "model_version": "1.0.0",
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "num_seq_per_target": 8,
+        "sampling_temp": "0.1 0.2",
+        "omit_AAs": "CX",
+        "preserve_functional_positions": true,
+        "requires_user_review": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 80, \"y\": 310}"
+    },
+    {
+      "node_run_id": "node_d98d9785ea",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "fold_prediction",
+      "node_name": "Monomer and receptor-complex prediction",
+      "status": "not_started",
+      "model_name": "AlphaFold2",
+      "model_version": "2.3.0",
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "model_preset": "multimer",
+        "models_to_relax": "none",
+        "cross_validate_complex": true,
+        "requires_user_review": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 380, \"y\": 310}"
+    },
+    {
+      "node_run_id": "node_638556d684",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "scoring",
+      "node_name": "Rosetta stability and interface analysis",
+      "status": "not_started",
+      "model_name": "Rosetta",
+      "model_version": "2024.09",
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "application": "rosetta_scripts",
+        "nstruct": 3,
+        "score:weights": "ref2015",
+        "interface": "A_B",
+        "requires_user_review": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 680, \"y\": 310}"
+    },
+    {
+      "node_run_id": "node_a775c8660a",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "selection",
+      "node_name": "Developability, safety and diversity filters",
+      "status": "not_started",
+      "model_name": null,
+      "model_version": null,
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "check_disulfides": true,
+        "allergenicity_screen": true,
+        "aggregation_screen": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 80, \"y\": 520}"
+    },
+    {
+      "node_run_id": "node_ea768fd0b1",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "review_gate",
+      "node_name": "Design review gate",
+      "status": "not_started",
+      "model_name": null,
+      "model_version": null,
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "binding_is_not_activation": true,
+        "requires_human_receptor_assay_plan": true
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 380, \"y\": 520}"
+    },
+    {
+      "node_run_id": "node_0ddfbb0370",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "node_type": "experiment",
+      "node_name": "Expandable experiment plan",
+      "status": "waiting_external_result",
+      "model_name": null,
+      "model_version": null,
+      "input_files_json": [],
+      "output_files_json": [],
+      "parameters_json": {
+        "stages": [
+          "expression_and_folding",
+          "receptor_function",
+          "sensory",
+          "food_matrix",
+          "process",
+          "safety_regulatory"
+        ]
+      },
+      "metrics_json": {},
+      "logs": null,
+      "error_message": null,
+      "position_json": "{\"x\": 680, \"y\": 520}"
+    }
+  ],
+  "edges": [
+    {
+      "edge_id": "edge_19868b841274",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_a2ddff6f86",
+      "source_port": "output",
+      "target_node_run_id": "node_98d6068033",
+      "target_port": "input",
+      "edge_type": "review_gate",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_54888de4a796",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_98d6068033",
+      "source_port": "output",
+      "target_node_run_id": "node_f1ba985523",
+      "target_port": "input",
+      "edge_type": "data",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_639c04be521b",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_f1ba985523",
+      "source_port": "output",
+      "target_node_run_id": "node_4714184e9d",
+      "target_port": "input",
+      "edge_type": "data",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_248710c8d4a7",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_4714184e9d",
+      "source_port": "output",
+      "target_node_run_id": "node_d98d9785ea",
+      "target_port": "input",
+      "edge_type": "data",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_e7d4582fdb50",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_d98d9785ea",
+      "source_port": "output",
+      "target_node_run_id": "node_638556d684",
+      "target_port": "input",
+      "edge_type": "data",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_640235e6f33f",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_638556d684",
+      "source_port": "output",
+      "target_node_run_id": "node_a775c8660a",
+      "target_port": "input",
+      "edge_type": "data",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_0390f8a1affa",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_a775c8660a",
+      "source_port": "output",
+      "target_node_run_id": "node_ea768fd0b1",
+      "target_port": "input",
+      "edge_type": "review_gate",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    },
+    {
+      "edge_id": "edge_ae55faa2d54a",
+      "workflow_run_id": "run_proj_sweetprotein_under100aa_202606_dad57c_60ee8863",
+      "source_node_run_id": "node_ea768fd0b1",
+      "source_port": "output",
+      "target_node_run_id": "node_0ddfbb0370",
+      "target_port": "input",
+      "edge_type": "review_gate",
+      "metadata_json": {},
+      "created_at": "2026-06-25 12:53:18"
+    }
+  ],
+  "artifacts": [],
+  "jobs": []
+}

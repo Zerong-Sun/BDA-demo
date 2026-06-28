@@ -1,7 +1,7 @@
 import os
-from pathlib import Path
 import sqlite3
 import sys
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO_ROOT = ROOT.parent
@@ -85,6 +85,20 @@ def register_model_parameter_catalog(connection: sqlite3.Connection) -> None:
     sync_plugin_parameters(connection, registry.list_model_plugins(connection))
 
 
+def seed_sweet_protein_project(connection: sqlite3.Connection) -> None:
+    from backend.scripts.seed_sweet_protein import seed_sweet_protein_project as seed_project
+
+    seed_project(connection)
+
+
+def reconcile_local_projects(connection: sqlite3.Connection) -> None:
+    from backend.app.repositories.catalog import ensure_all_project_workspaces
+    from backend.app.repositories.catalog import reconcile_local_projects as reconcile
+
+    reconcile(connection)
+    ensure_all_project_workspaces(connection)
+
+
 def init_db(seed: bool = True) -> Path:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
@@ -98,6 +112,9 @@ def init_db(seed: bool = True) -> Path:
             connection.executescript(SEED.read_text())
             seed_admin_user(connection)
         register_builtin_plugins(connection)
+        if seed:
+            seed_sweet_protein_project(connection)
+        reconcile_local_projects(connection)
         register_builtin_knowledge(connection)
         register_model_parameter_catalog(connection)
         connection.commit()

@@ -1,0 +1,37 @@
+{
+  "project_id": "proj_sweetprotein_rfdiffusion_100x2_160d28",
+  "research_brief_id": "brief_43c62a58c4ec",
+  "created_at": "2026-06-26",
+  "routes": {
+    "monellin_redesign": {
+      "workflow_plan_id": "plan_cf8b1982b14d",
+      "workflow_run_id": "run_proj_sweetprotein_rfdiffusion_100x2_160d28_449a8216",
+      "rf_node_run_id": "node_ae2d3b9519",
+      "input_artifact_id": "art_79d1e3c207524d58",
+      "latest_job_id": "job_8b6d4668af4d",
+      "submission_status": "failed",
+      "failure_class": "remote_lsf_ssh_unreachable",
+      "parameter_checksum": "4c02277c9f4fe82ad83d48d478f615b19f0fe1c84b1efb6b1d2cf2fba248e333",
+      "requested_backbones": 100
+    },
+    "brazzein_redesign": {
+      "workflow_plan_id": "plan_c9471f0d633e",
+      "workflow_run_id": "run_proj_sweetprotein_rfdiffusion_100x2_160d28_bbe4a091",
+      "rf_node_run_id": "node_080b9aac0f",
+      "input_artifact_id": "art_f10c683ebad34b80",
+      "latest_job_id": "job_3730ec5f78a7",
+      "submission_status": "failed",
+      "failure_class": "remote_lsf_ssh_unreachable",
+      "parameter_checksum": "0bf0964860bf7bc57e782df03346d73951b118cf7b4aaae881fa84e244be6ee4",
+      "requested_backbones": 100
+    }
+  },
+  "reusable_library_artifacts": {
+    "complete_reference_archive": "art_66d40b01fe4f4fd8",
+    "readme": "art_a9ab502217584720",
+    "rfdiffusion_protocol": "art_b153c44e545d4f5e",
+    "mpnn_surface_charge_constraints": "art_8681a38d13374b11",
+    "monellin_preparation_script": "art_d08cc05fda414206",
+    "rfdiffusion_submission_wrapper": "art_cd705522f2354e1b"
+  }
+}

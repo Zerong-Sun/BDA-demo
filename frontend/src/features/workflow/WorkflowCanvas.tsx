@@ -316,8 +316,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
 
     const proOptions = useMemo(() => ({ hideAttribution: true }), [])
     const flowKey = useMemo(
-      () => nodes.map((node) => node.id).join('|') || 'empty-workflow',
-      [nodes],
+      () => `${nodes.map((node) => node.id).join('|') || 'empty-workflow'}::${edges.map((edge) => edge.id).join('|')}`,
+      [nodes, edges],
     )
 
     return (
@@ -339,15 +339,15 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
           <div className="pointer-events-none absolute inset-0 z-[1] flex items-center justify-center p-6">
             <div className="max-w-md rounded-lg border border-dashed border-bda-border bg-bda-bg/85 p-5 text-center shadow-lg backdrop-blur">
               <MousePointer2 className="mx-auto mb-3 h-5 w-5 text-bda-cyan" />
-              <h3 className="text-sm font-semibold text-bda-text">空白工作流</h3>
+              <h3 className="text-sm font-semibold text-bda-text">Empty workflow</h3>
               <p className="mt-2 text-xs leading-relaxed text-bda-muted">
-                从左侧添加模型节点，或在上方输入目标生成推荐路线。添加两个节点后，从卡片右侧圆点拖到下一张卡片左侧圆点即可连线。
+                Add model nodes from the left panel, or enter an objective above to generate a recommended route. Connect nodes by dragging from an output handle to the next node input.
               </p>
             </div>
           </div>
         ) : (
           <div className="pointer-events-none absolute left-3 top-3 z-[1] rounded-md border border-bda-border bg-bda-bg/80 px-3 py-2 text-xs text-bda-muted backdrop-blur">
-            连线：从节点右侧输出点拖到下一节点左侧输入点
+            Connect nodes by dragging from the right output handle to the next node input handle.
           </div>
         )}
         <ReactFlow

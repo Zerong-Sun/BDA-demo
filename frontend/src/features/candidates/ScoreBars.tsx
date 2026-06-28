@@ -1,18 +1,19 @@
 interface ScoreBarsProps {
-  affinity: number
-  stability: number
+  affinity: number | null | undefined
+  stability: number | null | undefined
   solubility: number
   rosettaScore: number | null | undefined
 }
 
-function Bar({ label, value }: { label: string; value: number }) {
+function Bar({ label, value }: { label: string; value: number | null | undefined }) {
+  const hasValue = typeof value === 'number'
   return (
     <div>
       <label className="mb-1 flex justify-between text-xs text-bda-muted">
         <span>{label}</span>
-        <span>{value}</span>
+        <span>{hasValue ? value : 'Not scored'}</span>
       </label>
-      <progress className="h-2 w-full accent-bda-cyan" value={value} max={100} />
+      <progress className="h-2 w-full accent-bda-cyan" value={hasValue ? value : 0} max={100} />
     </div>
   )
 }

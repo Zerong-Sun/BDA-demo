@@ -1,10 +1,9 @@
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
-
 from backend.app.db.pool import reset_pool
 from backend.app.main import app
+from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
 DB_PATH = ROOT / "db" / "bda.sqlite3"

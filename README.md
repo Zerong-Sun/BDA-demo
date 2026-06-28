@@ -71,6 +71,10 @@ The current repository is a full-stack platform prototype with a usable end-to-e
 | Campaigns | Multi-round design, experiment feedback, evaluation, parameter patch suggestions, human approval, next-round draft workflows |
 | Deployment | Docker Compose, nginx, Redis, Celery, MinIO, PostgreSQL, Prometheus, Grafana |
 
+Local project persistence is documented in [`docs/LOCAL_PROJECT_STORAGE.md`](docs/LOCAL_PROJECT_STORAGE.md). Every created project now has a database row and a local workspace manifest under `backend/artifacts/projects/<project_id>/metadata/project.json`; the cloud-sync API boundary is reserved for a future backend server.
+
+RFdiffusion and ProteinMPNN submission rules are documented in [`docs/RFDIFFUSION_WORKFLOW_SUBMISSION.md`](docs/RFDIFFUSION_WORKFLOW_SUBMISSION.md) and [`docs/PROTEINMPNN_WORKFLOW_SUBMISSION.md`](docs/PROTEINMPNN_WORKFLOW_SUBMISSION.md).
+
 ---
 
 ## 3. Core R&D Loop

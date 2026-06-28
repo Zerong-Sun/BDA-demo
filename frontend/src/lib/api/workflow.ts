@@ -32,6 +32,41 @@ export function submitWorkflowRun(workflowRunId: string) {
   )
 }
 
+export interface SubmitNodeOptions {
+  compute_node_id?: string
+  override_params?: Record<string, unknown>
+  queue_name?: string
+  cpu_count?: number
+  resource_requirement?: string
+  gpu_requirement?: string
+}
+
+export function submitWorkflowNode(nodeRunId: string, options: SubmitNodeOptions = {}) {
+  return apiRequest<{ node_run_id: string; job_id: string; status: string }>(
+    `/workflow-node-runs/${nodeRunId}/submit-to-compute`,
+    { method: 'POST', body: JSON.stringify(options) },
+  )
+}
+
+export interface ScriptPreviewResponse {
+  job_id: string
+  plugin_id: string
+  script: string
+  input_manifest: Record<string, unknown>
+  local_workspace: {
+    input_dir: string
+    output_dir: string
+    work_dir: string
+  }
+}
+
+export function previewWorkflowNodeScript(nodeRunId: string, options: SubmitNodeOptions = {}) {
+  return apiRequest<ScriptPreviewResponse>(
+    `/workflow-node-runs/${nodeRunId}/script-preview`,
+    { method: 'POST', body: JSON.stringify(options) },
+  )
+}
+
 export function createWorkflowRun(projectId: string) {
   return apiRequest<WorkflowRun>(`/projects/${projectId}/workflow-runs`, { method: 'POST' }, WorkflowRunSchema)
 }
@@ -61,6 +96,22 @@ export function saveWorkflowLayout(workflowRunId: string, layout: WorkflowLayout
     { method: 'PATCH', body: JSON.stringify(layout) },
     WorkflowGraphSchema,
   ).then((graph) => WorkflowRunSchema.parse(graph.workflow_run))
+}
+
+export function updateWorkflowNode(
+  workflowRunId: string,
+  nodeRunId: string,
+  payload: {
+    parameters_json?: Record<string, unknown>
+    position?: { x: number; y: number }
+    status?: string
+  },
+) {
+  return apiRequest<WorkflowNode>(
+    `/workflow-runs/${workflowRunId}/nodes/${nodeRunId}`,
+    { method: 'PATCH', body: JSON.stringify(payload) },
+    WorkflowNodeSchema,
+  )
 }
 
 export function validateWorkflowRun(workflowRunId: string) {

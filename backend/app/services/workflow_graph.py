@@ -3,7 +3,6 @@ from __future__ import annotations
 from collections import defaultdict, deque
 from typing import Any
 
-
 DATA_EDGE_TYPES = {"data", "control", "review_gate"}
 
 

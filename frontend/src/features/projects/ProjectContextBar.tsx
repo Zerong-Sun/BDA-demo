@@ -11,7 +11,7 @@ export function ProjectContextBar() {
       <div className="flex min-w-0 items-center gap-3">
         <FlaskConical className="h-4 w-4 shrink-0 text-bda-cyan" />
         <div className="min-w-0">
-          <p className="text-[10px] uppercase tracking-wide text-bda-cyan">当前实验项目</p>
+          <p className="text-[10px] uppercase tracking-wide text-bda-cyan">Active research project</p>
           <p className="truncate text-sm font-medium text-bda-text">{activeProject.project_name}</p>
         </div>
         <span className="rounded border border-bda-border px-2 py-0.5 text-[10px] text-bda-muted">
@@ -19,7 +19,7 @@ export function ProjectContextBar() {
         </span>
       </div>
       <Link to="/experiments" className="text-xs text-bda-cyan hover:underline">
-        切换或新建项目
+        Switch or create project
       </Link>
     </div>
   )

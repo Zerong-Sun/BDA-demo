@@ -2,7 +2,6 @@ from pathlib import Path
 from subprocess import CompletedProcess
 
 import pytest
-
 from backend.app.compute.adapter import JobSpec
 from backend.app.compute.factory import RemoteLsfAdapter
 
@@ -42,20 +41,38 @@ def make_job(tmp_path: Path, *, gpu: bool = False) -> JobSpec:
     )
 
 
-def test_lsf_script_uses_trusted_wrapper_and_gpu_queue(tmp_path: Path):
+def test_lsf_script_renders_builtin_proteinmpnn_runner(tmp_path: Path):
     adapter = make_adapter()
     job = make_job(tmp_path, gpu=True)
 
-    script = adapter._render_lsf_script(
-        job,
-        adapter._plugin_commands[job.plugin_id],
+    script = adapter.render_script(job)
+
+    assert "#BSUB -q 4v100-16-e5" in script
+    assert '#BSUB -gpu "num=1"' in script
+    assert "protein_mpnn_run.py" in script
+    assert "manifest.json" in script
+    assert job.command not in script
+    assert "parsed_pdbs.jsonl" in script
+
+
+def test_lsf_script_renders_builtin_alphafold2_runner(tmp_path: Path):
+    adapter = make_adapter()
+    job = make_job(tmp_path, gpu=True)
+    job.plugin_id = "plugin_alphafold2"
+    (tmp_path / "input" / "designs.fasta").write_text(">design_a\nACDEFGHIK\n", encoding="utf-8")
+    (tmp_path / "input" / "manifest.json").write_text(
+        '{"inputs":[{"port":"sequence_set","format":"fasta","path":"/input/designs.fasta"}],"parameters":{"max_recycle":3}}',
+        encoding="utf-8",
     )
 
-    assert "#BSUB -q gpu-bme-liz" in script
-    assert '#BSUB -gpu "num=1"' in script
-    assert "run_proteinmpnn.sh" in script
+    script = adapter.render_script(job)
+
+    assert "#BSUB -J AlphaFold2_test123" in script
+    assert "/work/bme-liz/software/superfold/superfold" in script
+    assert "--max_recycles 3" in script
+    assert "alphafold2_confidence.csv" in script
+    assert "predicted_structure" in script
     assert job.command not in script
-    assert "BDA_INPUT_MANIFEST" in script
 
 
 def test_submit_rejects_plugin_without_admin_wrapper(tmp_path: Path):

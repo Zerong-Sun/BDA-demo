@@ -23,12 +23,58 @@ def test_projects_list(client: TestClient, auth_headers: dict[str, str]):
     assert len(data["items"]) >= 1
 
 
+def test_sweet_protein_seeded_project_routes_and_scripts(client: TestClient, auth_headers: dict[str, str]):
+    project_id = "proj_sweetprotein_rfdiffusion_100x2_160d28"
+    projects = client.get(f"{API}/projects?limit=20", headers=auth_headers)
+    assert projects.status_code == 200
+    assert any(item["project_id"] == project_id for item in projects.json()["data"]["items"])
+
+    runs = client.get(f"{API}/projects/{project_id}/workflow-runs", headers=auth_headers)
+    assert runs.status_code == 200
+    route_names = {item["summary_metrics_json"]["route"] for item in runs.json()["data"]["items"]}
+    assert route_names == {"monellin", "brazzein"}
+    assert {item["status"] for item in runs.json()["data"]["items"]} == {"running"}
+
+    for run in runs.json()["data"]["items"]:
+        graph = client.get(f"{API}/workflow-runs/{run['workflow_run_id']}/graph", headers=auth_headers)
+        assert graph.status_code == 200
+        graph_data = graph.json()["data"]
+        assert len(graph_data["nodes"]) == 6
+        assert len(graph_data["edges"]) == 5
+        assert [edge["edge_type"] for edge in graph_data["edges"]] == ["data"] * 5
+
+    scripts = client.get(f"{API}/script-assets?model_plugin_id=plugin_rfdiffusion", headers=auth_headers)
+    assert scripts.status_code == 200
+    paths = {item["relative_path"] for item in scripts.json()["data"]["items"]}
+    assert "sweetprotein/monellin/submit.lsf" in paths
+    assert "sweetprotein/brazzein/submit.lsf" in paths
+
+
 def test_project_overview(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/projects/proj_pd1_0423/overview", headers=auth_headers)
     assert response.status_code == 200
     payload = response.json()["data"]
     assert payload["project"]["project_id"] == "proj_pd1_0423"
     assert "compute_status" in payload
+
+
+def test_workflow_node_script_preview_uses_override_params(client: TestClient, auth_headers: dict[str, str]):
+    response = client.post(
+        f"{API}/workflow-node-runs/node_rf/script-preview",
+        headers=auth_headers,
+        json={
+            "override_params": {
+                "inference.num_designs": 5,
+                "contigmap.contigs": "[A1-50/2-4/B1-19/B21-44]",
+                "scaffold": "monellin",
+            }
+        },
+    )
+    assert response.status_code == 200
+    data = response.json()["data"]
+    assert data["plugin_id"] == "plugin_rfdiffusion"
+    assert data["input_manifest"]["parameters"]["inference.num_designs"] == 5
+    assert "script" in data and data["script"].startswith("#!/bin/bash")
 
 
 def test_candidates_filter(client: TestClient, auth_headers: dict[str, str]):

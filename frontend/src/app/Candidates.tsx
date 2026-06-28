@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Download } from 'lucide-react'
-import { listCandidates } from '../lib/api/candidates'
+import { downloadCandidateStructures, listCandidates } from '../lib/api/candidates'
 import { getCandidateFunnel } from '../lib/api/projects'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useToastStore } from '../components/ui/toastStore'
@@ -25,6 +25,8 @@ export function CandidatesPage() {
   const [status, setStatus] = useState('All')
   const [priorityOnly, setPriorityOnly] = useState(false)
   const [selected, setSelected] = useState<Candidate | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set())
+  const [isDownloading, setIsDownloading] = useState(false)
   const [page, setPage] = useState(0)
 
   const {
@@ -56,6 +58,8 @@ export function CandidatesPage() {
   const totalCount = data?.total ?? candidates.length
   const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE))
   const activeCandidate = selected ?? candidates[0] ?? null
+  const pageIds = useMemo(() => candidates.map((candidate) => candidate.candidate_id), [candidates])
+  const selectedCount = selectedIds.size
 
   const exportCsv = () => {
     if (!candidates.length) return
@@ -76,6 +80,62 @@ export function CandidatesPage() {
     showToast('Candidate CSV exported', 'success')
   }
 
+  const toggleCandidate = (candidateId: string) => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      if (next.has(candidateId)) {
+        next.delete(candidateId)
+      } else {
+        next.add(candidateId)
+      }
+      return next
+    })
+  }
+
+  const togglePage = () => {
+    setSelectedIds((current) => {
+      const next = new Set(current)
+      const allSelected = pageIds.length > 0 && pageIds.every((candidateId) => next.has(candidateId))
+      for (const candidateId of pageIds) {
+        if (allSelected) {
+          next.delete(candidateId)
+        } else {
+          next.add(candidateId)
+        }
+      }
+      return next
+    })
+  }
+
+  const downloadSelected = async () => {
+    const ids = [...selectedIds]
+    if (!ids.length) return
+    setIsDownloading(true)
+    try {
+      await downloadCandidateStructures(ids, `${projectId}_selected_candidates.zip`)
+      showToast(`Downloaded ${ids.length} candidate structure${ids.length === 1 ? '' : 's'}`, 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Candidate download failed'
+      showToast(message, 'error')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
+  const downloadPage = async () => {
+    if (!pageIds.length) return
+    setIsDownloading(true)
+    try {
+      await downloadCandidateStructures(pageIds, `${projectId}_page_${page + 1}_candidates.zip`)
+      showToast(`Downloaded ${pageIds.length} visible candidate structures`, 'success')
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Candidate download failed'
+      showToast(message, 'error')
+    } finally {
+      setIsDownloading(false)
+    }
+  }
+
   return (
     <section>
       <ProjectContextBar />
@@ -83,14 +143,34 @@ export function CandidatesPage() {
         eyebrow={t.candidates.eyebrow}
         title={t.candidates.title}
         actions={
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm hover:bg-bda-panel"
-            onClick={exportCsv}
-          >
-            <Download className="h-4 w-4" />
-            {t.candidates.exportCsv}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm hover:bg-bda-panel"
+              onClick={exportCsv}
+            >
+              <Download className="h-4 w-4" />
+              {t.candidates.exportCsv}
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm hover:bg-bda-panel disabled:opacity-50"
+              disabled={!pageIds.length || isDownloading}
+              onClick={() => void downloadPage()}
+            >
+              <Download className="h-4 w-4" />
+              Download page
+            </button>
+            <button
+              type="button"
+              className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+              disabled={!selectedCount || isDownloading}
+              onClick={() => void downloadSelected()}
+            >
+              <Download className="h-4 w-4" />
+              Download selected{selectedCount ? ` (${selectedCount})` : ''}
+            </button>
+          </div>
         }
       />
       <ComputeStatusStrip />
@@ -135,10 +215,31 @@ export function CandidatesPage() {
       <ApiState isLoading={isLoading} isError={isError} error={candidatesError} onRetry={() => void refetch()}>
         <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
           <div className="space-y-4">
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-muted">
+              <span>{selectedCount} selected</span>
+              <button
+                type="button"
+                className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover"
+                onClick={togglePage}
+              >
+                {pageIds.every((candidateId) => selectedIds.has(candidateId)) ? 'Clear page' : 'Select page'}
+              </button>
+              <button
+                type="button"
+                className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover disabled:opacity-50"
+                disabled={!selectedCount}
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Clear all
+              </button>
+            </div>
             <CandidateTable
               data={candidates}
               selectedId={activeCandidate?.candidate_id}
+              selectedIds={selectedIds}
               onSelect={setSelected}
+              onToggleCandidate={toggleCandidate}
+              onTogglePage={togglePage}
             />
             <div className="flex items-center justify-between text-sm text-bda-muted">
               <span>

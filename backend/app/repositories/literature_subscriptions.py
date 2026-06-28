@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from .base import decode_row, decode_rows
@@ -44,7 +44,7 @@ def claim_due_subscription(
     item = get_subscription(connection, subscription_id)
     if item is None:
         return None
-    next_run = datetime.now(timezone.utc) + timedelta(hours=int(item["interval_hours"]))
+    next_run = datetime.now(UTC) + timedelta(hours=int(item["interval_hours"]))
     cursor = connection.execute(
         """
         UPDATE literature_subscriptions
@@ -68,7 +68,7 @@ def record_run(
     item = get_subscription(connection, subscription_id)
     if item is None:
         return
-    next_run = datetime.now(timezone.utc) + timedelta(hours=int(item["interval_hours"]))
+    next_run = datetime.now(UTC) + timedelta(hours=int(item["interval_hours"]))
     connection.execute(
         """
         UPDATE literature_subscriptions
