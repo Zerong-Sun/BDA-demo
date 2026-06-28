@@ -33,6 +33,8 @@ ROUTES = {
     },
 }
 
+TASK_ID = f"task_{PROJECT_ID}_round1"
+
 SCORE_RE = re.compile(r"(?:score|global_score)=(-?\d+(?:\.\d+)?)")
 
 
@@ -160,6 +162,50 @@ def upsert_job(connection: sqlite3.Connection, cfg: dict[str, str], logs: str) -
     )
 
 
+def upsert_sequence_candidates(
+    connection: sqlite3.Connection,
+    *,
+    route: str,
+    cfg: dict[str, str],
+    records: list[dict[str, Any]],
+    fasta_records: dict[str, str],
+) -> None:
+    for record in records:
+        design_id = str(record["design_id"])
+        backbone = str(record["backbone"])
+        source_header = str(record.get("source_header") or "")
+        score = score_from_header(source_header)
+        sequence = fasta_records.get(design_id, "")
+        sequence_index = int(record.get("sequence_index") or 0)
+        candidate_id = f"cand_{design_id}"
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO candidates (
+                candidate_id, project_id, task_id, workflow_run_id, family, sequence,
+                structure_file_path, complex_file_path, interface_score, pred_kd,
+                plddt, interface_pae, rosetta_score, interface_energy, clash_count,
+                buried_sasa, solubility_score, aggregation_risk, expression_risk,
+                status, decision, next_action
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, NULL,
+                      NULL, NULL, NULL, NULL, NULL,
+                      NULL, NULL, NULL, NULL,
+                      'sequence_designed', ?, ?)
+            """,
+            (
+                candidate_id,
+                PROJECT_ID,
+                TASK_ID,
+                cfg["workflow_run_id"],
+                route,
+                sequence,
+                backbone,
+                score,
+                f"ProteinMPNN sequence {sequence_index} of 5 for {backbone}",
+                "Fold with AlphaFold2/structure prediction and record pLDDT, pTM, and PAE before scoring.",
+            ),
+        )
+
+
 def main() -> None:
     manifest_path = SOURCE_DIR / "sweetprotein_mpnn5_manifest.json"
     fasta_path = SOURCE_DIR / "sweetprotein_mpnn5_designs.fasta"
@@ -185,6 +231,13 @@ def main() -> None:
             write_route_outputs(route, cfg, route_records[route], fasta_records)
             upsert_job(connection, cfg, logs)
             collect_job_outputs(connection, cfg["job_id"])
+            upsert_sequence_candidates(
+                connection,
+                route=route,
+                cfg=cfg,
+                records=route_records[route],
+                fasta_records=fasta_records,
+            )
         connection.commit()
     finally:
         connection.close()

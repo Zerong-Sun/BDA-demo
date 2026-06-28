@@ -56,6 +56,26 @@ def test_lsf_script_renders_builtin_proteinmpnn_runner(tmp_path: Path):
     assert "parsed_pdbs.jsonl" in script
 
 
+def test_lsf_script_renders_builtin_alphafold2_runner(tmp_path: Path):
+    adapter = make_adapter()
+    job = make_job(tmp_path, gpu=True)
+    job.plugin_id = "plugin_alphafold2"
+    (tmp_path / "input" / "designs.fasta").write_text(">design_a\nACDEFGHIK\n", encoding="utf-8")
+    (tmp_path / "input" / "manifest.json").write_text(
+        '{"inputs":[{"port":"sequence_set","format":"fasta","path":"/input/designs.fasta"}],"parameters":{"max_recycle":3}}',
+        encoding="utf-8",
+    )
+
+    script = adapter.render_script(job)
+
+    assert "#BSUB -J AlphaFold2_test123" in script
+    assert "/work/bme-liz/software/superfold/superfold" in script
+    assert "--max_recycle 3" in script
+    assert "alphafold2_confidence.csv" in script
+    assert "predicted_structure" in script
+    assert job.command not in script
+
+
 def test_submit_rejects_plugin_without_admin_wrapper(tmp_path: Path):
     adapter = make_adapter()
     job = make_job(tmp_path)

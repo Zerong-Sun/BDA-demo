@@ -68,3 +68,16 @@ textarea {
 .molstar-viewer-host .msp-plugin {
   border: none !important;
 }
+
+.react-flow__edge-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.react-flow__edges {
+  z-index: 2;
+}
+
+.react-flow__nodes {
+  z-index: 3;
+}

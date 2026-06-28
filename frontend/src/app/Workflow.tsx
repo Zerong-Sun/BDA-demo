@@ -421,6 +421,7 @@ export function WorkflowPage() {
             <WorkflowResourceSidebar
               projectId={projectId}
               artifacts={visibleArtifacts}
+              selectedNode={selectedNode}
               selectedArtifactId={selectedArtifactId}
               onArtifactUploaded={(artifact) => {
                 setArtifacts((current) => [artifact, ...current.filter((item) => item.artifact_id !== artifact.artifact_id)])
@@ -473,7 +474,7 @@ export function WorkflowPage() {
                   readOnly={readOnly}
                   onNodeSelected={(nodeId) => {
                     setSelectedNodeId(nodeId)
-                    if (nodeId) setSelectedArtifactId(undefined)
+                    setSelectedArtifactId(undefined)
                   }}
                   onNodeAdded={() =>
                     queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })

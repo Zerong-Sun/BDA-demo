@@ -7,10 +7,12 @@ import type { ModelPlugin } from '../../lib/schemas/registry'
 import { StatusPill } from '../../components/ui/StatusPill'
 import { statusTone } from '../../components/ui/statusTone'
 import { ScriptAssetManager } from './ScriptAssetManager'
+import type { WorkflowNode } from '../../lib/schemas/workflow'
 
 interface WorkflowResourceSidebarProps {
   projectId?: string
   artifacts: Artifact[]
+  selectedNode?: WorkflowNode | null
   selectedArtifactId?: string
   onArtifactUploaded: (artifact: Artifact, file: File) => void
   onArtifactSelected: (artifact: Artifact) => void
@@ -21,6 +23,7 @@ interface WorkflowResourceSidebarProps {
 export function WorkflowResourceSidebar({
   projectId,
   artifacts,
+  selectedNode,
   selectedArtifactId,
   onArtifactUploaded,
   onArtifactSelected,
@@ -31,6 +34,10 @@ export function WorkflowResourceSidebar({
     queryKey: ['model-plugins'],
     queryFn: listModelPlugins,
   })
+  const nodeArtifacts = selectedNode
+    ? artifacts.filter((artifact) => artifact.node_run_id === selectedNode.node_run_id)
+    : artifacts
+  const visibleArtifacts = selectedNode ? nodeArtifacts : artifacts
 
   return (
     <aside className="space-y-4">
@@ -39,12 +46,22 @@ export function WorkflowResourceSidebar({
           <Layers3 className="h-4 w-4 text-bda-cyan" />
           <div>
             <p className="text-xs uppercase tracking-wide text-bda-cyan">Artifacts</p>
-            <h2 className="text-sm font-semibold">Inputs and outputs</h2>
+            <h2 className="text-sm font-semibold">
+              {selectedNode ? 'Selected node outputs' : 'Inputs and outputs'}
+            </h2>
           </div>
         </div>
+        {selectedNode ? (
+          <div className="mb-3 rounded-md border border-bda-border bg-bda-bg px-3 py-2">
+            <p className="truncate text-xs font-medium text-bda-text">{selectedNode.node_name}</p>
+            <p className="mt-1 text-[11px] text-bda-muted">
+              {visibleArtifacts.length} linked artifact{visibleArtifacts.length === 1 ? '' : 's'}
+            </p>
+          </div>
+        ) : null}
         <ArtifactUploadDropzone projectId={projectId} onUploaded={onArtifactUploaded} />
         <div className="mt-3">
-          <ArtifactBrowser artifacts={artifacts} selectedArtifactId={selectedArtifactId} onSelect={onArtifactSelected} />
+          <ArtifactBrowser artifacts={visibleArtifacts} selectedArtifactId={selectedArtifactId} onSelect={onArtifactSelected} />
         </div>
       </section>
 

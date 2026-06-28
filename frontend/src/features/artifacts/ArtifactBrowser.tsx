@@ -31,6 +31,13 @@ export function ArtifactBrowser({ artifacts, selectedArtifactId, onSelect }: Art
       ) : (
         artifacts.map((artifact) => {
           const hasDownload = Boolean(artifact.download_url ?? artifact.preview_url)
+          const badges = [
+            artifact.metadata?.route ? String(artifact.metadata.route) : null,
+            artifact.metadata?.sequence_count != null ? `${artifact.metadata.sequence_count} sequences` : null,
+            artifact.metadata?.row_count != null ? `${artifact.metadata.row_count} rows` : null,
+            artifact.metadata?.backbone_count != null ? `${artifact.metadata.backbone_count} backbones` : null,
+            artifact.metadata?.source_lsf_job_id ? `LSF ${artifact.metadata.source_lsf_job_id}` : null,
+          ].filter(Boolean) as string[]
           return (
             <button
               key={artifact.artifact_id}
@@ -59,6 +66,15 @@ export function ArtifactBrowser({ artifacts, selectedArtifactId, onSelect }: Art
                   <p className="mt-1 truncate text-xs text-bda-muted">
                     {artifact.artifact_type} · {formatBytes(artifact.size_bytes)}
                   </p>
+                  {badges.length > 0 ? (
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {badges.slice(0, 3).map((badge) => (
+                        <span key={badge} className="rounded border border-bda-border px-1.5 py-0.5 text-[10px] text-bda-muted">
+                          {badge}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
                   {hasDownload ? (
                     <span
                       className="mt-2 inline-flex items-center gap-1 text-xs text-bda-cyan hover:underline"

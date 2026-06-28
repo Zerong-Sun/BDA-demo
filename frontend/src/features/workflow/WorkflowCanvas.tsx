@@ -316,8 +316,8 @@ export const WorkflowCanvas = forwardRef<WorkflowCanvasHandle, WorkflowCanvasPro
 
     const proOptions = useMemo(() => ({ hideAttribution: true }), [])
     const flowKey = useMemo(
-      () => nodes.map((node) => node.id).join('|') || 'empty-workflow',
-      [nodes],
+      () => `${nodes.map((node) => node.id).join('|') || 'empty-workflow'}::${edges.map((edge) => edge.id).join('|')}`,
+      [nodes, edges],
     )
 
     return (

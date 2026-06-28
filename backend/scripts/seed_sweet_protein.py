@@ -188,13 +188,17 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
     review_node_id = f"node_{family}_candidate_review"
     x0 = int(cfg["position"]["x"])
     y0 = int(cfg["position"]["y"])
+    lane_positions = {
+        target_node_id: {"x": x0 - 40, "y": y0},
+        rf_node_id: {"x": x0 + 260, "y": y0},
+        mpnn_node_id: {"x": x0 + 560, "y": y0},
+        fold_node_id: {"x": x0 + 560, "y": y0 + 230},
+        score_node_id: {"x": x0 + 260, "y": y0 + 230},
+        review_node_id: {"x": x0 - 40, "y": y0 + 230},
+    }
     node_layout = [
-        {"node_run_id": target_node_id, "position": {"x": x0 - 300, "y": y0}},
-        {"node_run_id": rf_node_id, "position": cfg["position"]},
-        {"node_run_id": mpnn_node_id, "position": {"x": x0 + 340, "y": y0}},
-        {"node_run_id": fold_node_id, "position": {"x": x0 + 680, "y": y0}},
-        {"node_run_id": score_node_id, "position": {"x": x0 + 1020, "y": y0}},
-        {"node_run_id": review_node_id, "position": {"x": x0 + 1360, "y": y0}},
+        {"node_run_id": node_id, "position": position}
+        for node_id, position in lane_positions.items()
     ]
     edge_specs = [
         (target_node_id, "target_structure", rf_node_id, "target_structure"),
@@ -251,7 +255,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             _json({"route": family, "input_artifact_id": input_artifact_id}),
             _json({"inputs_confirmed": 1}),
             "Curated scaffold input staged for RFdiffusion.",
-            _json({"x": x0 - 300, "y": y0}),
+            _json(lane_positions[target_node_id]),
         ),
     )
     connection.execute(
@@ -270,7 +274,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             _json(parameters),
             _json({"backbone_count": 100}),
             "Seeded from completed local RFdiffusion route output.",
-            _json(cfg["position"]),
+            _json(lane_positions[rf_node_id]),
         ),
     )
     connection.execute(
@@ -295,7 +299,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
                 "script_asset_id": "script_sweet_proteinmpnn_5seq",
             }),
             "Ready to submit ProteinMPNN using the archived 5-sequences-per-backbone LSF script.",
-            _json({"x": x0 + 340, "y": y0}),
+            _json(lane_positions[mpnn_node_id]),
         ),
     )
     downstream_nodes = [
@@ -306,9 +310,17 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             "AlphaFold2",
             "2.3.0",
             {"sequence_set": [{"source_node_run_id": mpnn_node_id, "source_port": "sequence_set"}]},
-            {"route": family, "planned": 500, "current": 0, "estimate_unit": "models", "recommended_after": "ProteinMPNN"},
-            {"x": x0 + 680, "y": y0},
-            "Pending sequence outputs from ProteinMPNN.",
+            {
+                "route": family,
+                "planned": 500,
+                "current": 0,
+                "estimate_unit": "models",
+                "input_sequence_set": "ProteinMPNN sequence_set",
+                "folding_metrics": ["plddt", "ptm", "predicted_aligned_error"],
+                "recommended_after": "ProteinMPNN",
+            },
+            lane_positions[fold_node_id],
+            "Ready for fold prediction from ProteinMPNN sequence_set outputs; expected metrics include pLDDT.",
         ),
         (
             score_node_id,
@@ -318,7 +330,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             "1.0.0",
             {"predicted_structure": [{"source_node_run_id": fold_node_id, "source_port": "predicted_structure"}]},
             {"route": family, "planned": 500, "current": 0, "estimate_unit": "designs", "filters": ["aggregation", "solubility", "charge_patch", "pLDDT"]},
-            {"x": x0 + 1020, "y": y0},
+            lane_positions[score_node_id],
             "Pending folded structures.",
         ),
         (
@@ -329,7 +341,7 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             "1.0.0",
             {"score_table": [{"source_node_run_id": score_node_id, "source_port": "score_table"}]},
             {"route": family, "decision_gate": "select candidates for assay planning"},
-            {"x": x0 + 1360, "y": y0},
+            lane_positions[review_node_id],
             "Pending scored candidate table.",
         ),
     ]

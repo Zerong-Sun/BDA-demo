@@ -617,11 +617,208 @@ PY"""
         ]
         return "\n".join(directives) + "\n"
 
+    def _render_alphafold2_lsf_script(self, job: JobSpec) -> str:
+        manifest = self._manifest_payload(job)
+        parameters = manifest.get("parameters") or {}
+        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or "4v100-16-e5"
+        cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT") or parameters.get("jackhmmer_n_cpu") or 8))
+        resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=1]"
+        gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
+        remote_dir = self._remote_job_dir(job.job_id)
+        fasta_names = self._staged_input_names(manifest, port="sequence_set", formats={"fasta", "fa"})
+        models = int(parameters.get("superfold_models") or 4)
+        max_recycle = int(parameters.get("max_recycle") or parameters.get("max_recycles") or 5)
+        fasta_copy_lines = "\n".join(
+            f"cp input/{shlex.quote(name)} work/input_fasta/{shlex.quote(name)}"
+            for name in fasta_names
+        ) or "find input -maxdepth 1 \\( -name '*.fa' -o -name '*.fasta' \\) -exec cp {} work/input_fasta/ \\;"
+        collect_script = """
+python - <<'PY' >> logs/$LSB_JOBID.log 2>&1
+import csv
+import json
+import re
+from pathlib import Path
+
+output_dir = Path("output").resolve()
+records = []
+
+def candidate_name(path):
+    name = path.stem
+    for suffix in ("_unrelaxed_rank_001", "_relaxed_rank_001", "_rank_001", "_model_1"):
+        if name.endswith(suffix):
+            return name[: -len(suffix)]
+    return name
+
+def read_json_score(path):
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except Exception:
+        return {}
+    values = payload.get("plddt") or payload.get("plddts")
+    plddt = None
+    if isinstance(values, list) and values:
+        plddt = sum(float(value) for value in values) / len(values)
+    elif isinstance(values, (int, float)):
+        plddt = float(values)
+    return {
+        "plddt": plddt,
+        "ptm": payload.get("ptm"),
+        "iptm": payload.get("iptm"),
+        "pae": payload.get("pae") or payload.get("predicted_aligned_error"),
+    }
+
+score_by_candidate = {}
+for path in output_dir.rglob("*.json"):
+    if "timings" in path.name or path.name == "manifest.json":
+        continue
+    scores = read_json_score(path)
+    if any(value is not None for value in scores.values()):
+        score_by_candidate.setdefault(candidate_name(path), {}).update(scores)
+
+for pdb_path in sorted(output_dir.rglob("*.pdb")):
+    candidate = candidate_name(pdb_path)
+    scores = score_by_candidate.get(candidate, {})
+    relative = pdb_path.relative_to(output_dir)
+    records.append({
+        "candidate_id": candidate,
+        "path": str(relative),
+        "plddt": scores.get("plddt"),
+        "ptm": scores.get("ptm"),
+        "iptm": scores.get("iptm"),
+    })
+
+score_csv = output_dir / "alphafold2_confidence.csv"
+with score_csv.open("w", encoding="utf-8", newline="") as handle:
+    fieldnames = ["candidate_id", "path", "plddt", "ptm", "iptm"]
+    writer = csv.DictWriter(handle, fieldnames=fieldnames)
+    writer.writeheader()
+    for record in records:
+        writer.writerow({key: record.get(key) for key in fieldnames})
+
+outputs = {
+    "predicted_structure": [
+        {
+            "path": record["path"],
+            "format": "pdb",
+            "artifact_type": "predicted_structure",
+            "display_name": Path(record["path"]).name,
+            "metadata": {
+                "candidate_id": record["candidate_id"],
+                "plddt": record.get("plddt"),
+                "ptm": record.get("ptm"),
+                "iptm": record.get("iptm"),
+                "source_port": "predicted_structure",
+            },
+        }
+        for record in records
+    ],
+    "score_table": [
+        {
+            "path": "alphafold2_confidence.csv",
+            "format": "csv",
+            "artifact_type": "score_table",
+            "display_name": "alphafold2_confidence.csv",
+            "metadata": {"row_count": len(records), "source_port": "score_table"},
+        }
+    ],
+}
+(output_dir / "alphafold2_run.json").write_text(
+    json.dumps({
+        "folded_count": len(records),
+        "parameters": json.loads(Path("input/manifest.json").read_text(encoding="utf-8")).get("parameters") or {},
+        "records": records,
+    }, indent=2),
+    encoding="utf-8",
+)
+outputs["run_manifest"] = [
+    {
+        "path": "alphafold2_run.json",
+        "format": "json",
+        "artifact_type": "manifest",
+        "display_name": "alphafold2_run.json",
+    }
+]
+(output_dir / "manifest.json").write_text(
+    json.dumps({"outputs": outputs, "metrics": {"folded": len(records)}}, indent=2),
+    encoding="utf-8",
+)
+if not records:
+    raise RuntimeError("AlphaFold2/Superfold produced no PDB predictions")
+PY"""
+        split_script = """
+python - <<'PY' >> logs/$LSB_JOBID.log 2>&1
+from pathlib import Path
+import re
+
+input_dir = Path("work/input_fasta")
+single_dir = Path("work/single_fasta")
+single_dir.mkdir(parents=True, exist_ok=True)
+count = 0
+header = None
+chunks = []
+
+def flush():
+    global count, header, chunks
+    if header is None:
+        return
+    safe = re.sub(r"[^A-Za-z0-9_.-]+", "_", header.split()[0]).strip("_") or f"sequence_{count+1}"
+    out = single_dir / f"{safe}.fasta"
+    out.write_text(f">{safe}\\n{''.join(chunks)}\\n", encoding="utf-8")
+    count += 1
+
+for fasta in sorted(input_dir.glob("*.fa")) + sorted(input_dir.glob("*.fasta")):
+    with fasta.open(encoding="utf-8", errors="replace") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                flush()
+                header = line[1:]
+                chunks = []
+            else:
+                chunks.append(line)
+        flush()
+        header = None
+        chunks = []
+print(f"[INFO] AlphaFold2 sequences staged: {count}")
+if count == 0:
+    raise RuntimeError("No FASTA records staged for AlphaFold2")
+PY"""
+        directives = [
+            "#!/bin/bash",
+            "",
+            f"#BSUB -J AlphaFold2_{job.job_id.removeprefix('job_')[:10]}",
+            f"#BSUB -q {queue}",
+            f"#BSUB -n {cpu_count}",
+            f'#BSUB -gpu "{gpu_requirement}"',
+            f'#BSUB -R "{resource_requirement}"',
+            "#BSUB -o logs/%J.out",
+            "#BSUB -e logs/%J.err",
+            "",
+            "set -Eeuo pipefail",
+            f"cd {shlex.quote(remote_dir)}",
+            "mkdir -p output work/input_fasta work/single_fasta logs",
+            fasta_copy_lines,
+            split_script.strip(),
+            "if [[ -f /work/bme-liz/miniconda3/etc/profile.d/conda.sh ]]; then source /work/bme-liz/miniconda3/etc/profile.d/conda.sh; conda activate mlfold; else source activate /work/bme-liz/miniconda3/envs/mlfold; fi",
+            "for fasta_file in work/single_fasta/*.fasta; do",
+            "  name=$(basename \"$fasta_file\" .fasta)",
+            "  mkdir -p \"output/$name\"",
+            f"  /work/bme-liz/software/superfold/superfold \"$fasta_file\" --models {models} --max_recycle {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
+            "done",
+            collect_script.strip(),
+            "echo '[DONE] AlphaFold2/Superfold finished.'",
+        ]
+        return "\n".join(directives) + "\n"
+
     def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:
         if job.plugin_id == "plugin_rfdiffusion":
             return self._render_rfdiffusion_lsf_script(job)
         if job.plugin_id == "plugin_proteinmpnn":
             return self._render_proteinmpnn_lsf_script(job)
+        if job.plugin_id == "plugin_alphafold2":
+            return self._render_alphafold2_lsf_script(job)
         gpu = job.env.get("BDA_GPU") == "1"
         queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or (self._gpu_queue if gpu else self._cpu_queue)
         cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT", "1")))
@@ -657,6 +854,8 @@ PY"""
             return self._render_rfdiffusion_lsf_script(job)
         if job.plugin_id == "plugin_proteinmpnn":
             return self._render_proteinmpnn_lsf_script(job)
+        if job.plugin_id == "plugin_alphafold2":
+            return self._render_alphafold2_lsf_script(job)
         trusted_command = self._plugin_commands.get(job.plugin_id)
         if not trusted_command:
             raise RuntimeError(f"remote_lsf_plugin_not_configured:{job.plugin_id}")

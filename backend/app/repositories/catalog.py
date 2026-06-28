@@ -416,6 +416,28 @@ def list_project_workflow_runs(connection: sqlite3.Connection, project_id: str) 
 
 
 def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str) -> dict[str, int]:
+    row = connection.execute(
+        """
+        SELECT
+          SUM(CASE WHEN status IN ('generated_backbone', 'generated') THEN 1 ELSE 0 END) AS generated,
+          SUM(CASE WHEN status IN ('sequence_designed', 'designed') THEN 1 ELSE 0 END) AS designed,
+          SUM(CASE WHEN status IN ('folded', 'structure_predicted') OR plddt IS NOT NULL THEN 1 ELSE 0 END) AS folded,
+          SUM(CASE WHEN status IN ('scored', 'ranked') OR rosetta_score IS NOT NULL OR solubility_score IS NOT NULL THEN 1 ELSE 0 END) AS scored,
+          SUM(CASE WHEN status IN ('ordered', 'validated') OR decision IN ('Anchor', 'Order', 'Retest') THEN 1 ELSE 0 END) AS ordered
+        FROM candidates
+        WHERE project_id = ?
+        """,
+        (project_id,),
+    ).fetchone()
+    counts = decode_row(row) if row else {}
+    if counts and any(counts.get(key) for key in ("generated", "designed", "folded", "scored", "ordered")):
+        return {
+            "generated": int(counts.get("generated") or 0),
+            "designed": int(counts.get("designed") or 0),
+            "folded": int(counts.get("folded") or 0),
+            "scored": int(counts.get("scored") or 0),
+            "ordered": int(counts.get("ordered") or 0),
+        }
     run = get_latest_project_workflow_run(connection, project_id)
     if run is None:
         return {"generated": 0, "designed": 0, "folded": 0, "scored": 0, "ordered": 0}
@@ -423,7 +445,7 @@ def get_project_candidate_funnel(connection: sqlite3.Connection, project_id: str
     if isinstance(metrics, str):
         metrics = json.loads(metrics)
     return {
-        "generated": int(metrics.get("generated", 0)),
+        "generated": int(metrics.get("generated", metrics.get("generated_backbones", 0))),
         "designed": int(metrics.get("designed", 0)),
         "folded": int(metrics.get("folded", 0)),
         "scored": int(metrics.get("scored", 0)),
