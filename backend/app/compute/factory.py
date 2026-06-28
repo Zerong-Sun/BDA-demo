@@ -318,6 +318,19 @@ class RemoteLsfAdapter:
                 return name
         return "input.pdb"
 
+    def _staged_input_names(self, manifest: dict, *, port: str, formats: set[str] | None = None) -> list[str]:
+        names: list[str] = []
+        for item in manifest.get("inputs") or []:
+            if item.get("port") != port:
+                continue
+            if formats and str(item.get("format") or "").lower() not in formats:
+                continue
+            path = str(item.get("path") or "")
+            name = Path(path).name
+            if name:
+                names.append(name)
+        return names
+
     def _rfdiffusion_arg(self, key: str, value: object) -> str | None:
         if value is None or value == "":
             return None
@@ -450,9 +463,165 @@ PY"""
         ])
         return "\n".join(directives) + "\n"
 
+    def _render_proteinmpnn_lsf_script(self, job: JobSpec) -> str:
+        manifest = self._manifest_payload(job)
+        parameters = manifest.get("parameters") or {}
+        queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or "4v100-16-e5"
+        resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=64]"
+        gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
+        remote_dir = self._remote_job_dir(job.job_id)
+        pdb_names = self._staged_input_names(manifest, port="backbone_set", formats={"pdb"})
+        num_seq = int(parameters.get("num_seq_per_target") or 5)
+        batch_size = int(parameters.get("batch_size") or 1)
+        sampling_temp = str(parameters.get("sampling_temp") or "0.2")
+        chain_to_design = str(parameters.get("pdb_path_chains") or parameters.get("chain_to_design") or "A")
+        seed = int(parameters.get("seed") or 37)
+        pdb_copy_lines = "\n".join(
+            f"cp input/{shlex.quote(name)} work/pdb/{shlex.quote(name)}"
+            for name in pdb_names
+        ) or "find input -maxdepth 1 -type f -name '*.pdb' -exec cp {} work/pdb/ \\;"
+        collect_script = f"""
+python - <<'PY' >> logs/$LSB_JOBID.log 2>&1
+import csv
+import json
+import re
+from pathlib import Path
+
+output_dir = Path("output").resolve()
+seq_dir = output_dir / "seqs"
+combined_fasta = output_dir / "sweetprotein_mpnn5_designs.fasta"
+score_csv = output_dir / "proteinmpnn_scores.csv"
+records = []
+
+def read_fasta(path):
+    header = None
+    chunks = []
+    with path.open(encoding="utf-8", errors="replace") as handle:
+        for raw in handle:
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith(">"):
+                if header is not None:
+                    yield header, "".join(chunks)
+                header = line[1:]
+                chunks = []
+            else:
+                chunks.append(line)
+    if header is not None:
+        yield header, "".join(chunks)
+
+score_re = re.compile(r"(?:score|global_score)=(-?\\d+(?:\\.\\d+)?)")
+combined_fasta.parent.mkdir(parents=True, exist_ok=True)
+with combined_fasta.open("w", encoding="utf-8") as fasta_out:
+    for fasta in sorted(seq_dir.glob("*.fa")) + sorted(seq_dir.glob("*.fasta")):
+        backbone = fasta.stem
+        for index, (header, sequence) in enumerate(list(read_fasta(fasta))[1:], start=1):
+            design_id = f"{{backbone}}_mpnn_seq{{index}}"
+            fasta_out.write(f">{{design_id}}\\n")
+            for start in range(0, len(sequence), 60):
+                fasta_out.write(sequence[start:start + 60] + "\\n")
+            match = score_re.search(header)
+            records.append({{
+                "design_id": design_id,
+                "backbone": backbone,
+                "source_fasta": fasta.name,
+                "source_header": header,
+                "sequence_index": index,
+                "sequence_length": len(sequence),
+                "mpnn_score": float(match.group(1)) if match else None,
+            }})
+
+with score_csv.open("w", encoding="utf-8", newline="") as handle:
+    writer = csv.DictWriter(handle, fieldnames=["design_id", "backbone", "sequence_index", "sequence_length", "mpnn_score"])
+    writer.writeheader()
+    for record in records:
+        writer.writerow({{key: record.get(key) for key in writer.fieldnames}})
+
+(output_dir / "proteinmpnn_run.json").write_text(
+    json.dumps({{
+        "sequence_count": len(records),
+        "parameters": json.loads(Path("input/manifest.json").read_text(encoding="utf-8")).get("parameters") or {{}},
+        "records": records,
+    }}, indent=2),
+    encoding="utf-8",
+)
+(output_dir / "manifest.json").write_text(
+    json.dumps({{
+        "outputs": {{
+            "sequence_set": [{{
+                "path": "sweetprotein_mpnn5_designs.fasta",
+                "format": "fasta",
+                "artifact_type": "sequence_set",
+                "display_name": "sweetprotein_mpnn5_designs.fasta",
+                "metadata": {{"sequence_count": len(records), "source_port": "sequence_set"}},
+            }}],
+            "score_table": [{{
+                "path": "proteinmpnn_scores.csv",
+                "format": "csv",
+                "artifact_type": "score_table",
+                "display_name": "proteinmpnn_scores.csv",
+            }}],
+            "run_manifest": [{{
+                "path": "proteinmpnn_run.json",
+                "format": "json",
+                "artifact_type": "manifest",
+                "display_name": "proteinmpnn_run.json",
+            }}],
+        }},
+        "metrics": {{"designed": len(records), "backbones": len(list(Path("work/pdb").glob("*.pdb")))}},
+    }}, indent=2),
+    encoding="utf-8",
+)
+if not records:
+    raise RuntimeError("ProteinMPNN produced no designed sequences")
+PY"""
+        directives = [
+            "#!/bin/bash",
+            "",
+            f"#BSUB -J ProteinMPNN_{job.job_id.removeprefix('job_')[:10]}",
+            f"#BSUB -q {queue}",
+            "#BSUB -n 1",
+            f'#BSUB -gpu "{gpu_requirement}"',
+            f'#BSUB -R "{resource_requirement}"',
+            "#BSUB -o logs/%J.out",
+            "#BSUB -e logs/%J.err",
+            "",
+            "set -Eeuo pipefail",
+            f"cd {shlex.quote(remote_dir)}",
+            "mkdir -p output work/pdb logs",
+            pdb_copy_lines,
+            "backbone_count=$(find work/pdb -maxdepth 1 -type f -name '*.pdb' | wc -l | tr -d ' ')",
+            "if [[ \"$backbone_count\" == \"0\" ]]; then echo '[ERROR] No backbone PDBs staged for ProteinMPNN' >&2; exit 1; fi",
+            "echo \"[INFO] ProteinMPNN backbones: $backbone_count\"",
+            "if [[ -f /work/bme-liz/miniconda3/etc/profile.d/conda.sh ]]; then source /work/bme-liz/miniconda3/etc/profile.d/conda.sh; conda activate mlfold; else source activate /work/bme-liz/miniconda3/envs/mlfold; fi",
+            "",
+            "python /work/bme-liz/software/proteinmpnn-main/helper_scripts/parse_multiple_chains.py \\",
+            "  --input_path work/pdb \\",
+            "  --output_path output/parsed_pdbs.jsonl",
+            "python /work/bme-liz/software/proteinmpnn-main/helper_scripts/assign_fixed_chains.py \\",
+            "  --input_path output/parsed_pdbs.jsonl \\",
+            "  --output_path output/assigned_pdbs.jsonl \\",
+            f"  --chain_list {shlex.quote(chain_to_design)}",
+            "python /work/bme-liz/software/proteinmpnn-main/protein_mpnn_run.py \\",
+            "  --jsonl_path output/parsed_pdbs.jsonl \\",
+            "  --chain_id_jsonl output/assigned_pdbs.jsonl \\",
+            "  --out_folder output \\",
+            f"  --num_seq_per_target {num_seq} \\",
+            f"  --sampling_temp {shlex.quote(sampling_temp)} \\",
+            f"  --seed {seed} \\",
+            f"  --batch_size {batch_size} \\",
+            "  --pack_side_chains 1 > logs/$LSB_JOBID.log 2>&1",
+            collect_script.strip(),
+            "echo '[DONE] ProteinMPNN finished.'",
+        ]
+        return "\n".join(directives) + "\n"
+
     def _render_lsf_script(self, job: JobSpec, trusted_command: str) -> str:
         if job.plugin_id == "plugin_rfdiffusion":
             return self._render_rfdiffusion_lsf_script(job)
+        if job.plugin_id == "plugin_proteinmpnn":
+            return self._render_proteinmpnn_lsf_script(job)
         gpu = job.env.get("BDA_GPU") == "1"
         queue = job.queue_name or job.env.get("BDA_LSF_QUEUE") or (self._gpu_queue if gpu else self._cpu_queue)
         cpu_count = max(1, int(job.env.get("BDA_CPU_COUNT", "1")))
@@ -484,6 +653,10 @@ PY"""
         return "\n".join(directives) + "\n"
 
     def render_script(self, job: JobSpec) -> str:
+        if job.plugin_id == "plugin_rfdiffusion":
+            return self._render_rfdiffusion_lsf_script(job)
+        if job.plugin_id == "plugin_proteinmpnn":
+            return self._render_proteinmpnn_lsf_script(job)
         trusted_command = self._plugin_commands.get(job.plugin_id)
         if not trusted_command:
             raise RuntimeError(f"remote_lsf_plugin_not_configured:{job.plugin_id}")

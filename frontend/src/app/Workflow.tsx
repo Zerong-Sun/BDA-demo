@@ -68,6 +68,16 @@ function routeLabel(runId: string, metrics: unknown) {
   return runId.replace(/^run_/, '').slice(-18)
 }
 
+function parseLayoutNodeCount(run: { layout_json?: string | null }) {
+  if (!run.layout_json) return 0
+  try {
+    const parsed = JSON.parse(run.layout_json) as { nodes?: unknown[] }
+    return Array.isArray(parsed.nodes) ? parsed.nodes.length : 0
+  } catch {
+    return 0
+  }
+}
+
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
   const [goal, setGoal] = useState('Design 10,000 PD-1 binder candidates and nominate 48 constructs for BLI/SEC validation.')
@@ -102,8 +112,32 @@ export function WorkflowPage() {
     enabled: Boolean(projectId),
   })
 
+  const routeIds = useMemo(() => new Set(projectWorkflowRuns.map((run) => run.workflow_run_id)), [projectWorkflowRuns])
+  const preferredWorkflowRun = useMemo(() => {
+    if (projectWorkflowRuns.length === 0) return latestWorkflowRun ?? null
+    return [...projectWorkflowRuns].sort((a, b) => {
+      const aNodes = parseLayoutNodeCount(a)
+      const bNodes = parseLayoutNodeCount(b)
+      if (aNodes !== bNodes) return bNodes - aNodes
+      if (a.status !== b.status) {
+        if (a.status === 'completed') return -1
+        if (b.status === 'completed') return 1
+      }
+      return a.workflow_run_id.localeCompare(b.workflow_run_id)
+    })[0] ?? latestWorkflowRun ?? null
+  }, [latestWorkflowRun, projectWorkflowRuns])
+
+  const cachedWorkflowRun = projectWorkflowRuns.find((run) => run.workflow_run_id === applicationWorkflowRunId)
+  const cachedNodeCount = cachedWorkflowRun ? parseLayoutNodeCount(cachedWorkflowRun) : 0
+  const preferredNodeCount = preferredWorkflowRun ? parseLayoutNodeCount(preferredWorkflowRun) : 0
+  const cachedWorkflowRunId =
+    applicationWorkflowRunId && routeIds.has(applicationWorkflowRunId) && (cachedNodeCount > 0 || preferredNodeCount === 0)
+      ? applicationWorkflowRunId
+      : undefined
+
   const workflowRunId =
-    applicationWorkflowRunId ??
+    cachedWorkflowRunId ??
+    preferredWorkflowRun?.workflow_run_id ??
     latestWorkflowRun?.workflow_run_id
 
   const { data: workflowGraph } = useQuery({

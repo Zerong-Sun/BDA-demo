@@ -181,8 +181,28 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
     if not run_id or not rf_node_id:
         return
 
+    target_node_id = f"node_{family}_scaffold_input"
     mpnn_node_id = f"node_{family}_proteinmpnn_5seq"
-    edge_id = f"edge_{rf_node_id}_{mpnn_node_id}"
+    fold_node_id = f"node_{family}_structure_prediction"
+    score_node_id = f"node_{family}_developability_scoring"
+    review_node_id = f"node_{family}_candidate_review"
+    x0 = int(cfg["position"]["x"])
+    y0 = int(cfg["position"]["y"])
+    node_layout = [
+        {"node_run_id": target_node_id, "position": {"x": x0 - 300, "y": y0}},
+        {"node_run_id": rf_node_id, "position": cfg["position"]},
+        {"node_run_id": mpnn_node_id, "position": {"x": x0 + 340, "y": y0}},
+        {"node_run_id": fold_node_id, "position": {"x": x0 + 680, "y": y0}},
+        {"node_run_id": score_node_id, "position": {"x": x0 + 1020, "y": y0}},
+        {"node_run_id": review_node_id, "position": {"x": x0 + 1360, "y": y0}},
+    ]
+    edge_specs = [
+        (target_node_id, "target_structure", rf_node_id, "target_structure"),
+        (rf_node_id, "backbone_set", mpnn_node_id, "backbone_set"),
+        (mpnn_node_id, "sequence_set", fold_node_id, "sequence_set"),
+        (fold_node_id, "predicted_structure", score_node_id, "predicted_structure"),
+        (score_node_id, "score_table", review_node_id, "score_table"),
+    ]
     input_manifest = _read_json(DELIVERABLE_ROOT / family / "input_manifest.json")
     parameters = dict(input_manifest.get("parameters") or {})
     parameters.setdefault("scaffold", family)
@@ -193,20 +213,45 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
         INSERT OR REPLACE INTO workflow_runs (
             workflow_run_id, task_id, status, start_time, end_time, compute_resource,
             summary_metrics_json, layout_json, output_directory
-        ) VALUES (?, ?, 'completed', '2026-06-26T00:00:00Z', '2026-06-27T00:00:00Z', 'remote_lsf', ?, ?, ?)
+        ) VALUES (?, ?, 'running', '2026-06-26T00:00:00Z', NULL, 'remote_lsf', ?, ?, ?)
         """,
         (
             run_id,
             TASK_ID,
-            _json({"route": family, "generated_backbones": 100, "next_step": "ProteinMPNN 5 sequences per backbone"}),
             _json({
-                "nodes": [
-                    {"node_run_id": rf_node_id, "position": cfg["position"]},
-                    {"node_run_id": mpnn_node_id, "position": {"x": cfg["position"]["x"] + 340, "y": cfg["position"]["y"]}},
+                "route": family,
+                "generated_backbones": 100,
+                "next_step": "ProteinMPNN 5 sequences per backbone",
+                "workflow_stage": "sequence_design",
+            }),
+            _json({
+                "nodes": node_layout,
+                "edges": [
+                    {"source": source, "source_port": source_port, "target": target, "target_port": target_port, "edge_type": "data"}
+                    for source, source_port, target, target_port in edge_specs
                 ],
-                "edges": [{"source": rf_node_id, "target": mpnn_node_id, "edge_type": "data"}],
             }),
             f"backend/artifacts/jobs/{cfg['job_id']}/output",
+        ),
+    )
+    connection.execute(
+        """
+        INSERT OR REPLACE INTO workflow_node_runs (
+            node_run_id, workflow_run_id, node_type, node_name, status, model_name,
+            model_version, input_files_json, output_files_json, parameters_json,
+            metrics_json, logs, position_json
+        ) VALUES (?, ?, 'target_intake', ?, 'completed', NULL, NULL, ?, ?, ?, ?, ?, ?)
+        """,
+        (
+            target_node_id,
+            run_id,
+            f"{cfg['label']} scaffold input",
+            _json({"target_structure": [{"artifact_id": input_artifact_id, "port": "target_structure"}]}),
+            _json([input_artifact_id]),
+            _json({"route": family, "input_artifact_id": input_artifact_id}),
+            _json({"inputs_confirmed": 1}),
+            "Curated scaffold input staged for RFdiffusion.",
+            _json({"x": x0 - 300, "y": y0}),
         ),
     )
     connection.execute(
@@ -244,22 +289,91 @@ def _seed_route(connection: sqlite3.Connection, family: str, cfg: dict[str, Any]
             _json({
                 "num_seq_per_target": 5,
                 "pdb_path_chains": "A",
-                "sampling_temp": "0.1",
+                "sampling_temp": "0.2",
+                "batch_size": 1,
+                "seed": 37,
                 "script_asset_id": "script_sweet_proteinmpnn_5seq",
             }),
             "Ready to submit ProteinMPNN using the archived 5-sequences-per-backbone LSF script.",
-            _json({"x": cfg["position"]["x"] + 340, "y": cfg["position"]["y"]}),
+            _json({"x": x0 + 340, "y": y0}),
         ),
     )
-    connection.execute(
-        """
-        INSERT OR REPLACE INTO workflow_edges (
-            edge_id, workflow_run_id, source_node_run_id, source_port,
-            target_node_run_id, target_port, edge_type, metadata_json
-        ) VALUES (?, ?, ?, 'backbone_set', ?, 'backbone_set', 'data', ?)
-        """,
-        (edge_id, run_id, rf_node_id, mpnn_node_id, _json({"seeded": True, "route": family})),
-    )
+    downstream_nodes = [
+        (
+            fold_node_id,
+            "fold_prediction",
+            f"Structure prediction for {cfg['label']} MPNN designs",
+            "AlphaFold2",
+            "2.3.0",
+            {"sequence_set": [{"source_node_run_id": mpnn_node_id, "source_port": "sequence_set"}]},
+            {"route": family, "planned": 500, "current": 0, "estimate_unit": "models", "recommended_after": "ProteinMPNN"},
+            {"x": x0 + 680, "y": y0},
+            "Pending sequence outputs from ProteinMPNN.",
+        ),
+        (
+            score_node_id,
+            "scoring",
+            f"Developability scoring for {cfg['label']} designs",
+            "BDA developability filters",
+            "1.0.0",
+            {"predicted_structure": [{"source_node_run_id": fold_node_id, "source_port": "predicted_structure"}]},
+            {"route": family, "planned": 500, "current": 0, "estimate_unit": "designs", "filters": ["aggregation", "solubility", "charge_patch", "pLDDT"]},
+            {"x": x0 + 1020, "y": y0},
+            "Pending folded structures.",
+        ),
+        (
+            review_node_id,
+            "selection",
+            f"Candidate review and batch download for {cfg['label']}",
+            "BDA candidate table",
+            "1.0.0",
+            {"score_table": [{"source_node_run_id": score_node_id, "source_port": "score_table"}]},
+            {"route": family, "decision_gate": "select candidates for assay planning"},
+            {"x": x0 + 1360, "y": y0},
+            "Pending scored candidate table.",
+        ),
+    ]
+    for node_id, node_type, node_name, model_name, model_version, input_files, node_params, position, logs in downstream_nodes:
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO workflow_node_runs (
+                node_run_id, workflow_run_id, node_type, node_name, status, model_name,
+                model_version, input_files_json, output_files_json, parameters_json,
+                metrics_json, logs, position_json
+            ) VALUES (?, ?, ?, ?, 'not_started', ?, ?, ?, '[]', ?, '{}', ?, ?)
+            """,
+            (
+                node_id,
+                run_id,
+                node_type,
+                node_name,
+                model_name,
+                model_version,
+                _json(input_files),
+                _json(node_params),
+                logs,
+                _json(position),
+            ),
+        )
+    connection.execute("DELETE FROM workflow_edges WHERE workflow_run_id = ?", (run_id,))
+    for source, source_port, target, target_port in edge_specs:
+        connection.execute(
+            """
+            INSERT OR REPLACE INTO workflow_edges (
+                edge_id, workflow_run_id, source_node_run_id, source_port,
+                target_node_run_id, target_port, edge_type, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, 'data', ?)
+            """,
+            (
+                f"edge_{source}_{target}",
+                run_id,
+                source,
+                source_port,
+                target,
+                target_port,
+                _json({"seeded": True, "route": family}),
+            ),
+        )
 
     input_path = DELIVERABLE_ROOT / cfg["input_path"]
     if input_path.exists():

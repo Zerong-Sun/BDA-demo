@@ -72,7 +72,7 @@ def list_project_artifacts(
         params,
     ).fetchone()
     rows = connection.execute(
-        f"SELECT * FROM artifacts WHERE {where} ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        f"SELECT * FROM artifacts WHERE {where} ORDER BY created_at DESC, rowid DESC LIMIT ? OFFSET ?",
         (*params, limit, offset),
     ).fetchall()
     total = int(total_row["total"]) if total_row else 0

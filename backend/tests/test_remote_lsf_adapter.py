@@ -42,20 +42,18 @@ def make_job(tmp_path: Path, *, gpu: bool = False) -> JobSpec:
     )
 
 
-def test_lsf_script_uses_trusted_wrapper_and_gpu_queue(tmp_path: Path):
+def test_lsf_script_renders_builtin_proteinmpnn_runner(tmp_path: Path):
     adapter = make_adapter()
     job = make_job(tmp_path, gpu=True)
 
-    script = adapter._render_lsf_script(
-        job,
-        adapter._plugin_commands[job.plugin_id],
-    )
+    script = adapter.render_script(job)
 
-    assert "#BSUB -q gpu-bme-liz" in script
+    assert "#BSUB -q 4v100-16-e5" in script
     assert '#BSUB -gpu "num=1"' in script
-    assert "run_proteinmpnn.sh" in script
+    assert "protein_mpnn_run.py" in script
+    assert "manifest.json" in script
     assert job.command not in script
-    assert "BDA_INPUT_MANIFEST" in script
+    assert "parsed_pdbs.jsonl" in script
 
 
 def test_submit_rejects_plugin_without_admin_wrapper(tmp_path: Path):

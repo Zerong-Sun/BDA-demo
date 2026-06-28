@@ -65,13 +65,15 @@ The current repository is a full-stack platform prototype with a usable end-to-e
 | Artifact management | Upload, download, and tracking for PDB/mmCIF, FASTA, CSV, JSON, XLSX, ZIP, manifests, logs, and reports |
 | Model plugins | RFdiffusion, ProteinMPNN, AlphaFold2, and Rosetta wrapper scaffolds and schema contracts |
 | Compute adapters | Demo, local, and Docker execution modes, with room for LSF/HPC, HTTP workers, Kubernetes, and cloud backends |
-
-Local project persistence is documented in [`docs/LOCAL_PROJECT_STORAGE.md`](docs/LOCAL_PROJECT_STORAGE.md). Every created project now has a database row and a local workspace manifest under `backend/artifacts/projects/<project_id>/metadata/project.json`; the cloud-sync API boundary is reserved for a future backend server.
 | Copilot | Rule-based engine plus optional OpenAI-compatible LLM provider such as DeepSeek |
 | Research | Europe PMC, UniProt, RCSB PDB, Reactome, local literature ingestion, claim/evidence objects, review status |
 | Cluster jobs | LSF script drafts, user confirmation, checksum review, submission, status polling, stdout/stderr and artifact collection |
 | Campaigns | Multi-round design, experiment feedback, evaluation, parameter patch suggestions, human approval, next-round draft workflows |
 | Deployment | Docker Compose, nginx, Redis, Celery, MinIO, PostgreSQL, Prometheus, Grafana |
+
+Local project persistence is documented in [`docs/LOCAL_PROJECT_STORAGE.md`](docs/LOCAL_PROJECT_STORAGE.md). Every created project now has a database row and a local workspace manifest under `backend/artifacts/projects/<project_id>/metadata/project.json`; the cloud-sync API boundary is reserved for a future backend server.
+
+RFdiffusion and ProteinMPNN submission rules are documented in [`docs/RFDIFFUSION_WORKFLOW_SUBMISSION.md`](docs/RFDIFFUSION_WORKFLOW_SUBMISSION.md) and [`docs/PROTEINMPNN_WORKFLOW_SUBMISSION.md`](docs/PROTEINMPNN_WORKFLOW_SUBMISSION.md).
 
 ---
 

@@ -63,10 +63,16 @@ export async function uploadArtifact(file: File, projectId?: string): Promise<Ar
 }
 
 export function listProjectArtifacts(projectId: string): Promise<Artifact[]> {
-  return apiRequest<{ items: Artifact[] }>(
-    `/projects/${projectId}/artifacts`,
-    {},
-  ).then((payload) => payload.items.map((item) => ArtifactSchema.parse(item)))
+  const limit = 200
+  const loadPage = async (offset: number, collected: Artifact[]): Promise<Artifact[]> => {
+    const payload = await apiRequest<{ items: Artifact[]; total: number; limit: number; offset: number }>(
+      `/projects/${projectId}/artifacts?limit=${limit}&offset=${offset}`,
+    )
+    const items = payload.items.map((item) => ArtifactSchema.parse(item))
+    const next = [...collected, ...items]
+    return next.length >= payload.total || items.length === 0 ? next : loadPage(offset + items.length, next)
+  }
+  return loadPage(0, [])
 }
 
 export async function downloadArtifact(artifact: Artifact): Promise<void> {

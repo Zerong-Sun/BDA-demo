@@ -33,6 +33,15 @@ def test_sweet_protein_seeded_project_routes_and_scripts(client: TestClient, aut
     assert runs.status_code == 200
     route_names = {item["summary_metrics_json"]["route"] for item in runs.json()["data"]["items"]}
     assert route_names == {"monellin", "brazzein"}
+    assert {item["status"] for item in runs.json()["data"]["items"]} == {"running"}
+
+    for run in runs.json()["data"]["items"]:
+        graph = client.get(f"{API}/workflow-runs/{run['workflow_run_id']}/graph", headers=auth_headers)
+        assert graph.status_code == 200
+        graph_data = graph.json()["data"]
+        assert len(graph_data["nodes"]) == 6
+        assert len(graph_data["edges"]) == 5
+        assert [edge["edge_type"] for edge in graph_data["edges"]] == ["data"] * 5
 
     scripts = client.get(f"{API}/script-assets?model_plugin_id=plugin_rfdiffusion", headers=auth_headers)
     assert scripts.status_code == 200
