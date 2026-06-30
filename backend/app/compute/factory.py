@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 import os
 import re
@@ -551,6 +552,7 @@ PY"""
         sampling_temp = str(parameters.get("sampling_temp") or "0.2")
         chain_to_design = str(parameters.get("pdb_path_chains") or parameters.get("chain_to_design") or "A")
         seed = int(parameters.get("seed") or 37)
+        pack_side_chains = bool(parameters.get("pack_side_chains", True))
         pdb_copy_lines = "\n".join(
             f"cp input/{shlex.quote(name)} work/pdb/{shlex.quote(name)}"
             for name in pdb_names
@@ -697,7 +699,7 @@ PY"""
             f"  --sampling_temp {shlex.quote(sampling_temp)} \\",
             f"  --seed {seed} \\",
             f"  --batch_size {batch_size} \\",
-            "  --pack_side_chains 1 > logs/$LSB_JOBID.log 2>&1",
+            f"  --pack_side_chains {1 if pack_side_chains else 0} > logs/$LSB_JOBID.log 2>&1",
             collect_script.strip(),
             "echo '[DONE] ProteinMPNN finished.'",
         ]
@@ -1020,9 +1022,10 @@ PY"""
             capture_output=True,
             check=True,
         ).stdout
+        encoded_archive = base64.b64encode(archive)
         self._run_ssh(
-            f"tar -C {shlex.quote(remote_dir)} -xf -",
-            input_data=archive,
+            f"base64 -d | tar -C {shlex.quote(remote_dir)} -xf -",
+            input_data=encoded_archive,
             timeout=120,
         )
 
@@ -1030,17 +1033,22 @@ PY"""
         remote_dir = self._remote_job_dir(job_id)
         result = self._run_ssh(
             f"test -d {shlex.quote(remote_dir)}/output && "
-            f"tar -C {shlex.quote(remote_dir)}/output -cf - .",
+            f"tar -C {shlex.quote(remote_dir)}/output -cf - . | base64",
             timeout=120,
             check=False,
         )
         if result.returncode != 0 or not result.stdout:
             return
+        encoded = b"".join(result.stdout.split())
+        try:
+            archive = base64.b64decode(encoded, validate=False)
+        except Exception:
+            return
         local_output = Path(output_dir)
         local_output.mkdir(parents=True, exist_ok=True)
         subprocess.run(
             ["tar", "-C", str(local_output), "-xf", "-"],
-            input=result.stdout,
+            input=archive,
             capture_output=True,
             check=True,
         )

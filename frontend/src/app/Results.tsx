@@ -109,7 +109,7 @@ export function ResultsPage() {
     packageQueryError instanceof Error ? packageQueryError.message : 'Failed to load delivery package.'
 
   return (
-    <section>
+    <section className="space-y-4">
       <ProjectContextBar />
       <PageHead
         eyebrow={t.results.eyebrow}
@@ -135,7 +135,7 @@ export function ResultsPage() {
         }
       />
 
-      <div className="mb-5 rounded-lg border border-bda-amber/30 bg-bda-panel p-4 text-sm text-bda-muted">
+      <div className="bda-card border-bda-amber/30 p-4 text-sm text-bda-muted">
         {t.results.disclaimer}
       </div>
 
@@ -145,12 +145,12 @@ export function ResultsPage() {
         <ResultsMetrics summary={summary ?? null} loading={summaryLoading} />
       )}
 
-      <div className="mb-5 rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted break-words">
+      <div className="bda-card bda-scroll-area max-h-32 p-4 text-sm text-bda-muted break-words">
         {summary?.experiment_summary ?? t.results.disclaimer}
       </div>
 
       {showDemoPrompt ? (
-        <div className="mb-5 rounded-lg border border-bda-cyan/30 bg-bda-panel p-4 text-sm">
+        <div className="bda-card border-bda-cyan/30 p-4 text-sm">
           <p className="text-bda-text">
             This project has no wet-lab readouts yet. Switch to the PD-1 demo project to explore BLI/SEC
             evidence and the delivery package.
@@ -174,11 +174,11 @@ export function ResultsPage() {
         </div>
       ) : null}
 
-      <div className="mb-5">
+      <div>
         <ExperimentUpload projectId={projectId} onUploaded={invalidateResults} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+      <div className="bda-workspace-grid xl:grid-cols-[minmax(0,1.35fr)_minmax(320px,0.85fr)]">
         <div>
           {resultsError ? (
             <InlineError message={resultsErrorMessage} onRetry={() => void refetchResults()} />

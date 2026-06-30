@@ -129,6 +129,7 @@ DEFAULT_MODEL_PLUGINS: list[dict[str, Any]] = [
                 _field("num_seq_per_target", "Sequences per target", "integer", 8, "Number of sequences sampled per backbone.", minimum=1, maximum=10000),
                 _field("batch_size", "Batch size", "integer", 1, "Batch size; increase only if GPU memory allows.", minimum=1, maximum=1024),
                 _field("sampling_temp", "Sampling temperatures", "string", "0.1", "Space-separated temperatures, e.g. 0.1 0.15 0.2; higher increases diversity."),
+                _field("pack_side_chains", "Pack side chains", "boolean", True, "Write ProteinMPNN packed PDB outputs for downstream Superfold PDB-mode prediction."),
                 _field("model_name", "Model name", "enum", "v_48_020", "ProteinMPNN model weights.", options=["v_48_002", "v_48_010", "v_48_020", "v_48_030"]),
                 _field("pdb_path_chains", "Designed chains", "string", "", "Chains to design for a single PDB."),
                 _field("chain_id_jsonl", "Chain design JSONL", "artifact_ref", "", "Dictionary specifying designed vs fixed chains.", advanced=True),
@@ -169,6 +170,8 @@ DEFAULT_MODEL_PLUGINS: list[dict[str, Any]] = [
         "input_schema_json": {
             "ports": [
                 _port("sequence_set", ["sequence_set"], help="FASTA/sequence set for prediction."),
+                _port("packed_structure", ["packed_structure"], required=False, many=True, help="ProteinMPNN packed PDBs for Superfold PDB-mode prediction."),
+                _port("backbone_set", ["backbone_set"], required=False, many=True, help="Backbone PDBs for PDB-mode smoke runs or direct structure prediction."),
                 _port("target_structure", ["target_structure", "cleaned_structure"], required=False, help="Optional target structure for complex workflows."),
                 _port("pairing_config", ["constraints"], required=False, help="Optional chain pairing configuration."),
             ]
@@ -184,6 +187,12 @@ DEFAULT_MODEL_PLUGINS: list[dict[str, Any]] = [
         "parameter_schema_json": {
             "fields": [
                 _field("fasta_paths", "FASTA paths", "artifact_ref", "", "Comma-separated FASTA files; multisequence FASTA is folded as multimer."),
+                _field("superfold_input_mode", "Superfold input mode", "enum", "packed_structure", "Use packed PDBs after ProteinMPNN when available; FASTA mode is a fallback.", options=["packed_structure", "pdb", "fasta"]),
+                _field("superfold_models", "Superfold models", "integer", 4, "Number of Superfold/AlphaFold model presets to run.", minimum=1, maximum=5),
+                _field("max_recycle", "Max recycle", "integer", 5, "Superfold --max_recycle value.", minimum=1, maximum=20),
+                _field("force_cpu", "Force CPU", "boolean", False, "Disable CUDA for small proteins or when the GPU software stack is unavailable."),
+                _field("array_chunk_size", "Array chunk size", "integer", 50, "Manual LSF array chunk size for large packed-PDB batches.", advanced=True, minimum=1, maximum=500),
+                _field("array_concurrency", "Array concurrency", "integer", 16, "Maximum concurrent tasks per manual LSF array chunk.", advanced=True, minimum=1, maximum=128),
                 _field("output_dir", "Output directory", "string", "outputs/alphafold", "Directory where AlphaFold writes ranked models and metrics."),
                 _field("data_dir", "Data directory", "string", "/data/alphafold", "Directory containing AlphaFold databases and parameters."),
                 _field("model_preset", "Model preset", "enum", "multimer", "AlphaFold preset.", options=["monomer", "monomer_casp14", "monomer_ptm", "multimer"]),

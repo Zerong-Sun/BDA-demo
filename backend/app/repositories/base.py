@@ -49,6 +49,10 @@ JSON_COLUMNS = {
     "parameter_patch_json",
     "criteria_results_json",
     "last_result_json",
+    "artifact_ids_json",
+    "schema_snapshot_json",
+    "nodes_json",
+    "edges_json",
 }
 
 ALLOWED_TABLES = frozenset({
@@ -71,6 +75,12 @@ ALLOWED_TABLES = frozenset({
     "jobs",
     "job_events",
     "artifacts",
+    "artifact_lineage",
+    "plugin_versions",
+    "datasets",
+    "benchmark_runs",
+    "parameter_presets",
+    "workflow_templates",
     "users",
     "user_sessions",
     "organizations",
@@ -114,6 +124,8 @@ ALLOWED_ORDER_COLUMNS = frozenset({
     "name",
     "relative_path",
     "parameter_key",
+    "dataset_type",
+    "template_type",
 })
 
 

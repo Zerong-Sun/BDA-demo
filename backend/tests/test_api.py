@@ -512,6 +512,106 @@ def test_registry_list(client: TestClient, auth_headers: dict[str, str]):
     assert {"RFdiffusion", "ProteinMPNN", "AlphaFold2", "Rosetta", "Mask RGN"}.issubset(names)
 
 
+def test_server_connection_management_and_compute_queue(client: TestClient, auth_headers: dict[str, str]):
+    created = client.post(
+        f"{API}/servers",
+        headers=auth_headers,
+        json={
+            "server_name": "External HTTP worker",
+            "server_type": "http_worker",
+            "base_url": "http://127.0.0.1:9",
+            "health_check_endpoint": "/health",
+            "capabilities_json": {"roles": ["custom_model"]},
+        },
+    )
+    assert created.status_code == 200
+    server = created.json()["data"]
+    assert server["server_id"].startswith("server_")
+    assert server["capabilities_json"]["roles"] == ["custom_model"]
+
+    patched = client.patch(
+        f"{API}/servers/{server['server_id']}",
+        headers=auth_headers,
+        json={"server_name": "External HTTP worker A", "enabled": False},
+    )
+    assert patched.status_code == 200
+    assert patched.json()["data"]["server_name"] == "External HTTP worker A"
+    assert patched.json()["data"]["enabled"] is False
+
+    tested = client.post(f"{API}/servers/{server['server_id']}/test-connection", headers=auth_headers)
+    assert tested.status_code == 200
+    assert tested.json()["data"]["connected"] is False
+    assert tested.json()["data"]["server"]["network_status"] == "unavailable"
+
+    queue = client.get(f"{API}/compute-nodes/compute_gpu_local/queue", headers=auth_headers)
+    assert queue.status_code == 200
+    assert queue.json()["data"]["compute_node"]["compute_node_id"] == "compute_gpu_local"
+    assert "active_jobs" in queue.json()["data"]
+
+    drained = client.post(f"{API}/compute-nodes/compute_gpu_local/drain", headers=auth_headers)
+    assert drained.status_code == 200
+    assert drained.json()["data"]["compute_node"]["status"] == "draining"
+    assert drained.json()["data"]["accepting_jobs"] is False
+
+
+def test_platform_registry_tables_cover_p2_plan(client: TestClient, auth_headers: dict[str, str]):
+    dataset = client.post(
+        f"{API}/platform-registry/datasets",
+        headers=auth_headers,
+        json={
+            "name": "Round 1 structures",
+            "dataset_type": "structure_set",
+            "metadata_json": {"source": "test"},
+        },
+    )
+    assert dataset.status_code == 200
+    dataset_id = dataset.json()["data"]["dataset_id"]
+
+    benchmark = client.post(
+        f"{API}/platform-registry/benchmark-runs",
+        headers=auth_headers,
+        json={
+            "name": "RFdiffusion smoke benchmark",
+            "model_plugin_id": "plugin_rfdiffusion",
+            "dataset_id": dataset_id,
+            "metrics_json": {"success_rate": 1.0},
+            "status": "completed",
+        },
+    )
+    assert benchmark.status_code == 200
+    assert benchmark.json()["data"]["metrics_json"]["success_rate"] == 1.0
+
+    preset = client.post(
+        f"{API}/platform-registry/parameter-presets",
+        headers=auth_headers,
+        json={
+            "name": "Conservative RFdiffusion",
+            "model_plugin_id": "plugin_rfdiffusion",
+            "parameters_json": {"diffuser.T": 50},
+        },
+    )
+    assert preset.status_code == 200
+    assert preset.json()["data"]["parameters_json"]["diffuser.T"] == 50
+
+    template = client.post(
+        f"{API}/platform-registry/workflow-templates",
+        headers=auth_headers,
+        json={
+            "name": "Binder route template",
+            "template_type": "binder_design",
+            "nodes_json": [{"model": "RFdiffusion"}],
+            "edges_json": [],
+            "tags_json": ["binder"],
+        },
+    )
+    assert template.status_code == 200
+    assert template.json()["data"]["nodes_json"][0]["model"] == "RFdiffusion"
+
+    versions = client.get(f"{API}/platform-registry/plugin-versions", headers=auth_headers)
+    assert versions.status_code == 200
+    assert any(item["model_plugin_id"] == "plugin_rfdiffusion" for item in versions.json()["data"]["items"])
+
+
 def test_model_parameter_catalog_and_qm_script_import(client: TestClient, auth_headers: dict[str, str]):
     catalog = client.get(
         f"{API}/model-parameter-catalog?model_plugin_id=plugin_proteinmpnn",
@@ -546,6 +646,34 @@ def test_model_plugin_schema_is_frontend_renderable(client: TestClient, auth_hea
     fields = plugin["parameter_schema_json"]["fields"]
     assert any(field["key"] == "inference.num_designs" and field["type"] == "integer" for field in fields)
     assert any(field["key"] == "diffuser.T" and field["advanced"] is True for field in fields)
+
+
+def test_create_model_plugin_for_external_model_intake(client: TestClient, auth_headers: dict[str, str]):
+    response = client.post(
+        f"{API}/model-plugins",
+        headers=auth_headers,
+        json={
+            "model_name": "Custom Fold Model",
+            "model_type": "structure_prediction",
+            "provider": "internal",
+            "version": "0.1.0",
+            "description": "Internal experimental model with a manifest contract.",
+            "input_schema_json": {"ports": [{"name": "sequence_set", "type": "fasta"}]},
+            "output_schema_json": {"ports": [{"name": "structure_set", "type": "pdb"}]},
+            "parameter_schema_json": {"fields": [{"key": "recycles", "type": "integer"}]},
+            "resource_requirement_json": {"gpu_count": 1, "min_vram_gb": 24},
+            "supported_task_types": ["folding"],
+            "supported_file_types": ["fasta", "pdb"],
+            "container_image": "bda/custom-fold:0.1.0",
+            "command_template": "custom-fold --input {input_manifest} --out {output_dir}",
+        },
+    )
+    assert response.status_code == 200
+    plugin = response.json()["data"]
+    assert plugin["model_plugin_id"].startswith("plugin_")
+    assert plugin["model_name"] == "Custom Fold Model"
+    assert plugin["input_schema_json"]["ports"][0]["name"] == "sequence_set"
+    assert plugin["resource_requirement_json"]["min_vram_gb"] == 24
 
 
 def test_create_method_plugin_for_workflow_reference(client: TestClient, auth_headers: dict[str, str]):

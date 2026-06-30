@@ -13,6 +13,7 @@ const routes = [
   { to: '/candidates', key: 'candidates' as const },
   { to: '/results', key: 'results' as const },
   { to: '/research', label: 'Research' },
+  { to: '/operations', label: 'Operations' },
 ]
 
 function currentUserLabel(): string | null {

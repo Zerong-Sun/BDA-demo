@@ -13,6 +13,7 @@ import { CandidatesPage } from './app/Candidates'
 import { ResultsPage } from './app/Results'
 import { LoginPage } from './app/Login'
 import { ResearchPage } from './app/Research'
+import { OperationsPage } from './app/Operations'
 import { ApiError, setUnauthorizedHandler } from './lib/api/client'
 import { useProjectContext } from './lib/hooks/useProjectContext'
 import { useAppStore } from './lib/store/appStore'
@@ -117,6 +118,7 @@ export default function App() {
                 <Route path="/candidates" element={<ProjectRequired><CandidatesPage /></ProjectRequired>} />
                 <Route path="/results" element={<ProjectRequired><ResultsPage /></ProjectRequired>} />
                 <Route path="/research" element={<ResearchPage />} />
+                <Route path="/operations" element={<ProjectRequired><OperationsPage /></ProjectRequired>} />
               </Route>
             </Route>
           </Routes>

@@ -59,8 +59,16 @@ export function DeliveryPackage({ packageData, loading, projectId }: DeliveryPac
   ].filter((item) => item.path)
 
   return (
-    <article className="rounded-lg border border-bda-border bg-bda-panel p-4">
-      <h2 className="mb-3 text-lg font-semibold">Delivery package</h2>
+    <article className="bda-card bda-sticky-panel bda-scroll-area max-h-[calc(100vh-8rem)]">
+      <div className="bda-card-header">
+        <h2 className="text-lg font-semibold">Delivery package</h2>
+        {packageData ? (
+          <span className="rounded border border-bda-border px-2 py-1 text-xs text-bda-muted">
+            {parseCandidateIds(packageData.candidate_ids).length} candidates
+          </span>
+        ) : null}
+      </div>
+      <div className="bda-card-body">
       {loading ? (
         <p className="text-sm text-bda-muted">Loading delivery package...</p>
       ) : (
@@ -114,6 +122,7 @@ export function DeliveryPackage({ packageData, loading, projectId }: DeliveryPac
           </a>
         </>
       )}
+      </div>
     </article>
   )
 }

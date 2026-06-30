@@ -102,6 +102,86 @@ CREATE TABLE IF NOT EXISTS artifacts (
   created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS artifact_lineage (
+  lineage_id TEXT PRIMARY KEY,
+  artifact_id TEXT NOT NULL REFERENCES artifacts(artifact_id) ON DELETE CASCADE,
+  parent_artifact_id TEXT REFERENCES artifacts(artifact_id) ON DELETE SET NULL,
+  job_id TEXT REFERENCES jobs(job_id) ON DELETE SET NULL,
+  workflow_run_id TEXT REFERENCES workflow_runs(workflow_run_id) ON DELETE SET NULL,
+  node_run_id TEXT REFERENCES workflow_node_runs(node_run_id) ON DELETE SET NULL,
+  relation_type TEXT NOT NULL DEFAULT 'derived_from',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS plugin_versions (
+  plugin_version_id TEXT PRIMARY KEY,
+  model_plugin_id TEXT NOT NULL REFERENCES model_plugins(model_plugin_id) ON DELETE CASCADE,
+  version TEXT NOT NULL,
+  schema_snapshot_json TEXT NOT NULL DEFAULT '{}',
+  container_image TEXT,
+  command_template TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(model_plugin_id, version)
+);
+
+CREATE TABLE IF NOT EXISTS datasets (
+  dataset_id TEXT PRIMARY KEY,
+  project_id TEXT REFERENCES projects(project_id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  dataset_type TEXT NOT NULL DEFAULT 'custom',
+  description TEXT,
+  artifact_ids_json TEXT NOT NULL DEFAULT '[]',
+  metadata_json TEXT NOT NULL DEFAULT '{}',
+  owner_id TEXT,
+  status TEXT NOT NULL DEFAULT 'active',
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS benchmark_runs (
+  benchmark_run_id TEXT PRIMARY KEY,
+  model_plugin_id TEXT REFERENCES model_plugins(model_plugin_id) ON DELETE SET NULL,
+  dataset_id TEXT REFERENCES datasets(dataset_id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  metrics_json TEXT NOT NULL DEFAULT '{}',
+  context_json TEXT NOT NULL DEFAULT '{}',
+  status TEXT NOT NULL DEFAULT 'planned',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS parameter_presets (
+  preset_id TEXT PRIMARY KEY,
+  model_plugin_id TEXT REFERENCES model_plugins(model_plugin_id) ON DELETE SET NULL,
+  method_plugin_id TEXT REFERENCES method_plugins(method_plugin_id) ON DELETE SET NULL,
+  name TEXT NOT NULL,
+  description TEXT,
+  parameters_json TEXT NOT NULL DEFAULT '{}',
+  scope TEXT NOT NULL DEFAULT 'model',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS workflow_templates (
+  workflow_template_id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  template_type TEXT NOT NULL DEFAULT 'custom',
+  description TEXT,
+  nodes_json TEXT NOT NULL DEFAULT '[]',
+  edges_json TEXT NOT NULL DEFAULT '[]',
+  default_parameters_json TEXT NOT NULL DEFAULT '{}',
+  tags_json TEXT NOT NULL DEFAULT '[]',
+  status TEXT NOT NULL DEFAULT 'active',
+  created_by TEXT,
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS candidates (
   candidate_id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(project_id) ON DELETE CASCADE,
@@ -662,6 +742,13 @@ CREATE INDEX IF NOT EXISTS idx_artifacts_project_id ON artifacts(project_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_workflow_run_id ON artifacts(workflow_run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_node_run_id ON artifacts(node_run_id);
 CREATE INDEX IF NOT EXISTS idx_artifacts_type ON artifacts(artifact_type);
+CREATE INDEX IF NOT EXISTS idx_artifact_lineage_artifact ON artifact_lineage(artifact_id);
+CREATE INDEX IF NOT EXISTS idx_artifact_lineage_parent ON artifact_lineage(parent_artifact_id);
+CREATE INDEX IF NOT EXISTS idx_plugin_versions_model ON plugin_versions(model_plugin_id);
+CREATE INDEX IF NOT EXISTS idx_datasets_project ON datasets(project_id, status);
+CREATE INDEX IF NOT EXISTS idx_benchmark_runs_model ON benchmark_runs(model_plugin_id, status);
+CREATE INDEX IF NOT EXISTS idx_parameter_presets_model ON parameter_presets(model_plugin_id, status);
+CREATE INDEX IF NOT EXISTS idx_workflow_templates_type ON workflow_templates(template_type, status);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_category ON knowledge_entries(category);
 CREATE INDEX IF NOT EXISTS idx_knowledge_entries_status ON knowledge_entries(status);
 CREATE INDEX IF NOT EXISTS idx_research_sources_type ON research_sources(source_type);

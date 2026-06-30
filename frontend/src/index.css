@@ -81,3 +81,65 @@ textarea {
 .react-flow__nodes {
   z-index: 3;
 }
+
+.bda-card {
+  border: 1px solid var(--color-bda-border);
+  background: var(--color-bda-panel);
+  border-radius: 8px;
+}
+
+.bda-card-muted {
+  border: 1px solid var(--color-bda-border);
+  background: var(--color-bda-bg);
+  border-radius: 8px;
+}
+
+.bda-card-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--color-bda-border);
+  padding: 0.75rem 1rem;
+}
+
+.bda-card-body {
+  padding: 1rem;
+}
+
+.bda-scroll-area {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+.bda-workspace-grid {
+  display: grid;
+  gap: 1rem;
+  align-items: start;
+}
+
+.bda-sticky-panel {
+  position: sticky;
+  top: 1rem;
+  min-height: 0;
+}
+
+.bda-table-shell {
+  min-height: 0;
+  overflow: auto;
+  border-radius: 8px;
+}
+
+.bda-table-sticky thead {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+@media (max-width: 1279px) {
+  .bda-sticky-panel {
+    position: static;
+  }
+}

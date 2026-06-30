@@ -26,7 +26,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
 
   if (!candidate) {
     return (
-      <aside className="rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
+      <aside className="bda-card p-4 text-sm text-bda-muted">
         Select a candidate to view structure, scores, and next action.
       </aside>
     )
@@ -70,7 +70,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
   }
 
   return (
-    <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
+    <aside className="bda-card bda-sticky-panel bda-scroll-area max-h-[calc(100vh-8rem)] p-4">
       {hasStructure ? (
         <>
           {hasMonomer && hasComplex ? (
@@ -105,7 +105,11 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
       <p className="mb-4 text-sm text-bda-muted">
         Family {candidate.family}. {candidate.next_action}
       </p>
-      {explanation ? <p className="mb-4 rounded-md border border-bda-border bg-bda-bg p-3 text-sm text-bda-text">{explanation}</p> : null}
+      {explanation ? (
+        <p className="bda-scroll-area mb-4 max-h-40 rounded-md border border-bda-border bg-bda-bg p-3 text-sm text-bda-text">
+          {explanation}
+        </p>
+      ) : null}
       <ScoreBars
         affinity={candidate.interface_score}
         stability={candidate.plddt}

@@ -18,8 +18,43 @@ PLUGIN_BY_ID = {
     "maskrgn": ("plugin_maskrgn", "MaskRGN", "structure_generation"),
 }
 
+EDGE_PORTS = {
+    ("rfdiffusion", "proteinmpnn"): ("backbone_set", "backbone_set"),
+    ("proteinmpnn", "alphafold2"): ("sequence_set", "sequence_set"),
+    ("proteinmpnn", "alphafold3"): ("sequence_set", "fold_input_json"),
+    ("proteinmpnn", "boltz"): ("sequence_set", "input_yaml"),
+    ("proteinmpnn", "chai1"): ("sequence_set", "input_yaml"),
+    ("alphafold2", "rosetta"): ("predicted_structure", "complex_structure"),
+    ("alphafold3", "rosetta"): ("predicted_complex", "complex_structure"),
+    ("boltz", "rosetta"): ("predicted_complex", "complex_structure"),
+    ("chai1", "rosetta"): ("predicted_complex", "complex_structure"),
+}
+
 
 ROUTE_TEMPLATES = [
+    {
+        "route_id": "sweet_protein_scaffold_redesign",
+        "label": "Sweet protein scaffold redesign route",
+        "best_for": [
+            "sweet",
+            "sweetness",
+            "甜味",
+            "甜蛋白",
+            "monellin",
+            "brazzein",
+            "thaumatin",
+            "mabinlin",
+            "tas1r2",
+            "tas1r3",
+            "food",
+        ],
+        "summary": "Review natural sweet-protein scaffolds, preserve functional constraints, redesign compact variants, and package candidates for expression and receptor/assay validation.",
+        "modules": ["rfdiffusion", "proteinmpnn", "alphafold2", "rosetta"],
+        "risks": [
+            "Sweetness and receptor activation require functional or sensory validation; structure confidence alone is not evidence of sweetness.",
+            "Food-use safety, allergenicity, expression host, and regulatory region must remain explicit product constraints.",
+        ],
+    },
     {
         "route_id": "de_novo_insecticidal_protein",
         "label": "De novo insecticidal protein route",
@@ -51,6 +86,50 @@ ROUTE_TEMPLATES = [
         "risks": [
             "Binding hypotheses require structure and assay context.",
             "Interface scores need orthogonal developability filters.",
+        ],
+    },
+    {
+        "route_id": "enzyme_optimization_route",
+        "label": "Enzyme optimization route",
+        "best_for": ["enzyme", "catalysis", "active site", "substrate", "thermal", "ph", "酶", "催化"],
+        "summary": "Preserve catalytic residues, redesign stability and solubility around the active site, then fold, relax, and rank variants for assay.",
+        "modules": ["proteinmpnn", "alphafold2", "rosetta"],
+        "risks": [
+            "Catalytic activity requires substrate-specific assays; structural confidence is only a triage signal.",
+            "Active-site residues and cofactors must be protected before sequence redesign.",
+        ],
+    },
+    {
+        "route_id": "antigen_display_route",
+        "label": "Antigen display route",
+        "best_for": ["antigen", "epitope", "vaccine", "display", "nanoparticle", "免疫原", "表位", "疫苗"],
+        "summary": "Lock epitope geometry, design display scaffolds or assemblies, predict structures, and package constructs for immunogen validation.",
+        "modules": ["rfdiffusion", "proteinmpnn", "alphafold2", "rosetta"],
+        "risks": [
+            "Epitope conformation and immunogenicity must be validated experimentally.",
+            "Display density, linker flexibility, and assembly state are product constraints, not just model parameters.",
+        ],
+    },
+    {
+        "route_id": "protein_cage_assembly_route",
+        "label": "Protein cage and assembly route",
+        "best_for": ["cage", "assembly", "symmetry", "nanocage", "multimer", "self-assembling", "笼", "组装", "对称"],
+        "summary": "Design symmetric assemblies, sample interfaces, sequence backbones, predict multimer confidence, and score assembly stability.",
+        "modules": ["rfdiffusion", "proteinmpnn", "alphafold2", "rosetta"],
+        "risks": [
+            "Symmetric assembly predictions can overstate real oligomerization behavior.",
+            "Expression, solubility, and aggregation must be checked before assuming material performance.",
+        ],
+    },
+    {
+        "route_id": "intracellular_tool_route",
+        "label": "Intracellular protein tool route",
+        "best_for": ["intracellular", "degrader", "localization", "compact binder", "cell", "细胞内", "降解"],
+        "summary": "Prioritize compact constructs, expression compatibility, localization constraints, fold confidence, and developability triage.",
+        "modules": ["proteinmpnn", "alphafold2", "rosetta"],
+        "risks": [
+            "Cellular localization, degradation, and target engagement require cell-based experiments.",
+            "Compactness and expression constraints should be treated as first-class design filters.",
         ],
     },
     {
@@ -124,7 +203,23 @@ def _score_route(route: dict[str, Any], blob: str) -> int:
         score += 2
     if route["route_id"] == "de_novo_insecticidal_protein" and ("抗虫" in blob or "insect" in blob):
         score += 10
+    if route["route_id"] == "sweet_protein_scaffold_redesign" and (
+        "sweet" in blob or "甜" in blob or "monellin" in blob or "brazzein" in blob
+    ):
+        score += 12
+    if route["route_id"] == "enzyme_optimization_route" and ("enzyme" in blob or "酶" in blob or "cataly" in blob):
+        score += 10
+    if route["route_id"] == "antigen_display_route" and ("antigen" in blob or "epitope" in blob or "vaccine" in blob or "疫苗" in blob):
+        score += 10
+    if route["route_id"] == "protein_cage_assembly_route" and ("cage" in blob or "assembly" in blob or "symmetry" in blob or "组装" in blob):
+        score += 10
+    if route["route_id"] == "intracellular_tool_route" and ("intracellular" in blob or "cell" in blob or "细胞" in blob):
+        score += 10
     return score
+
+
+def _edge_ports(source_module_id: str, target_module_id: str) -> tuple[str, str]:
+    return EDGE_PORTS.get((source_module_id, target_module_id), ("output", "input"))
 
 
 def plan_routes(
@@ -256,17 +351,17 @@ def apply_route_plan(
         )
         created_nodes.append(node)
 
-    edges = [
-        {
+    edges = []
+    for index in range(len(created_nodes) - 1):
+        source_port, target_port = _edge_ports(modules[index]["module_id"], modules[index + 1]["module_id"])
+        edges.append({
             "source_node_run_id": created_nodes[index]["node_run_id"],
             "target_node_run_id": created_nodes[index + 1]["node_run_id"],
-            "source_port": "output",
-            "target_port": "input",
+            "source_port": source_port,
+            "target_port": target_port,
             "edge_type": "data",
             "metadata_json": {"route_id": route_id},
-        }
-        for index in range(len(created_nodes) - 1)
-    ]
+        })
     catalog.replace_workflow_edges(connection, run_id, edges)
     layout_nodes = [
         {

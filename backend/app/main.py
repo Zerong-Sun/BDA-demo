@@ -8,7 +8,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from .logging_config import configure_logging, get_logger
 from .middleware.audit import AuditLogMiddleware
 from .middleware.security import RateLimitMiddleware, SecurityHeadersMiddleware
-from .routers import admin, auth, campaigns, compute, copilot, core, experiments, files, jobs, registry, workflow_mgmt
+from .routers import admin, auth, campaigns, compute, copilot, core, experiments, files, jobs, platform_registry, registry, workflow_mgmt
 from .services.artifacts import ensure_artifact_dirs
 from .settings import get_settings
 
@@ -63,6 +63,7 @@ api_v1.include_router(experiments.router)
 api_v1.include_router(registry.router)
 api_v1.include_router(compute.router)
 api_v1.include_router(jobs.router)
+api_v1.include_router(platform_registry.router)
 api_v1.include_router(copilot.router)
 api_v1.include_router(campaigns.router)
 api_v1.include_router(workflow_mgmt.router)

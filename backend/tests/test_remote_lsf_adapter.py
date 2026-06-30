@@ -53,6 +53,20 @@ def test_lsf_script_renders_builtin_proteinmpnn_runner(tmp_path: Path):
     assert "manifest.json" in script
     assert job.command not in script
     assert "parsed_pdbs.jsonl" in script
+    assert "--pack_side_chains 1" in script
+
+
+def test_lsf_script_renders_proteinmpnn_side_chain_toggle(tmp_path: Path):
+    adapter = make_adapter()
+    job = make_job(tmp_path, gpu=True)
+    (tmp_path / "input" / "manifest.json").write_text(
+        '{"inputs":[],"parameters":{"pack_side_chains":false}}',
+        encoding="utf-8",
+    )
+
+    script = adapter.render_script(job)
+
+    assert "--pack_side_chains 0" in script
 
 
 def test_lsf_script_renders_builtin_alphafold2_runner(tmp_path: Path):

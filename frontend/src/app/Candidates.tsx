@@ -137,7 +137,7 @@ export function CandidatesPage() {
   }
 
   return (
-    <section>
+    <section className="space-y-4">
       <ProjectContextBar />
       <PageHead
         eyebrow={t.candidates.eyebrow}
@@ -175,7 +175,7 @@ export function CandidatesPage() {
       />
       <ComputeStatusStrip />
 
-      <div className="mb-4 grid grid-cols-2 gap-2 md:grid-cols-5">
+      <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
         {(
           [
             ['Generated', funnel?.generated ?? '—'],
@@ -185,7 +185,7 @@ export function CandidatesPage() {
             ['Ordered', funnel?.ordered ?? '—'],
           ] as const
         ).map(([label, value]) => (
-          <article key={label} className="rounded-lg border border-bda-border bg-bda-panel p-3">
+          <article key={label} className="bda-card p-3">
             <span className="text-xs text-bda-muted">{label}</span>
             <strong className="mt-1 block text-xl">
               {typeof value === 'number' ? value.toLocaleString() : value}
@@ -194,44 +194,48 @@ export function CandidatesPage() {
         ))}
       </div>
 
-      <CandidateFilters
-        search={search}
-        status={status}
-        priorityOnly={priorityOnly}
-        onSearchChange={(value) => {
-          setPage(0)
-          setSearch(value)
-        }}
-        onStatusChange={(value) => {
-          setPage(0)
-          setStatus(value)
-        }}
-        onPriorityOnlyChange={(value) => {
-          setPage(0)
-          setPriorityOnly(value)
-        }}
-      />
+      <div className="bda-card p-3">
+        <CandidateFilters
+          search={search}
+          status={status}
+          priorityOnly={priorityOnly}
+          onSearchChange={(value) => {
+            setPage(0)
+            setSearch(value)
+          }}
+          onStatusChange={(value) => {
+            setPage(0)
+            setStatus(value)
+          }}
+          onPriorityOnlyChange={(value) => {
+            setPage(0)
+            setPriorityOnly(value)
+          }}
+        />
+      </div>
 
       <ApiState isLoading={isLoading} isError={isError} error={candidatesError} onRetry={() => void refetch()}>
-        <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
+        <div className="bda-workspace-grid xl:grid-cols-[minmax(0,1.45fr)_minmax(340px,0.9fr)]">
           <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-muted">
+            <div className="bda-card flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm text-bda-muted">
               <span>{selectedCount} selected</span>
-              <button
-                type="button"
-                className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover"
-                onClick={togglePage}
-              >
-                {pageIds.every((candidateId) => selectedIds.has(candidateId)) ? 'Clear page' : 'Select page'}
-              </button>
-              <button
-                type="button"
-                className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover disabled:opacity-50"
-                disabled={!selectedCount}
-                onClick={() => setSelectedIds(new Set())}
-              >
-                Clear all
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover"
+                  onClick={togglePage}
+                >
+                  {pageIds.every((candidateId) => selectedIds.has(candidateId)) ? 'Clear page' : 'Select page'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-bda-border px-2 py-1 text-bda-text hover:bg-bda-panel-hover disabled:opacity-50"
+                  disabled={!selectedCount}
+                  onClick={() => setSelectedIds(new Set())}
+                >
+                  Clear all
+                </button>
+              </div>
             </div>
             <CandidateTable
               data={candidates}

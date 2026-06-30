@@ -16,6 +16,9 @@ MIGRATIONS = [
     "ALTER TABLE workflow_runs ADD COLUMN layout_json TEXT NOT NULL DEFAULT '{\"nodes\":[],\"edges\":[]}'",
     "ALTER TABLE workflow_node_runs ADD COLUMN position_json TEXT NOT NULL DEFAULT '{\"x\":0,\"y\":0}'",
     "ALTER TABLE projects ADD COLUMN organization_id TEXT",
+    "ALTER TABLE jobs ADD COLUMN parameters_json TEXT NOT NULL DEFAULT '{}'",
+    "ALTER TABLE jobs ADD COLUMN input_manifest_artifact_id TEXT REFERENCES artifacts(artifact_id) ON DELETE SET NULL",
+    "ALTER TABLE jobs ADD COLUMN output_manifest_artifact_id TEXT REFERENCES artifacts(artifact_id) ON DELETE SET NULL",
     "ALTER TABLE document_chunks ADD COLUMN summary_text TEXT",
     "ALTER TABLE document_chunks ADD COLUMN summary_method TEXT",
     "ALTER TABLE claim_relations ADD COLUMN reviewed_by TEXT",
@@ -85,6 +88,13 @@ def register_model_parameter_catalog(connection: sqlite3.Connection) -> None:
     sync_plugin_parameters(connection, registry.list_model_plugins(connection))
 
 
+def register_plugin_versions(connection: sqlite3.Connection) -> None:
+    from backend.app.repositories import platform_registry, registry
+
+    for plugin in registry.list_model_plugins(connection):
+        platform_registry.record_plugin_version(connection, plugin)
+
+
 def seed_sweet_protein_project(connection: sqlite3.Connection) -> None:
     from backend.scripts.seed_sweet_protein import seed_sweet_protein_project as seed_project
 
@@ -117,6 +127,7 @@ def init_db(seed: bool = True) -> Path:
         reconcile_local_projects(connection)
         register_builtin_knowledge(connection)
         register_model_parameter_catalog(connection)
+        register_plugin_versions(connection)
         connection.commit()
     finally:
         connection.close()

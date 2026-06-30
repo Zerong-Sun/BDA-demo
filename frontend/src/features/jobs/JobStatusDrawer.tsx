@@ -23,6 +23,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams 
   const [cpuCount, setCpuCount] = useState(8)
   const [resourceRequirement, setResourceRequirement] = useState('span[ptile=1]')
   const [gpuRequirement, setGpuRequirement] = useState('num=1')
+  const [manualReviewed, setManualReviewed] = useState(false)
   const queryClient = useQueryClient()
   const showToast = useToastStore((s) => s.show)
   const { projectId } = useProjectContext()
@@ -73,6 +74,7 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams 
     },
     onSuccess: async (result) => {
       showToast(`Submitted job ${result.job_id}`, 'success')
+      setManualReviewed(false)
       await queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
     },
     onError: (error) => showToast(error instanceof Error ? error.message : 'Manual submit failed', 'error'),
@@ -187,10 +189,19 @@ export function JobStatusDrawer({ workflowRunId, selectedNodeId, overrideParams 
               <p className="text-[11px] leading-relaxed text-bda-muted">
                 These scheduler overrides apply only to the selected node and will create a new LSF job using the current node parameters.
               </p>
+              <label className="flex items-start gap-2 rounded border border-bda-border bg-bda-bg p-2 text-[11px] leading-relaxed text-bda-muted">
+                <input
+                  type="checkbox"
+                  className="mt-0.5"
+                  checked={manualReviewed}
+                  onChange={(event) => setManualReviewed(event.target.checked)}
+                />
+                <span>I reviewed the queue, CPU/GPU request, current node parameters, and expected output manifest before submission.</span>
+              </label>
               <button
                 type="button"
                 className="rounded bg-bda-cyan px-3 py-2 text-xs font-medium text-bda-bg disabled:opacity-50"
-                disabled={submitManual.isPending || !queueName.trim()}
+                disabled={submitManual.isPending || !queueName.trim() || !manualReviewed}
                 onClick={() => submitManual.mutate()}
               >
                 {submitManual.isPending ? 'Submitting…' : 'Submit selected node'}

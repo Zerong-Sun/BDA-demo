@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Play, Plus, Sparkles } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Play, Plus, Sparkles } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
 import { NodeBuilder } from '../features/workflow/NodeBuilder'
 import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
@@ -10,7 +10,7 @@ import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
 import { defaultWorkflowEdges, defaultWorkflowNodes, type NodeTemplate } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull, listProjectWorkflowRuns } from '../lib/api/projects'
-import { createWorkflowRun, getWorkflowGraph, submitWorkflowRun } from '../lib/api/workflow'
+import { createWorkflowRun, getWorkflowGraph, submitWorkflowRun, validateWorkflowRun } from '../lib/api/workflow'
 import { applyRoutePlan, planRoute, type RoutePlan } from '../lib/api/copilot'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
@@ -77,6 +77,10 @@ function parseLayoutNodeCount(run: { layout_json?: string | null }) {
   } catch {
     return 0
   }
+}
+
+function isBlockingWorkflowWarning(issue: Record<string, unknown>) {
+  return issue.code === 'missing_required_input'
 }
 
 export function WorkflowPage() {
@@ -154,6 +158,12 @@ export function WorkflowPage() {
     },
   })
 
+  const { data: workflowValidation, refetch: refetchValidation } = useQuery({
+    queryKey: ['workflow-validation', workflowRunId],
+    queryFn: () => validateWorkflowRun(workflowRunId!),
+    enabled: Boolean(workflowRunId) && !isDemoMode,
+  })
+
   const { data: projectArtifacts = [] } = useQuery({
     queryKey: ['project-artifacts', projectId],
     queryFn: () => listProjectArtifacts(projectId),
@@ -189,6 +199,7 @@ export function WorkflowPage() {
     onSuccess: (run) => {
       setProjectWorkflowRunId(projectId, run.workflow_run_id)
       queryClient.invalidateQueries({ queryKey: ['workflow-graph', run.workflow_run_id] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-validation', run.workflow_run_id] })
       showToast('Workflow run created', 'success')
     },
     onError: () => showToast('Failed to create workflow run', 'error'),
@@ -233,14 +244,20 @@ export function WorkflowPage() {
       queryClient.invalidateQueries({ queryKey: ['workflow-runs', projectId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-run', 'latest', projectId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-graph', runId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-validation', runId] })
     },
     onError: () => showToast('Failed to create selected route', 'error'),
   })
 
   const startWorkflow = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       if (!workflowRunId) {
         throw new Error('No workflow run available')
+      }
+      const validation = await validateWorkflowRun(workflowRunId)
+      const hasBlockingWarning = validation.warnings.some(isBlockingWorkflowWarning)
+      if (!validation.valid || hasBlockingWarning) {
+        throw new Error('Resolve workflow contract errors before starting compute.')
       }
       return submitWorkflowRun(workflowRunId)
     },
@@ -251,6 +268,7 @@ export function WorkflowPage() {
         showToast('Workflow submitted to compute', 'success')
       }
       queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-validation', workflowRunId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
     },
     onError: () => showToast('Failed to start workflow', 'error'),
@@ -262,94 +280,100 @@ export function WorkflowPage() {
       await canvasRef.current?.addNodeFromTemplate(templateForPlugin(plugin), plugin.model_name, [], {})
       showToast(`Added ${plugin.model_name} to workflow`, 'success')
       queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-validation', workflowRunId] })
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'Failed to add plugin node', 'error')
     }
   }
 
   return (
-    <section>
+    <section className="space-y-4">
       <ProjectContextBar />
       <ComputeStatusStrip />
 
       {projectWorkflowRuns.length > 1 ? (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2">
-          <span className="text-xs uppercase tracking-wide text-bda-cyan">Routes</span>
-          {projectWorkflowRuns.map((run) => (
-            <button
-              key={run.workflow_run_id}
-              type="button"
-              className={`rounded-md border px-3 py-1.5 text-xs ${
-                run.workflow_run_id === workflowRunId
-                  ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
-                  : 'border-bda-border text-bda-muted hover:border-bda-cyan/50 hover:text-bda-text'
-              }`}
-              onClick={() => {
-                setProjectWorkflowRunId(projectId, run.workflow_run_id)
-                setSelectedNodeId(null)
-                setSelectedArtifactId(undefined)
-              }}
-            >
-              {routeLabel(run.workflow_run_id, run.summary_metrics_json)} · {run.status}
-            </button>
-          ))}
+        <div className="bda-card">
+          <div className="bda-card-header py-2">
+            <span className="text-xs uppercase tracking-wide text-bda-cyan">Routes</span>
+            <span className="text-xs text-bda-muted">{projectWorkflowRuns.length} workflow routes</span>
+          </div>
+          <div className="bda-scroll-area flex max-h-28 flex-wrap items-center gap-2 p-3">
+            {projectWorkflowRuns.map((run) => (
+              <button
+                key={run.workflow_run_id}
+                type="button"
+                className={`rounded-md border px-3 py-1.5 text-xs ${
+                  run.workflow_run_id === workflowRunId
+                    ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
+                    : 'border-bda-border text-bda-muted hover:border-bda-cyan/50 hover:text-bda-text'
+                }`}
+                onClick={() => {
+                  setProjectWorkflowRunId(projectId, run.workflow_run_id)
+                  setSelectedNodeId(null)
+                  setSelectedArtifactId(undefined)
+                }}
+              >
+                {routeLabel(run.workflow_run_id, run.summary_metrics_json)} · {run.status}
+              </button>
+            ))}
+          </div>
         </div>
       ) : null}
 
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        {!workflowRunId && !isDemoMode ? (
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-            disabled={createWorkflow.isPending}
-            onClick={() => createWorkflow.mutate()}
-          >
-            <Plus className="h-4 w-4" />
-            Create workflow run
-          </button>
-        ) : isDemoMode ? null : (
-          <>
-            {workflowRunId ? (
-              <button
-                type="button"
-                className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm font-medium text-bda-text hover:border-bda-cyan/50 disabled:opacity-50"
-                disabled={createWorkflow.isPending}
-                onClick={() => createWorkflow.mutate()}
-                title="Create an additional workflow route under the active project"
-              >
-                <Plus className="h-4 w-4" />
-                New route
-              </button>
-            ) : null}
+      <div className="bda-card flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          {!workflowRunId && !isDemoMode ? (
             <button
               type="button"
               className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-              disabled={readOnly}
-              onClick={() => setBuilderOpen((v) => !v)}
+              disabled={createWorkflow.isPending}
+              onClick={() => createWorkflow.mutate()}
             >
               <Plus className="h-4 w-4" />
-              {t.workflow.addNode}
+              Create workflow run
             </button>
-            <button
-              type="button"
-              className="inline-flex items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-              disabled={startWorkflow.isPending}
-              onClick={() => startWorkflow.mutate()}
-            >
-              <Play className="h-4 w-4" />
-              {t.workflow.startWorkflow}
-            </button>
-          </>
-        )}
-        {isDemoMode ? (
-          <span className="text-xs text-bda-muted">Demo mode: displaying read-only reference project data.</span>
-        ) : workflowRun ? (
-          <span className="text-xs text-bda-muted">
-            Run {workflowRun.workflow_run_id} · {workflowRun.status}
-          </span>
-        ) : (
-          <span className="text-xs text-bda-muted">No workflow run for this project yet</span>
-        )}
+          ) : isDemoMode ? null : (
+            <>
+              {workflowRunId ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-md border border-bda-border px-3 py-2 text-sm font-medium text-bda-text hover:border-bda-cyan/50 disabled:opacity-50"
+                  disabled={createWorkflow.isPending}
+                  onClick={() => createWorkflow.mutate()}
+                  title="Create an additional workflow route under the active project"
+                >
+                  <Plus className="h-4 w-4" />
+                  New route
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+                disabled={readOnly}
+                onClick={() => setBuilderOpen((v) => !v)}
+              >
+                <Plus className="h-4 w-4" />
+                {t.workflow.addNode}
+              </button>
+              <button
+                type="button"
+                className="inline-flex items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+                disabled={startWorkflow.isPending}
+                onClick={() => startWorkflow.mutate()}
+              >
+                <Play className="h-4 w-4" />
+                {t.workflow.startWorkflow}
+              </button>
+            </>
+          )}
+        </div>
+        <span className="max-w-full truncate text-xs text-bda-muted">
+          {isDemoMode
+            ? 'Demo mode: displaying read-only reference project data.'
+            : workflowRun
+              ? `Run ${workflowRun.workflow_run_id} · ${workflowRun.status}`
+              : 'No workflow run for this project yet'}
+        </span>
       </div>
 
       <ApiState
@@ -358,8 +382,8 @@ export function WorkflowPage() {
         onRetry={() => void refetchWorkflow()}
       >
         {!isDemoMode && (!workflowRunId || workflowNodes.length === 0) ? (
-          <section className="mb-4 rounded-lg border border-bda-border bg-bda-panel p-4">
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <section className="bda-card">
+            <div className="bda-card-header">
               <div className="min-w-0 flex-1">
                 <label htmlFor="workflow-goal" className="mb-1 block text-xs uppercase tracking-wide text-bda-cyan">
                   Copilot route planner
@@ -384,9 +408,9 @@ export function WorkflowPage() {
               </button>
             </div>
             {routePlan ? (
-              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
-                <div className="grid gap-3">
-                  <div className="flex flex-wrap gap-2">
+              <div className="grid min-h-0 gap-4 p-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="grid min-h-0 gap-3">
+                  <div className="bda-scroll-area flex max-h-28 flex-wrap gap-2 rounded-md border border-bda-border bg-bda-bg p-2">
                     {routePlan.route_options.map((route) => (
                       <button
                         key={route.route_id}
@@ -407,14 +431,14 @@ export function WorkflowPage() {
                     ))}
                   </div>
                   {selectedRoute ? (
-                    <div className="grid gap-3">
-                      <div>
+                    <div className="grid min-h-0 gap-3">
+                      <div className="bda-card-muted p-3">
                         <p className="text-sm text-bda-text">{selectedRoute.summary}</p>
-                        <ul className="mt-2 grid gap-1 text-xs text-bda-muted">
+                        <ul className="bda-scroll-area mt-2 grid max-h-24 gap-1 text-xs text-bda-muted">
                           {selectedRoute.rationale.map((item) => <li key={item}>{item}</li>)}
                         </ul>
                       </div>
-                      <div className="grid gap-2 sm:grid-cols-2">
+                      <div className="bda-scroll-area grid max-h-72 gap-2 sm:grid-cols-2">
                         {selectedRoute.modules.map((module) => (
                           <label
                             key={module.module_id}
@@ -454,26 +478,87 @@ export function WorkflowPage() {
                     </div>
                   ) : null}
                 </div>
-                <aside className="grid gap-3 text-xs text-bda-muted">
-                  <div>
+                <aside className="grid min-h-0 gap-3 text-xs text-bda-muted">
+                  <div className="bda-card-muted p-3">
                     <p className="mb-1 uppercase tracking-wide text-bda-cyan">Knowledge used</p>
-                    <ul className="grid gap-1">
+                    <ul className="bda-scroll-area grid max-h-32 gap-1">
                       {routePlan.knowledge_context.map((item) => (
                         <li key={item.knowledge_entry_id}>{item.title}</li>
                       ))}
                     </ul>
                   </div>
-                  <div>
+                  <div className="bda-card-muted p-3">
                     <p className="mb-1 uppercase tracking-wide text-bda-cyan">Analysis process</p>
-                    <ol className="grid gap-1">
+                    <ol className="bda-scroll-area grid max-h-40 gap-1">
                       {routePlan.analysis_trace.map((item) => <li key={item}>{item}</li>)}
                     </ol>
                   </div>
                 </aside>
               </div>
             ) : (
-              <p className="mt-3 text-xs text-bda-muted">New projects can build a knowledge-guided route first, choose modules, and then create a workflow graph for script preview and submission.</p>
+              <p className="px-4 pb-4 text-xs text-bda-muted">New projects can build a knowledge-guided route first, choose modules, and then create a workflow graph for script preview and submission.</p>
             )}
+          </section>
+        ) : null}
+
+        {workflowRunId && !isDemoMode ? (
+          <section className="bda-card">
+            <div className="bda-card-header py-3">
+              <div className="flex items-center gap-2">
+                {workflowValidation?.valid ? (
+                  <CheckCircle2 className="h-4 w-4 text-bda-green" />
+                ) : (
+                  <AlertTriangle className="h-4 w-4 text-bda-amber" />
+                )}
+                <div>
+                  <p className="text-xs uppercase tracking-wide text-bda-cyan">Pre-run checks</p>
+                  <h2 className="text-sm font-semibold">
+                    {workflowValidation?.valid ? 'DAG contract is valid' : 'Review workflow contract before compute'}
+                  </h2>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="rounded border border-bda-border px-2 py-1 text-xs text-bda-muted hover:border-bda-cyan/50 hover:text-bda-text"
+                onClick={() => void refetchValidation()}
+              >
+                Refresh
+              </button>
+            </div>
+            <div className="grid gap-3 px-4 pb-4 text-xs text-bda-muted md:grid-cols-4">
+              <div className="rounded border border-bda-border bg-bda-bg p-2">
+                <span className="block uppercase tracking-wide">Nodes</span>
+                <strong className="mt-1 block text-sm text-bda-text">{workflowNodes.length}</strong>
+              </div>
+              <div className="rounded border border-bda-border bg-bda-bg p-2">
+                <span className="block uppercase tracking-wide">Artifacts</span>
+                <strong className="mt-1 block text-sm text-bda-text">{workflowArtifacts.length}</strong>
+              </div>
+              <div className="rounded border border-bda-border bg-bda-bg p-2">
+                <span className="block uppercase tracking-wide">Jobs</span>
+                <strong className="mt-1 block text-sm text-bda-text">{workflowGraph?.jobs.length ?? 0}</strong>
+              </div>
+              <div className="rounded border border-bda-border bg-bda-bg p-2">
+                <span className="block uppercase tracking-wide">Issues</span>
+                <strong className="mt-1 block text-sm text-bda-text">
+                  {(workflowValidation?.errors.length ?? 0) + (workflowValidation?.warnings.length ?? 0)}
+                </strong>
+              </div>
+            </div>
+            {workflowValidation && (workflowValidation.errors.length > 0 || workflowValidation.warnings.length > 0) ? (
+              <div className="bda-scroll-area mx-4 mb-4 max-h-28 rounded border border-bda-border bg-bda-bg p-2 text-xs">
+                {[...workflowValidation.errors, ...workflowValidation.warnings].slice(0, 8).map((issue, index) => {
+                  const isError = index < workflowValidation.errors.length
+                  const isBlockingWarning = !isError && isBlockingWorkflowWarning(issue)
+                  return (
+                    <p key={`${String(issue.code)}-${index}`} className={index > 0 ? 'mt-1' : ''}>
+                      <span className={isError || isBlockingWarning ? 'text-bda-red' : 'text-bda-amber'}>{String(issue.code ?? 'workflow_issue')}</span>
+                      <span className="text-bda-muted"> {JSON.stringify(issue)}</span>
+                    </p>
+                  )
+                })}
+              </div>
+            ) : null}
           </section>
         ) : null}
 
@@ -483,8 +568,8 @@ export function WorkflowPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-4 2xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-          <div className="order-2 2xl:order-1">
+        <div className="bda-workspace-grid xl:grid-cols-[300px_minmax(0,1fr)_340px]">
+          <div className="order-2 xl:order-1">
             <WorkflowResourceSidebar
               projectId={projectId}
               artifacts={visibleArtifacts}
@@ -505,7 +590,7 @@ export function WorkflowPage() {
             />
           </div>
 
-          <main className="order-1 min-w-0 2xl:order-2">
+          <main className="order-1 min-w-0 xl:order-2">
             {isDemoMode ? (
               <WorkflowCanvas
                 initialNodes={defaultWorkflowNodes}
@@ -524,6 +609,7 @@ export function WorkflowPage() {
                       showToast(`Added "${nodeName}" to workflow`, 'success')
                       setBuilderOpen(false)
                       queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+                      queryClient.invalidateQueries({ queryKey: ['workflow-validation', workflowRunId] })
                     } catch (err) {
                       const message =
                         err instanceof Error ? err.message : 'Failed to add workflow node'
@@ -544,7 +630,10 @@ export function WorkflowPage() {
                     setSelectedArtifactId(undefined)
                   }}
                   onNodeAdded={() =>
-                    queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+                    void Promise.all([
+                      queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] }),
+                      queryClient.invalidateQueries({ queryKey: ['workflow-validation', workflowRunId] }),
+                    ])
                   }
                 />
               </>

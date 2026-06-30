@@ -53,7 +53,64 @@ def create_job(
             _now_iso(),
         ),
     )
+    record_job_event(connection, job_id, "submitted", {
+        "workflow_run_id": workflow_run_id,
+        "node_run_id": node_run_id,
+        "plugin_id": plugin_id,
+        "compute_node_id": compute_node_id,
+    })
     return get_job(connection, job_id) or {}
+
+
+def record_job_event(
+    connection: sqlite3.Connection,
+    job_id: str,
+    event_type: str,
+    payload: dict[str, Any] | None = None,
+) -> None:
+    connection.execute(
+        """
+        INSERT INTO job_events (event_id, job_id, event_type, payload_json, created_at)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (
+            f"event_{uuid.uuid4().hex[:12]}",
+            job_id,
+            event_type,
+            json.dumps(payload or {}),
+            _now_iso(),
+        ),
+    )
+
+
+def _record_artifact_lineage(
+    connection: sqlite3.Connection,
+    *,
+    artifact: dict[str, Any],
+    job: dict[str, Any],
+) -> None:
+    parent_refs = _normalize_input_refs(job.get("input_artifacts") or {})
+    if not parent_refs:
+        parent_refs = [{"artifact_id": None}]
+    for ref in parent_refs:
+        connection.execute(
+            """
+            INSERT INTO artifact_lineage (
+                lineage_id, artifact_id, parent_artifact_id, job_id,
+                workflow_run_id, node_run_id, relation_type, metadata_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                f"lineage_{uuid.uuid4().hex[:12]}",
+                artifact["artifact_id"],
+                ref.get("artifact_id"),
+                job.get("job_id"),
+                job.get("workflow_run_id"),
+                job.get("node_run_id"),
+                "derived_from" if ref.get("artifact_id") else "generated_by",
+                json.dumps({"port": ref.get("port"), "source": "job_output_manifest"}),
+            ),
+        )
 
 
 def _artifact_key(storage_uri: str) -> str:
@@ -455,6 +512,12 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
             created_by="system",
         )
         registered.append(artifact)
+        _record_artifact_lineage(connection, artifact=artifact, job=job)
+        record_job_event(connection, job_id, "artifact_created", {
+            "artifact_id": artifact["artifact_id"],
+            "artifact_type": artifact.get("artifact_type"),
+            "port": entry.get("port"),
+        })
         _register_generated_candidate(
             connection,
             project_id=project_id,
@@ -532,6 +595,14 @@ def update_job_status(
         params.append(_now_iso())
     params.append(job_id)
     connection.execute(f"UPDATE jobs SET {', '.join(updates)} WHERE job_id = ?", params)
+    event_type = status if status in {"staged", "started", "completed", "failed", "cancelled"} else "log"
+    if status == "running":
+        event_type = "started"
+    record_job_event(connection, job_id, event_type, {
+        "status": status,
+        "error_message": error_message,
+        "external_id": external_id,
+    })
     return get_job(connection, job_id)
 
 

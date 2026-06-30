@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, LoaderCircle, MessageSquare, Play, Search, X } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Check, ExternalLink, LoaderCircle, MessageSquare, Play, Search, Sparkles, X } from 'lucide-react'
 
 import {
   createLiteratureSubscription,
@@ -9,11 +10,14 @@ import {
   listLiteratureClaims,
   listLiteratureRelations,
   listLiteratureSubscriptions,
+  applyRoutePlan,
+  planRoute,
   reviewLiteratureClaim,
   reviewLiteratureRelation,
   runLiteratureSubscription,
   searchLiteratureLibrary,
   updateLiteratureSubscription,
+  type RoutePlan,
 } from '../lib/api/copilot'
 import {
   createCampaign,
@@ -27,6 +31,7 @@ import {
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { getProjectResearchSummary } from '../lib/api/projects'
 import { useAppStore } from '../lib/store/appStore'
+import { useToastStore } from '../components/ui/toastStore'
 
 function text(value: unknown) {
   return typeof value === 'string' ? value : ''
@@ -149,10 +154,17 @@ function DecisionReview({
 
 function LiteraturePanel() {
   const client = useQueryClient()
+  const navigate = useNavigate()
   const { projectId } = useProjectContext()
   const setCopilotOpen = useAppStore((state) => state.setCopilotOpen)
+  const setProjectWorkflowRunId = useAppStore((state) => state.setProjectWorkflowRunId)
+  const showToast = useToastStore((state) => state.show)
   const isAdmin = currentRole() === 'admin'
   const [query, setQuery] = useState('sweet protein monellin brazzein TAS1R2 TAS1R3')
+  const [workflowObjective, setWorkflowObjective] = useState('Build an evidence-backed sweet protein scaffold redesign workflow for monellin and brazzein candidates.')
+  const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null)
+  const [selectedRouteId, setSelectedRouteId] = useState('')
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([])
   const claims = useQuery({ queryKey: ['literature-claims'], queryFn: () => listLiteratureClaims() })
   const projectResearch = useQuery({
     queryKey: ['project-research-summary', projectId],
@@ -221,13 +233,62 @@ function LiteraturePanel() {
       }),
     onSuccess: () => client.invalidateQueries({ queryKey: ['literature-subscriptions'] }),
   })
+  const generateWorkflowPlan = useMutation({
+    mutationFn: () =>
+      planRoute({
+        project_id: projectId,
+        target: query,
+        objective: workflowObjective,
+        constraints: {
+          source: 'research_dossier',
+          evidence_findings: projectResearch.data?.findings.length ?? 0,
+          reviewed_claims: claims.data?.items.length ?? 0,
+        },
+      }),
+    onSuccess: (plan) => {
+      const recommended = plan.route_options.find((route) => route.recommended) ?? plan.route_options[0]
+      setRoutePlan(plan)
+      setSelectedRouteId(recommended?.route_id ?? '')
+      setSelectedModuleIds(recommended?.modules.filter((module) => module.available).map((module) => module.module_id) ?? [])
+      showToast('Workflow draft options prepared from research context', 'success')
+    },
+    onError: (error) => showToast(error instanceof Error ? error.message : 'Failed to prepare workflow draft', 'error'),
+  })
+  const selectedRoute = routePlan?.route_options.find((route) => route.route_id === selectedRouteId) ?? null
+  const applyWorkflowPlan = useMutation({
+    mutationFn: async () => {
+      if (!selectedRoute) throw new Error('Select a route first')
+      return applyRoutePlan({
+        project_id: projectId,
+        route_id: selectedRoute.route_id,
+        objective: workflowObjective,
+        target: routePlan?.target ?? query,
+        selected_module_ids: selectedModuleIds,
+        constraints: {
+          source: 'research_dossier',
+          generated_from: 'research_page',
+          evidence_findings: projectResearch.data?.findings.length ?? 0,
+        },
+      })
+    },
+    onSuccess: (result) => {
+      const runId = String(result.workflow_run.workflow_run_id)
+      setProjectWorkflowRunId(projectId, runId)
+      client.invalidateQueries({ queryKey: ['workflow-runs', projectId] })
+      client.invalidateQueries({ queryKey: ['workflow-run', 'latest', projectId] })
+      client.invalidateQueries({ queryKey: ['workflow-graph', runId] })
+      showToast('Research workflow draft created', 'success')
+      navigate('/workflow')
+    },
+    onError: (error) => showToast(error instanceof Error ? error.message : 'Failed to create workflow draft', 'error'),
+  })
   const sourceRefs = jsonArray(projectResearch.data?.brief?.source_material_json) as Array<Record<string, unknown>>
   const referenceLinks = sourceRefs.flatMap((source) => jsonArray(source.references)).filter((item): item is string => typeof item === 'string')
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
+    <div className="space-y-4">
+      <section className="bda-card">
+        <div className="bda-card-header">
           <div>
             <p className="text-xs uppercase tracking-wide text-bda-cyan">Current project research</p>
             <h2 className="font-semibold">{text(projectResearch.data?.brief?.title) || 'No research brief has been created for this project.'}</h2>
@@ -242,8 +303,9 @@ function LiteraturePanel() {
             <span className="rounded border border-bda-border px-2 py-1">Plans {projectResearch.data?.workflow_plans.length ?? 0}</span>
           </div>
         </div>
-        {projectResearch.data?.findings.length ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+        <div className="bda-card-body">
+          {projectResearch.data?.findings.length ? (
+          <div className="bda-scroll-area grid max-h-96 gap-3 pr-1 lg:grid-cols-2">
             {projectResearch.data.findings.slice(0, 6).map((item) => (
               <article key={text(item.research_finding_id)} className="rounded border border-bda-border bg-bda-bg p-3 text-sm">
                 <div className="flex items-start justify-between gap-2">
@@ -276,11 +338,11 @@ function LiteraturePanel() {
               </article>
             ))}
           </div>
-        ) : null}
-        {referenceLinks.length ? (
+          ) : null}
+          {referenceLinks.length ? (
           <details className="mt-4 rounded border border-bda-border bg-bda-bg p-3 text-sm">
             <summary className="cursor-pointer text-bda-cyan">View linked literature sources ({referenceLinks.length})</summary>
-            <div className="mt-3 grid gap-1 md:grid-cols-2">
+            <div className="bda-scroll-area mt-3 grid max-h-48 gap-1 md:grid-cols-2">
               {referenceLinks.slice(0, 40).map((url) => (
                 <a key={url} className="truncate text-xs text-bda-cyan hover:underline" href={url} target="_blank" rel="noreferrer">
                   <ExternalLink className="mr-1 inline h-3 w-3" />
@@ -289,15 +351,121 @@ function LiteraturePanel() {
               ))}
             </div>
           </details>
-        ) : null}
+          ) : null}
+        </div>
       </section>
 
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
-        <h2 className="font-semibold">Literature ingestion and automated surveillance</h2>
-        <p className="mt-1 text-xs leading-relaxed text-bda-muted">
-          Local search queries the curated project library. Ingest now searches Europe PMC with the current query and writes reviewed metadata into the local literature store. Copilot can help formulate search strings, interpret papers, or prepare summaries before ingestion.
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2">
+      <section className="bda-card">
+        <div className="bda-card-header">
+          <div className="min-w-0 flex-1">
+            <p className="text-xs uppercase tracking-wide text-bda-cyan">Research-to-workflow draft</p>
+            <h2 className="font-semibold">Create an editable workflow from the evidence dossier</h2>
+            <p className="mt-1 max-w-4xl text-xs leading-relaxed text-bda-muted">
+              The draft keeps model predictions separate from experimental evidence and writes route context into node parameters for audit.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="inline-flex items-center gap-2 rounded bg-bda-cyan px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+            disabled={!projectId || !workflowObjective.trim() || generateWorkflowPlan.isPending}
+            onClick={() => generateWorkflowPlan.mutate()}
+          >
+            {generateWorkflowPlan.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+            Draft routes
+          </button>
+        </div>
+        <div className="bda-card-body grid gap-3">
+          <textarea
+            className="min-h-20 w-full resize-none rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm"
+            value={workflowObjective}
+            onChange={(event) => setWorkflowObjective(event.target.value)}
+            placeholder="Describe the design objective, success criteria, assay context, and constraints."
+          />
+          {routePlan ? (
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_320px]">
+              <div className="grid gap-3">
+                <div className="flex flex-wrap gap-2">
+                  {routePlan.route_options.map((route) => (
+                    <button
+                      key={route.route_id}
+                      type="button"
+                      className={`rounded border px-3 py-2 text-left text-sm ${
+                        route.route_id === selectedRouteId
+                          ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
+                          : 'border-bda-border hover:border-bda-cyan/50'
+                      }`}
+                      onClick={() => {
+                        setSelectedRouteId(route.route_id)
+                        setSelectedModuleIds(route.modules.filter((module) => module.available).map((module) => module.module_id))
+                      }}
+                    >
+                      <span className="block font-medium">{route.label}</span>
+                      <span className="block text-xs text-bda-muted">{route.estimated_steps} modules</span>
+                    </button>
+                  ))}
+                </div>
+                {selectedRoute ? (
+                  <div className="rounded border border-bda-border bg-bda-bg p-3">
+                    <p className="text-sm">{selectedRoute.summary}</p>
+                    <div className="mt-3 grid gap-2 md:grid-cols-2">
+                      {selectedRoute.modules.map((module) => (
+                        <label key={module.module_id} className="flex gap-2 rounded border border-bda-border p-2 text-sm">
+                          <input
+                            type="checkbox"
+                            className="mt-1"
+                            disabled={!module.available}
+                            checked={selectedModuleIds.includes(module.module_id)}
+                            onChange={(event) => {
+                              setSelectedModuleIds((current) =>
+                                event.target.checked
+                                  ? [...new Set([...current, module.module_id])]
+                                  : current.filter((id) => id !== module.module_id),
+                              )
+                            }}
+                          />
+                          <span>
+                            <span className="block font-medium">{module.model_name}</span>
+                            <span className="block text-xs text-bda-muted">{module.available ? module.summary : 'Plugin is not registered yet.'}</span>
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex items-center gap-2 rounded bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+                      disabled={applyWorkflowPlan.isPending || selectedModuleIds.length === 0}
+                      onClick={() => applyWorkflowPlan.mutate()}
+                    >
+                      {applyWorkflowPlan.isPending ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                      Create editable workflow
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <aside className="rounded border border-bda-border bg-bda-bg p-3 text-xs text-bda-muted">
+                <p className="mb-2 uppercase tracking-wide text-bda-cyan">Evidence context</p>
+                <ul className="bda-scroll-area grid max-h-36 gap-1">
+                  {routePlan.knowledge_context.map((item) => (
+                    <li key={item.knowledge_entry_id}>{item.title}</li>
+                  ))}
+                </ul>
+              </aside>
+            </div>
+          ) : null}
+        </div>
+      </section>
+
+      <section className="bda-card">
+        <div className="bda-card-header">
+          <div>
+            <h2 className="font-semibold">Literature ingestion and automated surveillance</h2>
+            <p className="mt-1 max-w-4xl text-xs leading-relaxed text-bda-muted">
+              Local search queries the curated project library. Ingest searches Europe PMC and writes reviewed metadata into the local literature store.
+            </p>
+          </div>
+        </div>
+        <div className="bda-card-body">
+        <div className="flex flex-wrap gap-2">
           <input className="min-w-72 flex-1 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm" value={query} onChange={(e) => setQuery(e.target.value)} />
           <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => search.refetch()}><Search className="mr-1 inline h-4 w-4" />Search local library</button>
           <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={!isAdmin || ingest.isPending} onClick={() => ingest.mutate()}>
@@ -312,8 +480,9 @@ function LiteraturePanel() {
         {ingest.isError || createSubscription.isError ? (
           <p className="mt-2 text-xs text-bda-red">Literature task failed. Check permissions, network access, and model configuration.</p>
         ) : null}
+        <div className="bda-scroll-area mt-3 max-h-80 space-y-3 pr-1">
         {search.data?.items.map((item, index) => (
-          <div key={`${text(item.document_id)}-${index}`} className="mt-3 rounded border border-bda-border p-3 text-sm">
+          <div key={`${text(item.document_id)}-${index}`} className="rounded border border-bda-border bg-bda-bg p-3 text-sm">
             <strong>{claimTitle(item)}</strong>
             <p className="mt-1 text-bda-muted">{text(item.statement) || text(item.abstract_text)}</p>
             <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
@@ -330,8 +499,10 @@ function LiteraturePanel() {
             ) : null}
           </div>
         ))}
+        </div>
+        <div className="bda-scroll-area mt-3 max-h-64 space-y-3 pr-1">
         {subscriptions.data?.items.map((item) => (
-          <div key={item.subscription_id} className="mt-3 flex items-center justify-between rounded border border-bda-border p-3 text-sm">
+          <div key={item.subscription_id} className="flex items-center justify-between gap-3 rounded border border-bda-border bg-bda-bg p-3 text-sm">
             <div><strong>{item.name}</strong><p className="text-xs text-bda-muted">Every {item.interval_hours} hours · next run {item.next_run_at}</p></div>
             <div className="flex gap-2">
               <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? 'Pause' : 'Enable'}</button>
@@ -339,13 +510,19 @@ function LiteraturePanel() {
             </div>
           </div>
         ))}
+        </div>
+        </div>
       </section>
 
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <h2 className="font-semibold">Scientific claims awaiting review</h2>
+      <section className="bda-workspace-grid lg:grid-cols-2">
+        <div className="bda-card flex min-h-0 flex-col">
+          <div className="bda-card-header">
+            <h2 className="font-semibold">Scientific claims awaiting review</h2>
+            <span className="rounded border border-bda-border px-2 py-1 text-xs text-bda-muted">{claims.data?.items.length ?? 0}</span>
+          </div>
+          <div className="bda-scroll-area max-h-[52vh] space-y-3 p-4 pr-3">
           {claims.data?.items.map((item) => (
-            <article key={text(item.claim_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
+            <article key={text(item.claim_id)} className="rounded border border-bda-border bg-bda-bg p-3 text-sm">
               <strong>{claimTitle(item)}</strong>
               <p className="mt-1">{text(item.statement)}</p>
               <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
@@ -356,16 +533,18 @@ function LiteraturePanel() {
               </div>
             </article>
           ))}
+          </div>
         </div>
-        <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <div className="flex items-center justify-between">
+        <div className="bda-card flex min-h-0 flex-col">
+          <div className="bda-card-header">
             <h2 className="font-semibold">Claim relationships awaiting review</h2>
             <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={!isAdmin || detectRelations.isPending} onClick={() => detectRelations.mutate()}>
               Detect relationships
             </button>
           </div>
+          <div className="bda-scroll-area max-h-[52vh] space-y-3 p-4 pr-3">
           {relations.data?.items.map((item) => (
-            <article key={text(item.relation_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
+            <article key={text(item.relation_id)} className="rounded border border-bda-border bg-bda-bg p-3 text-sm">
               <span className="text-xs uppercase text-bda-cyan">{text(item.relation_type)}</span>
               <p>{text(item.source_statement)}</p><p className="text-bda-muted">↔ {text(item.target_statement)}</p>
               <div className="mt-2 flex gap-2">
@@ -374,6 +553,7 @@ function LiteraturePanel() {
               </div>
             </article>
           ))}
+          </div>
         </div>
       </section>
     </div>
@@ -425,16 +605,36 @@ function CampaignPanel() {
   const campaign = detail.data as Campaign | undefined
   const actionError = create.error || evaluate.error || review.error || updateDecision.error
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
-        <button className="w-full rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={!projectId || create.isPending} onClick={() => create.mutate()}>Create closed-loop campaign</button>
-        {campaigns.data?.items.map((item) => (
-          <button key={item.campaign_id} className="mt-3 w-full rounded border border-bda-border p-3 text-left" onClick={() => setSelected(item.campaign_id)}>
-            <strong>{item.name}</strong><p className="text-xs text-bda-muted">Round {item.current_round}/{item.max_rounds} · {item.status}</p>
-          </button>
-        ))}
+    <div className="bda-workspace-grid lg:grid-cols-[320px_minmax(0,1fr)]">
+      <aside className="bda-card bda-sticky-panel">
+        <div className="bda-card-header">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-bda-cyan">Campaigns</p>
+            <h2 className="text-sm font-semibold">Closed-loop runs</h2>
+          </div>
+          <span className="rounded border border-bda-border px-2 py-1 text-xs text-bda-muted">
+            {campaigns.data?.items.length ?? 0}
+          </span>
+        </div>
+        <div className="bda-card-body">
+          <button className="w-full rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={!projectId || create.isPending} onClick={() => create.mutate()}>Create closed-loop campaign</button>
+          <div className="bda-scroll-area mt-3 max-h-[58vh] space-y-3 pr-1">
+            {campaigns.data?.items.map((item) => (
+              <button key={item.campaign_id} className="w-full rounded border border-bda-border bg-bda-bg p-3 text-left hover:border-bda-cyan/50" onClick={() => setSelected(item.campaign_id)}>
+                <strong>{item.name}</strong><p className="text-xs text-bda-muted">Round {item.current_round}/{item.max_rounds} · {item.status}</p>
+              </button>
+            ))}
+          </div>
+        </div>
       </aside>
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
+      <section className="bda-card flex min-h-0 flex-col">
+        <div className="bda-card-header">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-bda-cyan">Campaign detail</p>
+            <h2 className="text-sm font-semibold">{campaign?.name ?? 'No campaign selected'}</h2>
+          </div>
+        </div>
+        <div className="bda-card-body bda-scroll-area max-h-[68vh]">
         {actionError ? <p className="mb-3 rounded border border-bda-red/40 p-2 text-sm text-bda-red">{actionError.message}</p> : null}
         {!campaign ? <p className="text-bda-muted">Select or create a campaign.</p> : (
           <>
@@ -445,7 +645,7 @@ function CampaignPanel() {
               const decisionId = decision ? text(decision.decision_id) : ''
               const patch = decision?.parameter_patch_json
               return (
-                <article key={round.campaign_round_id} className="mt-4 rounded border border-bda-border p-4">
+                <article key={round.campaign_round_id} className="mt-4 rounded border border-bda-border bg-bda-bg p-4">
                   <div className="flex justify-between"><strong>Round {round.round_number}</strong><span className="text-xs text-bda-cyan">{round.status} · {round.approval_status}</span></div>
                   <p className="mt-1 text-xs text-bda-muted">Workflow: {round.workflow_run_id}</p>
                   {round.status === 'ready_for_evaluation' || round.status === 'active' ? (
@@ -466,6 +666,7 @@ function CampaignPanel() {
             })}
           </>
         )}
+        </div>
       </section>
     </div>
   )
@@ -474,8 +675,8 @@ function CampaignPanel() {
 export function ResearchPage() {
   const [tab, setTab] = useState<'literature' | 'campaigns'>('literature')
   return (
-    <div>
-      <div className="mb-6 flex items-end justify-between">
+    <div className="space-y-4">
+      <div className="bda-card flex flex-wrap items-end justify-between gap-3 p-4">
         <div><p className="text-xs uppercase tracking-wide text-bda-cyan">Research automation</p><h1 className="text-2xl font-semibold">Knowledge learning and closed-loop development</h1></div>
         <div className="flex gap-2">
           <button className={`rounded px-3 py-2 text-sm ${tab === 'literature' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('literature')}>Literature and evidence</button>

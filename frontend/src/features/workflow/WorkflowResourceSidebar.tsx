@@ -40,40 +40,52 @@ export function WorkflowResourceSidebar({
   const visibleArtifacts = selectedNode ? nodeArtifacts : artifacts
 
   return (
-    <aside className="space-y-4">
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-3">
-        <div className="mb-3 flex items-center gap-2">
-          <Layers3 className="h-4 w-4 text-bda-cyan" />
-          <div>
-            <p className="text-xs uppercase tracking-wide text-bda-cyan">Artifacts</p>
-            <h2 className="text-sm font-semibold">
-              {selectedNode ? 'Selected node outputs' : 'Inputs and outputs'}
-            </h2>
+    <aside className="bda-sticky-panel space-y-4 xl:max-h-[calc(100vh-8rem)] xl:overflow-hidden">
+      <section className="bda-card flex min-h-0 flex-col">
+        <div className="bda-card-header py-3">
+          <div className="flex items-center gap-2">
+            <Layers3 className="h-4 w-4 text-bda-cyan" />
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bda-cyan">Artifacts</p>
+              <h2 className="text-sm font-semibold">
+                {selectedNode ? 'Selected node outputs' : 'Inputs and outputs'}
+              </h2>
+            </div>
           </div>
+          <span className="rounded border border-bda-border px-2 py-1 text-[11px] text-bda-muted">
+            {visibleArtifacts.length}
+          </span>
         </div>
-        {selectedNode ? (
-          <div className="mb-3 rounded-md border border-bda-border bg-bda-bg px-3 py-2">
-            <p className="truncate text-xs font-medium text-bda-text">{selectedNode.node_name}</p>
-            <p className="mt-1 text-[11px] text-bda-muted">
-              {visibleArtifacts.length} linked artifact{visibleArtifacts.length === 1 ? '' : 's'}
-            </p>
+        <div className="bda-card-body min-h-0">
+          {selectedNode ? (
+            <div className="mb-3 rounded-md border border-bda-border bg-bda-bg px-3 py-2">
+              <p className="truncate text-xs font-medium text-bda-text">{selectedNode.node_name}</p>
+              <p className="mt-1 text-[11px] text-bda-muted">
+                {visibleArtifacts.length} linked artifact{visibleArtifacts.length === 1 ? '' : 's'}
+              </p>
+            </div>
+          ) : null}
+          <ArtifactUploadDropzone projectId={projectId} onUploaded={onArtifactUploaded} />
+          <div className="bda-scroll-area mt-3 max-h-80 pr-1">
+            <ArtifactBrowser artifacts={visibleArtifacts} selectedArtifactId={selectedArtifactId} onSelect={onArtifactSelected} />
           </div>
-        ) : null}
-        <ArtifactUploadDropzone projectId={projectId} onUploaded={onArtifactUploaded} />
-        <div className="mt-3">
-          <ArtifactBrowser artifacts={visibleArtifacts} selectedArtifactId={selectedArtifactId} onSelect={onArtifactSelected} />
         </div>
       </section>
 
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-3">
-        <div className="mb-3 flex items-center gap-2">
-          <Cpu className="h-4 w-4 text-bda-cyan" />
-          <div>
-            <p className="text-xs uppercase tracking-wide text-bda-cyan">Plugins</p>
-            <h2 className="text-sm font-semibold">Model catalog</h2>
+      <section className="bda-card flex min-h-0 flex-col">
+        <div className="bda-card-header py-3">
+          <div className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-bda-cyan" />
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bda-cyan">Plugins</p>
+              <h2 className="text-sm font-semibold">Model catalog</h2>
+            </div>
           </div>
+          <span className="rounded border border-bda-border px-2 py-1 text-[11px] text-bda-muted">
+            {plugins.length}
+          </span>
         </div>
-        <div className="space-y-2">
+        <div className="bda-scroll-area max-h-80 space-y-2 p-3 pr-2">
           {plugins.length === 0 ? (
             <p className="rounded border border-dashed border-bda-border px-3 py-4 text-center text-xs text-bda-muted">
               Loading or no plugins registered.
@@ -105,7 +117,9 @@ export function WorkflowResourceSidebar({
         </div>
       </section>
 
-      <ScriptAssetManager />
+      <div className="bda-scroll-area max-h-80">
+        <ScriptAssetManager />
+      </div>
     </aside>
   )
 }

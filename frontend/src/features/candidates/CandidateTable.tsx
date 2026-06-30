@@ -140,17 +140,25 @@ export function CandidateTable({
   })
 
   return (
-    <div className="rounded-lg border border-bda-border bg-bda-panel">
-      <p className="px-3 pt-2 text-xs text-bda-muted sm:hidden" aria-hidden="true">
-        Swipe horizontally to see all columns →
-      </p>
+    <div className="bda-card flex min-h-0 flex-col">
+      <div className="bda-card-header py-2">
+        <div>
+          <p className="text-xs uppercase tracking-wide text-bda-cyan">Candidate table</p>
+          <p className="mt-0.5 text-xs text-bda-muted sm:hidden" aria-hidden="true">
+            Swipe horizontally to see all columns
+          </p>
+        </div>
+        <span className="rounded border border-bda-border px-2 py-1 text-xs text-bda-muted">
+          {data.length} visible
+        </span>
+      </div>
       <div
-        className="overflow-x-auto"
+        className="bda-table-shell bda-table-sticky max-h-[58vh]"
         role="region"
         aria-label="Candidate results table (scrollable)"
         tabIndex={0}
       >
-        <table className="min-w-full text-sm">
+        <table className="min-w-[1120px] text-sm">
           <caption className="sr-only">
             Ranked candidates. Activate a column header to sort; activate a row to view candidate
             details.

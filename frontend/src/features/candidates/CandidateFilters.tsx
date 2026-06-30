@@ -18,7 +18,7 @@ export function CandidateFilters({
   onPriorityOnlyChange,
 }: CandidateFiltersProps) {
   return (
-    <div className="mb-3 flex flex-wrap items-center gap-2">
+    <div className="flex flex-wrap items-center gap-2">
       <input
         className="min-w-[220px] flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
         placeholder="Search candidate or family"

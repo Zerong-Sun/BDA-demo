@@ -1,5 +1,5 @@
 import { useMemo, useState, type ReactNode } from 'react'
-import { Copy, Download, FileCode2, Info, Network, Save, Settings2 } from 'lucide-react'
+import { Copy, Download, FileCode2, Info, Network, Save, Settings2, UploadCloud } from 'lucide-react'
 import type { WorkflowNode } from '../../lib/schemas/workflow'
 import type { Artifact } from '../../lib/schemas/artifact'
 import { formatBytes } from '../../lib/schemas/artifact'
@@ -10,7 +10,7 @@ import { JobStatusDrawer } from '../jobs'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useToastStore } from '../../components/ui/toastStore'
 import { listModelPlugins } from '../../lib/api/registry'
-import { previewWorkflowNodeScript, updateWorkflowNode, type ScriptPreviewResponse } from '../../lib/api/workflow'
+import { previewWorkflowNodeScript, submitWorkflowNode, updateWorkflowNode, validateWorkflowRun, type ScriptPreviewResponse } from '../../lib/api/workflow'
 import { ParameterSchemaForm } from '../plugins'
 import { defaultsFromFields, fieldsFromParameterSchema } from '../../lib/forms/parameterSchema'
 
@@ -31,6 +31,12 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
     }
   }
   return typeof value === 'object' ? (value as Record<string, unknown>) : {}
+}
+
+function isBlockingNodeIssue(issue: Record<string, unknown>, nodeRunId: string) {
+  if (issue.code === 'missing_required_input' && issue.node_run_id === nodeRunId) return true
+  if (issue.node_run_id === nodeRunId) return true
+  return issue.code === 'cycle_detected'
 }
 
 export function WorkflowInspector(props: WorkflowInspectorProps) {
@@ -98,6 +104,32 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
     onError: (error) => showToast(error instanceof Error ? error.message : 'Script preview failed', 'error'),
   })
 
+  const submitReviewedScript = useMutation({
+    mutationFn: async () => {
+      if (!selectedNode) throw new Error('Select a workflow node first.')
+      if (!scriptPreview) throw new Error('Generate a script preview first.')
+      if (workflowRunId) {
+        const validation = await validateWorkflowRun(workflowRunId)
+        const hasBlockingInputWarning = validation.warnings.some((issue) => isBlockingNodeIssue(issue, selectedNode.node_run_id))
+        if (validation.errors.length > 0 || hasBlockingInputWarning) {
+          throw new Error('Resolve required node inputs before submission.')
+        }
+      }
+      return submitWorkflowNode(selectedNode.node_run_id, {
+        override_params: effectiveParameters,
+        queue_name: queueName.trim() || undefined,
+        resource_requirement: resourceRequirement.trim() || undefined,
+        gpu_requirement: gpuRequirement.trim() || undefined,
+      })
+    },
+    onSuccess: async (job) => {
+      showToast(`Job ${job.job_id} ${job.status}`, 'success')
+      await queryClient.invalidateQueries({ queryKey: ['workflow-graph', workflowRunId] })
+      await queryClient.invalidateQueries({ queryKey: ['workflow-jobs', workflowRunId] })
+    },
+    onError: (error) => showToast(error instanceof Error ? error.message : 'Submission failed', 'error'),
+  })
+
   const downloadSelectedArtifact = async () => {
     if (!selectedArtifact) return
     try {
@@ -125,19 +157,22 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
   }
 
   return (
-    <aside className="space-y-4">
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-3">
-        <div className="mb-3 flex items-center gap-2">
-          <Info className="h-4 w-4 text-bda-cyan" />
-          <div>
-            <p className="text-xs uppercase tracking-wide text-bda-cyan">Inspector</p>
-            <h2 className="text-sm font-semibold">
-              {selectedNode ? 'Node details' : selectedArtifact ? 'Artifact details' : 'Workflow summary'}
-            </h2>
+    <aside className="bda-sticky-panel space-y-4 xl:max-h-[calc(100vh-8rem)] xl:overflow-hidden">
+      <section className="bda-card flex min-h-0 flex-col xl:max-h-[calc(100vh-17rem)]">
+        <div className="bda-card-header py-3">
+          <div className="flex items-center gap-2">
+            <Info className="h-4 w-4 text-bda-cyan" />
+            <div>
+              <p className="text-xs uppercase tracking-wide text-bda-cyan">Inspector</p>
+              <h2 className="text-sm font-semibold">
+                {selectedNode ? 'Node details' : selectedArtifact ? 'Artifact details' : 'Workflow summary'}
+              </h2>
+            </div>
           </div>
         </div>
 
-        {selectedNode ? (
+        <div className="bda-card-body bda-scroll-area min-h-0">
+          {selectedNode ? (
           <div className="space-y-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
@@ -151,7 +186,9 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
             </div>
 
             <InspectorBlock icon={<Settings2 className="h-3.5 w-3.5" />} title="Parameters">
-              <ParameterSchemaForm schema={parameterSchema} values={effectiveParameters} onChange={setDraftParameters} />
+              <div className="bda-scroll-area max-h-80 rounded-md border border-bda-border bg-bda-bg p-2">
+                <ParameterSchemaForm schema={parameterSchema} values={effectiveParameters} onChange={setDraftParameters} />
+              </div>
               <div className="mt-3 grid gap-2 rounded-md border border-bda-border bg-bda-bg p-2">
                 <label className="grid gap-1 text-[11px] text-bda-muted">
                   LSF queue override
@@ -224,9 +261,18 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
                       >
                         <Download className="h-3.5 w-3.5" />
                       </button>
+                      <button
+                        type="button"
+                        className="rounded border border-bda-border p-1 text-bda-muted hover:text-bda-text disabled:opacity-50"
+                        onClick={() => submitReviewedScript.mutate()}
+                        disabled={submitReviewedScript.isPending}
+                        title="Upload and submit"
+                      >
+                        <UploadCloud className="h-3.5 w-3.5" />
+                      </button>
                     </span>
                   </div>
-                  <pre className="max-h-80 overflow-auto p-2 text-[11px] leading-relaxed text-bda-muted">
+                  <pre className="bda-scroll-area max-h-72 p-2 text-[11px] leading-relaxed text-bda-muted">
                     {scriptPreview.script}
                   </pre>
                 </div>
@@ -234,11 +280,13 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
             </InspectorBlock>
 
             <InspectorBlock icon={<Network className="h-3.5 w-3.5" />} title="Metrics">
-              <KeyValueGrid data={metrics} empty="No metrics reported yet." />
+              <div className="bda-scroll-area max-h-56">
+                <KeyValueGrid data={metrics} empty="No metrics reported yet." />
+              </div>
             </InspectorBlock>
 
             {selectedNode.logs ? (
-              <pre className="max-h-32 overflow-auto rounded-md border border-bda-border bg-bda-bg p-2 text-xs text-bda-muted">
+              <pre className="bda-scroll-area max-h-32 rounded-md border border-bda-border bg-bda-bg p-2 text-xs text-bda-muted">
                 {selectedNode.logs}
               </pre>
             ) : null}
@@ -251,7 +299,22 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
                 {selectedArtifact.artifact_type} · {selectedArtifact.format} · {formatBytes(selectedArtifact.size_bytes)}
               </p>
             </div>
-            <KeyValueGrid data={selectedArtifact.metadata} empty="No metadata parsed yet." />
+            <InspectorBlock icon={<Network className="h-3.5 w-3.5" />} title="Lineage">
+              <KeyValueGrid
+                data={{
+                  project_id: selectedArtifact.project_id,
+                  workflow_run_id: selectedArtifact.workflow_run_id,
+                  node_run_id: selectedArtifact.node_run_id,
+                  checksum: selectedArtifact.checksum,
+                  storage_uri: selectedArtifact.storage_uri,
+                  created_by: selectedArtifact.created_by,
+                }}
+                empty="No lineage fields are attached yet."
+              />
+            </InspectorBlock>
+            <div className="bda-scroll-area max-h-72">
+              <KeyValueGrid data={selectedArtifact.metadata} empty="No metadata parsed yet." />
+            </div>
             {hasDownload ? (
               <button
                 type="button"
@@ -273,6 +336,7 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
             <p>Select an artifact to preview metadata or download the source file.</p>
           </div>
         )}
+        </div>
       </section>
 
       <JobStatusDrawer workflowRunId={workflowRunId} selectedNodeId={selectedNode?.node_run_id ?? null} overrideParams={effectiveParameters} />
