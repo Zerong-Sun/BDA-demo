@@ -118,3 +118,38 @@ def test_collect_predicted_structure_inserts_folded_candidate(db):
     assert candidate["status"] == "folded"
     assert candidate["plddt"] == 88.4
     assert candidate["complex_file_path"].endswith("af2_smoke_model_4_ptm_seed_0_unrelaxed.pdb")
+
+
+def test_collect_job_outputs_preserves_nested_output_paths(db):
+    job = job_service.create_job(
+        db,
+        workflow_run_id="run_pd1_round1",
+        node_run_id="node_af2",
+        plugin_id="plugin_alphafold2",
+    )
+    output_dir = ARTIFACTS_ROOT / "jobs" / job["job_id"] / "output"
+    first = output_dir / "candidate_a" / "model.pdb"
+    second = output_dir / "candidate_b" / "model.pdb"
+    first.parent.mkdir(parents=True, exist_ok=True)
+    second.parent.mkdir(parents=True, exist_ok=True)
+    first.write_text("ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  1.00           C\nEND\n")
+    second.write_text("ATOM      1  CA  GLY A   1       1.000   1.000   1.000  1.00  1.00           C\nEND\n")
+    (output_dir / "manifest.json").write_text(json.dumps({
+        "outputs": {
+            "predicted_structure": [
+                {"path": "candidate_a/model.pdb", "format": "pdb", "metadata": {"candidate_id": "nested_a"}},
+                {"path": "candidate_b/model.pdb", "format": "pdb", "metadata": {"candidate_id": "nested_b"}},
+            ],
+        },
+        "metrics": {"folded": 2},
+    }))
+
+    result = job_service.collect_job_outputs(db, job["job_id"])
+    paths = {artifact["storage_uri"] for artifact in result["artifacts"]}
+    metadata_paths = {artifact["metadata_json"]["output_relative_path"] for artifact in result["artifacts"]}
+
+    assert paths == {
+        f"artifact://jobs/{job['job_id']}/outputs/candidate_a/model.pdb",
+        f"artifact://jobs/{job['job_id']}/outputs/candidate_b/model.pdb",
+    }
+    assert metadata_paths == {"candidate_a/model.pdb", "candidate_b/model.pdb"}

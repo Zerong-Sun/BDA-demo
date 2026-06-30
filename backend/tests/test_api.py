@@ -188,6 +188,38 @@ def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str
             connection.commit()
 
 
+def test_copilot_config_can_clear_api_key(client: TestClient, auth_headers: dict[str, str]):
+    from backend.scripts.init_db import DB_PATH
+    from backend.app.settings import get_settings
+
+    settings = get_settings()
+    original_key = settings.llm_api_key
+    with sqlite3.connect(DB_PATH) as connection:
+        original_rows = connection.execute(
+            "SELECT key, value FROM app_settings WHERE namespace = 'copilot'"
+        ).fetchall()
+    try:
+        settings.llm_api_key = "sk-temporary"
+        response = client.put(
+            f"{API}/copilot/config",
+            headers=auth_headers,
+            json={"llm_api_key": ""},
+        )
+        assert response.status_code == 200
+        data = response.json()["data"]
+        assert data["api_key_configured"] is False
+        assert data["api_key_preview"] is None
+    finally:
+        settings.llm_api_key = original_key
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+            connection.executemany(
+                "INSERT INTO app_settings (namespace, key, value) VALUES ('copilot', ?, ?)",
+                original_rows,
+            )
+            connection.commit()
+
+
 def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, str]):
     response = client.get(f"{API}/copilot/knowledge?q=ProteinMPNN", headers=auth_headers)
     assert response.status_code == 200
@@ -197,10 +229,17 @@ def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, st
 
 
 def test_copilot_uses_biomaterials_knowledge_base(client: TestClient, auth_headers: dict[str, str]):
+    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
 
     settings = get_settings()
     original_api_key = settings.llm_api_key
+    with sqlite3.connect(DB_PATH) as connection:
+        original_rows = connection.execute(
+            "SELECT key, value FROM app_settings WHERE namespace = 'copilot'"
+        ).fetchall()
+        connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+        connection.commit()
     settings.llm_api_key = ""
     try:
         response = client.post(
@@ -223,6 +262,13 @@ def test_copilot_uses_biomaterials_knowledge_base(client: TestClient, auth_heade
         assert "RFdiffusion" in data["message"]
     finally:
         settings.llm_api_key = original_api_key
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+            connection.executemany(
+                "INSERT INTO app_settings (namespace, key, value) VALUES ('copilot', ?, ?)",
+                original_rows,
+            )
+            connection.commit()
 
 
 def test_copilot_knowledge_tool(client: TestClient, auth_headers: dict[str, str]):
