@@ -18,11 +18,23 @@ const debugFactory = Object.assign(
   {
     coerce: (value: unknown) => value,
     disable: () => '',
-    enable: (_namespaces: string) => undefined,
-    enabled: (_namespace: string) => false,
-    formatArgs: (_args: unknown[]) => undefined,
+    enable: (namespaces: string) => {
+      void namespaces
+      return undefined
+    },
+    enabled: (namespace: string) => {
+      void namespace
+      return false
+    },
+    formatArgs: (args: unknown[]) => {
+      void args
+      return undefined
+    },
     humanize: (value: unknown) => String(value),
-    log: (..._args: unknown[]) => undefined,
+    log: (...args: unknown[]) => {
+      void args
+      return undefined
+    },
   },
 )
 

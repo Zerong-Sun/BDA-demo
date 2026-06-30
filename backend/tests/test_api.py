@@ -1,4 +1,5 @@
 import io
+import sqlite3
 
 from fastapi.testclient import TestClient
 
@@ -97,10 +98,17 @@ def test_candidates_invalid_sort(client: TestClient, auth_headers: dict[str, str
 
 
 def test_copilot_chat(client: TestClient, auth_headers: dict[str, str]):
+    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
 
     settings = get_settings()
     original_api_key = settings.llm_api_key
+    with sqlite3.connect(DB_PATH) as connection:
+        original_rows = connection.execute(
+            "SELECT key, value FROM app_settings WHERE namespace = 'copilot'"
+        ).fetchall()
+        connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+        connection.commit()
     settings.llm_api_key = ""
     try:
         response = client.post(
@@ -115,6 +123,13 @@ def test_copilot_chat(client: TestClient, auth_headers: dict[str, str]):
         assert response.json()["data"]["mode"] == "rule_based_demo"
     finally:
         settings.llm_api_key = original_api_key
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+            connection.executemany(
+                "INSERT INTO app_settings (namespace, key, value) VALUES ('copilot', ?, ?)",
+                original_rows,
+            )
+            connection.commit()
 
 
 def test_copilot_rejects_out_of_domain_chat(client: TestClient, auth_headers: dict[str, str]):
@@ -130,6 +145,7 @@ def test_copilot_rejects_out_of_domain_chat(client: TestClient, auth_headers: di
 
 
 def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str, str]):
+    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
 
     settings = get_settings()
@@ -138,6 +154,10 @@ def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str
         "llm_api_key": settings.llm_api_key,
         "llm_model": settings.llm_model,
     }
+    with sqlite3.connect(DB_PATH) as connection:
+        original_rows = connection.execute(
+            "SELECT key, value FROM app_settings WHERE namespace = 'copilot'"
+        ).fetchall()
     try:
         response = client.put(
             f"{API}/copilot/config",
@@ -159,6 +179,13 @@ def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str
         settings.llm_api_base = original["llm_api_base"]
         settings.llm_api_key = original["llm_api_key"]
         settings.llm_model = original["llm_model"]
+        with sqlite3.connect(DB_PATH) as connection:
+            connection.execute("DELETE FROM app_settings WHERE namespace = 'copilot'")
+            connection.executemany(
+                "INSERT INTO app_settings (namespace, key, value) VALUES ('copilot', ?, ?)",
+                original_rows,
+            )
+            connection.commit()
 
 
 def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, str]):

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Plus, Sparkles } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
@@ -184,17 +184,6 @@ export function WorkflowPage() {
 
   const selectedRoute = routePlan?.route_options.find((route) => route.route_id === selectedRouteId) ?? null
 
-  useEffect(() => {
-    const recommended = routePlan?.route_options.find((route) => route.recommended) ?? routePlan?.route_options[0]
-    if (!recommended) {
-      setSelectedRouteId('')
-      setSelectedModuleIds([])
-      return
-    }
-    setSelectedRouteId(recommended.route_id)
-    setSelectedModuleIds(recommended.modules.filter((module) => module.available).map((module) => module.module_id))
-  }, [routePlan])
-
   const createWorkflow = useMutation({
     mutationFn: () => createWorkflowRun(projectId),
     onSuccess: (run) => {
@@ -213,10 +202,17 @@ export function WorkflowPage() {
         objective: goal,
       }),
     onSuccess: (plan) => {
+      const recommended = plan.route_options.find((route) => route.recommended) ?? plan.route_options[0]
       setRoutePlan(plan)
+      setSelectedRouteId(recommended?.route_id ?? '')
+      setSelectedModuleIds(recommended?.modules.filter((module) => module.available).map((module) => module.module_id) ?? [])
       showToast('Route options prepared from project knowledge', 'success')
     },
-    onError: () => showToast('Failed to prepare route options', 'error'),
+    onError: (error) =>
+      showToast(
+        error instanceof Error ? `Failed to prepare route options: ${error.message}` : 'Failed to prepare route options',
+        'error',
+      ),
   })
 
   const applyPlannedRoute = useMutation({

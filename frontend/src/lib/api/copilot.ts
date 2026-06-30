@@ -309,8 +309,8 @@ export const RouteModuleSchema = z.object({
   available: z.boolean(),
   summary: z.string(),
   default_parameters: z.record(z.string(), z.unknown()).optional(),
-  parameter_schema: z.record(z.string(), z.unknown()).optional(),
-})
+  parameter_schema: z.record(z.string(), z.unknown()).or(z.unknown()).optional(),
+}).passthrough()
 
 export const RouteOptionSchema = z.object({
   route_id: z.string(),
@@ -322,7 +322,7 @@ export const RouteOptionSchema = z.object({
   modules: z.array(RouteModuleSchema),
   risks: z.array(z.string()),
   estimated_steps: z.number(),
-})
+}).passthrough()
 
 export const RoutePlanSchema = z.object({
   mode: z.string(),
@@ -338,7 +338,7 @@ export const RoutePlanSchema = z.object({
   })),
   analysis_trace: z.array(z.string()),
   route_options: z.array(RouteOptionSchema),
-})
+}).passthrough()
 
 export const AppliedRoutePlanSchema = z.object({
   workflow_run: z.object({ workflow_run_id: z.string() }).passthrough(),

@@ -564,6 +564,7 @@ from pathlib import Path
 
 output_dir = Path("output").resolve()
 seq_dir = output_dir / "seqs"
+packed_dir = output_dir / "packed"
 combined_fasta = output_dir / "sweetprotein_mpnn5_designs.fasta"
 score_csv = output_dir / "proteinmpnn_scores.csv"
 records = []
@@ -631,6 +632,16 @@ with score_csv.open("w", encoding="utf-8", newline="") as handle:
                 "display_name": "sweetprotein_mpnn5_designs.fasta",
                 "metadata": {"sequence_count": len(records), "source_port": "sequence_set"},
             }],
+            "packed_structure": [
+                {
+                    "path": str(path.relative_to(output_dir)),
+                    "format": "pdb",
+                    "artifact_type": "packed_structure",
+                    "display_name": path.name,
+                    "metadata": {"candidate_id": path.stem, "source_port": "packed_structure"},
+                }
+                for path in sorted(packed_dir.glob("*.pdb"))
+            ],
             "score_table": [{
                 "path": "proteinmpnn_scores.csv",
                 "format": "csv",
@@ -701,9 +712,23 @@ PY"""
         resource_requirement = job.resource_requirement or job.env.get("BDA_LSF_RESOURCE") or "span[ptile=1]"
         gpu_requirement = job.gpu_requirement or job.env.get("BDA_LSF_GPU") or "num=1"
         remote_dir = self._remote_job_dir(job.job_id)
+        pdb_names = (
+            self._staged_input_names(manifest, port="packed_structure", formats={"pdb"})
+            or self._staged_input_names(manifest, port="structure", formats={"pdb"})
+            or self._staged_input_names(manifest, port="backbone_set", formats={"pdb"})
+        )
         fasta_names = self._staged_input_names(manifest, port="sequence_set", formats={"fasta", "fa"})
         models = int(parameters.get("superfold_models") or 4)
         max_recycle = int(parameters.get("max_recycle") or parameters.get("max_recycles") or 5)
+        use_pdb_input = bool(pdb_names) or str(parameters.get("superfold_input_mode") or "").lower() in {
+            "pdb",
+            "packed_pdb",
+            "packed_structure",
+        }
+        pdb_copy_lines = "\n".join(
+            f"cp input/{shlex.quote(name)} work/input_pdb/{shlex.quote(name)}"
+            for name in pdb_names
+        ) or "find input -maxdepth 1 -type f -name '*.pdb' -exec cp {} work/input_pdb/ \\;"
         fasta_copy_lines = "\n".join(
             f"cp input/{shlex.quote(name)} work/input_fasta/{shlex.quote(name)}"
             for name in fasta_names
@@ -717,6 +742,22 @@ from pathlib import Path
 
 output_dir = Path("output").resolve()
 records = []
+report_scores = {}
+report_re = re.compile(
+    r"^(?P<name>\\S+)\\s+\\S+\\s+recycles:(?P<recycles>\\d+)\\s+tol:(?P<tol>\\S+)\\s+"
+    r"mean_plddt:(?P<plddt>\\S+)\\s+pTMscore:(?P<ptm>\\S+)(?:\\s+rmsd_to_input:(?P<rmsd>\\S+))?"
+)
+
+for report in output_dir.rglob("reports.txt"):
+    for raw in report.read_text(encoding="utf-8", errors="replace").splitlines():
+        match = report_re.search(raw.strip())
+        if not match:
+            continue
+        report_scores[match.group("name")] = {
+            "plddt": float(match.group("plddt")),
+            "ptm": float(match.group("ptm")),
+            "rmsd_to_input": float(match.group("rmsd")) if match.group("rmsd") else None,
+        }
 
 def candidate_name(path):
     name = path.stem
@@ -756,7 +797,7 @@ for path in output_dir.rglob("*.json"):
 
 for pdb_path in sorted(output_dir.rglob("*.pdb")):
     candidate = candidate_name(pdb_path)
-    scores = score_by_candidate.get(candidate, {})
+    scores = score_by_candidate.get(candidate, {}) or report_scores.get(candidate, {})
     relative = pdb_path.relative_to(output_dir)
     records.append({
         "candidate_id": candidate,
@@ -764,11 +805,12 @@ for pdb_path in sorted(output_dir.rglob("*.pdb")):
         "plddt": scores.get("plddt"),
         "ptm": scores.get("ptm"),
         "iptm": scores.get("iptm"),
+        "rmsd_to_input": scores.get("rmsd_to_input"),
     })
 
 score_csv = output_dir / "alphafold2_confidence.csv"
 with score_csv.open("w", encoding="utf-8", newline="") as handle:
-    fieldnames = ["candidate_id", "path", "plddt", "ptm", "iptm"]
+    fieldnames = ["candidate_id", "path", "plddt", "ptm", "iptm", "rmsd_to_input"]
     writer = csv.DictWriter(handle, fieldnames=fieldnames)
     writer.writeheader()
     for record in records:
@@ -786,6 +828,7 @@ outputs = {
                 "plddt": record.get("plddt"),
                 "ptm": record.get("ptm"),
                 "iptm": record.get("iptm"),
+                "rmsd_to_input": record.get("rmsd_to_input"),
                 "source_port": "predicted_structure",
             },
         }
@@ -876,21 +919,38 @@ PY"""
             "",
             "set -Eeuo pipefail",
             f"cd {shlex.quote(remote_dir)}",
-            "mkdir -p output work/input_fasta work/single_fasta logs",
+            "mkdir -p output work/input_pdb work/input_fasta work/single_fasta logs",
             "PYTHON_BIN=$(command -v python3 || command -v python)",
-            fasta_copy_lines,
-            split_script.strip().replace("python - <<'PY'", '"$PYTHON_BIN" - <<\'PY\''),
             "source deactivate base >/dev/null 2>&1 || true",
             "conda deactivate >/dev/null 2>&1 || true",
             "export CUDA_VISIBLE_DEVICES=\"\"" if force_cpu else "true",
-            "for fasta_file in work/single_fasta/*.fasta; do",
-            "  name=$(basename \"$fasta_file\" .fasta)",
-            "  mkdir -p \"output/$name\"",
-            f"  /work/bme-liz/software/superfold/superfold \"$fasta_file\" --models {models} --max_recycles {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
-            "done",
+        ]
+        if use_pdb_input:
+            directives.extend([
+                pdb_copy_lines,
+                "pdb_count=$(find work/input_pdb -maxdepth 1 -type f -name '*.pdb' | wc -l | tr -d ' ')",
+                "echo \"[INFO] AlphaFold2/Superfold PDB inputs staged: $pdb_count\" | tee -a logs/$LSB_JOBID.log",
+                "if [[ \"$pdb_count\" == \"0\" ]]; then echo '[ERROR] No PDB records staged for AlphaFold2/Superfold' >&2; exit 1; fi",
+                "for pdb_file in work/input_pdb/*.pdb; do",
+                "  name=$(basename \"$pdb_file\" .pdb)",
+                "  mkdir -p \"output/$name\"",
+                f"  /work/bme-liz/software/superfold/superfold \"$pdb_file\" --models {models} --max_recycle {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
+                "done",
+            ])
+        else:
+            directives.extend([
+                fasta_copy_lines,
+                split_script.strip().replace("python - <<'PY'", '"$PYTHON_BIN" - <<\'PY\''),
+                "for fasta_file in work/single_fasta/*.fasta; do",
+                "  name=$(basename \"$fasta_file\" .fasta)",
+                "  mkdir -p \"output/$name\"",
+                f"  /work/bme-liz/software/superfold/superfold \"$fasta_file\" --models {models} --max_recycle {max_recycle} --output_summary --out_dir \"output/$name\" >> logs/$LSB_JOBID.log 2>&1",
+                "done",
+            ])
+        directives.extend([
             collect_script.strip().replace("python - <<'PY'", '"$PYTHON_BIN" - <<\'PY\''),
             "echo '[DONE] AlphaFold2/Superfold finished.'",
-        ]
+        ])
         if not force_cpu:
             directives.insert(6, f'#BSUB -gpu "{gpu_requirement}"')
         return "\n".join(directives) + "\n"

@@ -72,3 +72,49 @@ def test_collect_job_outputs_registers_artifacts(db):
 
     repeated = job_service.collect_job_outputs(db, job["job_id"])
     assert repeated["artifacts"][0]["artifact_id"] == result["artifacts"][0]["artifact_id"]
+
+
+def test_collect_predicted_structure_inserts_folded_candidate(db):
+    job = job_service.create_job(
+        db,
+        workflow_run_id="run_pd1_round1",
+        node_run_id="node_af2",
+        plugin_id="plugin_alphafold2",
+    )
+    output_dir = ARTIFACTS_ROOT / "jobs" / job["job_id"] / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    pdb = output_dir / "af2_smoke_model_4_ptm_seed_0_unrelaxed.pdb"
+    pdb.write_text(
+        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  1.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    (output_dir / "manifest.json").write_text(json.dumps({
+        "status": "completed",
+        "outputs": {
+            "predicted_structure": [{
+                "path": "af2_smoke_model_4_ptm_seed_0_unrelaxed.pdb",
+                "format": "pdb",
+                "artifact_type": "predicted_structure",
+                "display_name": "af2_smoke_model_4_ptm_seed_0_unrelaxed.pdb",
+                "metadata": {
+                    "candidate_id": "af2_smoke_candidate",
+                    "family": "pd1",
+                    "plddt": 88.4,
+                },
+            }],
+        },
+        "metrics": {"folded": 1},
+    }))
+
+    result = job_service.collect_job_outputs(db, job["job_id"])
+    candidate = db.execute(
+        "SELECT * FROM candidates WHERE candidate_id = ?",
+        ("cand_af2_smoke_candidate",),
+    ).fetchone()
+
+    assert result["manifest_found"] is True
+    assert result["artifacts"][0]["artifact_type"] == "predicted_structure"
+    assert candidate is not None
+    assert candidate["status"] == "folded"
+    assert candidate["plddt"] == 88.4
+    assert candidate["complex_file_path"].endswith("af2_smoke_model_4_ptm_seed_0_unrelaxed.pdb")

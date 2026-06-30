@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { Copy, Download, FileCode2, Info, Network, Save, Settings2 } from 'lucide-react'
 import type { WorkflowNode } from '../../lib/schemas/workflow'
 import type { Artifact } from '../../lib/schemas/artifact'
@@ -33,7 +33,12 @@ function parseJsonObject(value: unknown): Record<string, unknown> {
   return typeof value === 'object' ? (value as Record<string, unknown>) : {}
 }
 
-export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifact }: WorkflowInspectorProps) {
+export function WorkflowInspector(props: WorkflowInspectorProps) {
+  const selectionKey = props.selectedNode?.node_run_id ?? props.selectedArtifact?.artifact_id ?? 'empty'
+  return <WorkflowInspectorContent key={selectionKey} {...props} />
+}
+
+function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifact }: WorkflowInspectorProps) {
   const parameters = parseJsonObject(selectedNode?.parameters_json)
   const metrics = parseJsonObject(selectedNode?.metrics_json)
   const [draftParameters, setDraftParameters] = useState<Record<string, unknown>>(parameters)
@@ -63,11 +68,6 @@ export function WorkflowInspector({ workflowRunId, selectedNode, selectedArtifac
     () => ({ ...defaultsFromFields(parameterFields), ...draftParameters }),
     [draftParameters, parameterFields],
   )
-
-  useEffect(() => {
-    setDraftParameters(parameters)
-    setScriptPreview(null)
-  }, [selectedNode?.node_run_id])
 
   const saveParameters = useMutation({
     mutationFn: () => {

@@ -69,10 +69,33 @@ def test_lsf_script_renders_builtin_alphafold2_runner(tmp_path: Path):
 
     assert "#BSUB -J AlphaFold2_test123" in script
     assert "/work/bme-liz/software/superfold/superfold" in script
-    assert "--max_recycles 3" in script
+    assert "--max_recycle 3" in script
+    assert "work/single_fasta" in script
     assert "alphafold2_confidence.csv" in script
     assert "predicted_structure" in script
     assert job.command not in script
+
+
+def test_lsf_script_prefers_packed_pdbs_for_alphafold2(tmp_path: Path):
+    adapter = make_adapter()
+    job = make_job(tmp_path, gpu=True)
+    job.plugin_id = "plugin_alphafold2"
+    (tmp_path / "input" / "packed_design.pdb").write_text(
+        "ATOM      1  CA  ALA A   1       0.000   0.000   0.000  1.00  1.00           C\nEND\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "input" / "manifest.json").write_text(
+        '{"inputs":[{"port":"packed_structure","format":"pdb","path":"/input/packed_design.pdb"}],"parameters":{"max_recycle":5}}',
+        encoding="utf-8",
+    )
+
+    script = adapter.render_script(job)
+
+    assert "work/input_pdb" in script
+    assert "PDB inputs staged" in script
+    assert "packed_design.pdb" in script
+    assert "--max_recycle 5" in script
+    assert "rmsd_to_input" in script
 
 
 def test_submit_rejects_plugin_without_admin_wrapper(tmp_path: Path):
