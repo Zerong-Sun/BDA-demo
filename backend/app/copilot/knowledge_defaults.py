@@ -71,6 +71,49 @@ ENTRIES = [
         ),
         "tags": ["sequence", "molecular_weight", "charge", "hydrophobicity", "screening"],
     },
+    {
+        "knowledge_entry_id": "kb_route_planning",
+        "title": "Knowledge-guided workflow route planning",
+        "category": "workflow",
+        "subcategory": "route_selection",
+        "summary": "Choose workflow routes by design objective, evidence quality, available target context, and validation needs.",
+        "content": (
+            "A route planner should first summarize the project target, objective, constraints, and available evidence. "
+            "It should then compare candidate routes, explain why each route fits, list required model modules, and keep "
+            "route selection separate from script generation. Users should be able to choose one route and optionally "
+            "disable modules before the system creates workflow nodes or scripts."
+        ),
+        "tags": ["workflow", "route", "planner", "modules", "knowledge"],
+    },
+    {
+        "knowledge_entry_id": "kb_insecticidal_protein_design",
+        "title": "Insecticidal protein design route boundaries",
+        "category": "application",
+        "subcategory": "insecticidal_protein",
+        "summary": "Insecticidal protein projects need explicit pest species, target biology, specificity, safety, and assay plans.",
+        "content": (
+            "For an insecticidal or anti-pest protein project, distinguish computational protein generation from claims "
+            "about biological activity. The project should name the pest species, intended exposure route, putative target "
+            "or gut receptor, specificity requirements, crop or formulation context, environmental safety assumptions, "
+            "and planned in vitro or in vivo assays. De novo generation can propose structures and sequences, but activity, "
+            "toxicity spectrum, off-target effects, and durability require controlled experimental validation."
+        ),
+        "tags": ["insect", "antipest", "抗虫", "specificity", "assay", "safety"],
+    },
+    {
+        "knowledge_entry_id": "kb_model_module_chain",
+        "title": "Protein design model module chain",
+        "category": "workflow",
+        "subcategory": "model_modules",
+        "summary": "Common protein routes chain generation, sequence design, folding, scoring, filtering, and validation modules.",
+        "content": (
+            "A typical de novo protein design route uses a structure generator such as RFdiffusion, a sequence designer "
+            "such as ProteinMPNN, a fold or complex predictor such as AlphaFold2, AlphaFold3, Boltz, or Chai-1, and an "
+            "energy or interface scoring step such as Rosetta. Route plans should record module plugin IDs, expected inputs "
+            "and outputs, parameter assumptions, and downstream script-preview readiness so the workflow graph remains auditable."
+        ),
+        "tags": ["RFdiffusion", "ProteinMPNN", "AlphaFold", "Rosetta", "modules", "script"],
+    },
 ]
 
 

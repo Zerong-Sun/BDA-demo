@@ -14,6 +14,7 @@ This directory keeps the current technical and product-supporting documentation 
 | `RFDIFFUSION_WORKFLOW_SUBMISSION.md` | Fixed RFdiffusion node parameter, script preview, LSF submission, and output collection contract |
 | `COPILOT_科研检索与集群任务指南.md` | Research search, literature learning, cluster jobs, and Campaign guide |
 | `COPILOT_DEEPSEEK_配置指南.md` | DeepSeek / OpenAI-compatible Copilot configuration notes |
+| `COPILOT_TOOLING_LOGIC.md` | Unified BDA Copilot, tool, knowledge, route-planning, and LLM-provider logic |
 | `DEV_GUIDE_接口与模型卡片扩展.md` | API and model-card extension guide |
 | `REPOSITORY_STRUCTURE.md` | Repository layout and source ownership notes |
 

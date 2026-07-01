@@ -10,8 +10,17 @@ class ApiEnvelope(BaseModel):
 
 class RoutePlanRequest(BaseModel):
     project_id: str | None = None
-    target: str = "PD-1"
+    target: str | None = None
     objective: str = "binder_design"
+    constraints: dict[str, Any] = Field(default_factory=dict)
+
+
+class RoutePlanApplyRequest(BaseModel):
+    project_id: str
+    route_id: str
+    objective: str = Field(min_length=1, max_length=2000)
+    selected_module_ids: list[str] = Field(default_factory=list)
+    target: str | None = Field(default=None, max_length=200)
     constraints: dict[str, Any] = Field(default_factory=dict)
 
 

@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Plus, Sparkles } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
@@ -7,10 +7,11 @@ import { mapApiGraphToGraph } from '../features/workflow/workflowMapper'
 import { ComputeStatusStrip } from '../features/workflow/ComputeStatusStrip'
 import { WorkflowResourceSidebar } from '../features/workflow/WorkflowResourceSidebar'
 import { WorkflowInspector } from '../features/workflow/WorkflowInspector'
-import { buildRecommendedWorkflow, defaultWorkflowEdges, defaultWorkflowNodes, nodeTemplates, type NodeTemplate } from '../features/workflow/workflowTypes'
+import { defaultWorkflowEdges, defaultWorkflowNodes, type NodeTemplate } from '../features/workflow/workflowTypes'
 import { ApiState } from '../components/ui/ApiState'
 import { getLatestWorkflowRunOrNull, listProjectWorkflowRuns } from '../lib/api/projects'
-import { addWorkflowNode, createWorkflowRun, getWorkflowGraph, saveWorkflowLayout, submitWorkflowRun } from '../lib/api/workflow'
+import { createWorkflowRun, getWorkflowGraph, submitWorkflowRun } from '../lib/api/workflow'
+import { applyRoutePlan, planRoute, type RoutePlan } from '../lib/api/copilot'
 import { listProjectArtifacts } from '../lib/api/artifacts'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useAppStore } from '../lib/store/appStore'
@@ -81,6 +82,9 @@ function parseLayoutNodeCount(run: { layout_json?: string | null }) {
 export function WorkflowPage() {
   const [builderOpen, setBuilderOpen] = useState(false)
   const [goal, setGoal] = useState('Design 10,000 PD-1 binder candidates and nominate 48 constructs for BLI/SEC validation.')
+  const [routePlan, setRoutePlan] = useState<RoutePlan | null>(null)
+  const [selectedRouteId, setSelectedRouteId] = useState<string>('')
+  const [selectedModuleIds, setSelectedModuleIds] = useState<string[]>([])
   const [artifacts, setArtifacts] = useState<Artifact[]>([])
   const [selectedArtifactId, setSelectedArtifactId] = useState<string | undefined>()
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null)
@@ -178,6 +182,19 @@ export function WorkflowPage() {
   const workflowRun = workflowGraph?.workflow_run ?? latestWorkflowRun
   const readOnly = isDemoMode || workflowRun?.status === 'completed'
 
+  const selectedRoute = routePlan?.route_options.find((route) => route.route_id === selectedRouteId) ?? null
+
+  useEffect(() => {
+    const recommended = routePlan?.route_options.find((route) => route.recommended) ?? routePlan?.route_options[0]
+    if (!recommended) {
+      setSelectedRouteId('')
+      setSelectedModuleIds([])
+      return
+    }
+    setSelectedRouteId(recommended.route_id)
+    setSelectedModuleIds(recommended.modules.filter((module) => module.available).map((module) => module.module_id))
+  }, [routePlan])
+
   const createWorkflow = useMutation({
     mutationFn: () => createWorkflowRun(projectId),
     onSuccess: (run) => {
@@ -188,76 +205,40 @@ export function WorkflowPage() {
     onError: () => showToast('Failed to create workflow run', 'error'),
   })
 
-  const generateRecommended = useMutation({
-    mutationFn: async () => {
-      const runId = applicationWorkflowRunId ?? (await createWorkflowRun(projectId)).workflow_run_id
-      setProjectWorkflowRunId(projectId, runId)
-      const steps = buildRecommendedWorkflow(goal)
-      const existingNodes = graph?.nodes ?? []
-      const existingEdges = graph?.edges ?? []
-      const branchIndex = Math.floor(existingNodes.length / Math.max(steps.length, 1))
-      const baseY = existingNodes.length === 0 ? 110 : 130 + branchIndex * 190
-      const createdNodes: Array<{ id: string; position: { x: number; y: number } }> = []
-
-      for (const [index, step] of steps.entries()) {
-        const template = nodeTemplates[step.templateId]
-        const col = index % 3
-        const row = Math.floor(index / 3)
-        const x = 80 + col * 280
-        const y = baseY + row * 210
-        const created = await addWorkflowNode(runId, {
-          node_type: template.nodeType,
-          node_name: step.name,
-          model_name: template.modelName,
-          model_version: template.modelVersion,
-          model_plugin_id: template.pluginId,
-          parameters_json: {
-            methods: step.methods,
-            ...step.parameters,
-            copilot_goal: goal,
-            planned: step.estimate.planned,
-            current: step.estimate.current,
-            estimate_unit: step.estimate.unit,
-            estimated_time: step.estimate.duration,
-          },
-          position: { x, y },
-        })
-        createdNodes.push({ id: created.node_run_id, position: { x, y } })
-      }
-
-      const createdEdges = createdNodes.slice(0, -1).map((node, index) => ({
-        id: `e-${node.id}-${createdNodes[index + 1].id}`,
-        source_node_run_id: node.id,
-        target_node_run_id: createdNodes[index + 1].id,
-        source_port: 'output',
-        target_port: 'input',
-        edge_type: 'data',
-      }))
-
-      await saveWorkflowLayout(runId, {
-        nodes: [
-          ...existingNodes.map((node) => ({ node_run_id: node.id, position: node.position })),
-          ...createdNodes.map((node) => ({ node_run_id: node.id, position: node.position })),
-        ],
-        edges: [
-          ...existingEdges.map((edge) => ({
-            id: edge.id,
-            source_node_run_id: edge.source,
-            target_node_run_id: edge.target,
-            source_port: typeof edge.sourceHandle === 'string' ? edge.sourceHandle : 'output',
-            target_port: typeof edge.targetHandle === 'string' ? edge.targetHandle : 'input',
-            edge_type: edge.label === 'feedback' ? 'feedback' : 'data',
-          })),
-          ...createdEdges,
-        ],
-      })
-      return runId
+  const generatePlan = useMutation({
+    mutationFn: () =>
+      planRoute({
+        project_id: projectId,
+        target: goal,
+        objective: goal,
+      }),
+    onSuccess: (plan) => {
+      setRoutePlan(plan)
+      showToast('Route options prepared from project knowledge', 'success')
     },
-    onSuccess: (runId) => {
-      showToast('Recommended workflow generated and connected', 'success')
+    onError: () => showToast('Failed to prepare route options', 'error'),
+  })
+
+  const applyPlannedRoute = useMutation({
+    mutationFn: async () => {
+      if (!selectedRoute) throw new Error('Select a route first')
+      return applyRoutePlan({
+        project_id: projectId,
+        route_id: selectedRoute.route_id,
+        objective: goal,
+        target: routePlan?.target ?? goal,
+        selected_module_ids: selectedModuleIds,
+      })
+    },
+    onSuccess: (result) => {
+      const runId = String(result.workflow_run.workflow_run_id)
+      setProjectWorkflowRunId(projectId, runId)
+      showToast('Selected route created as a workflow', 'success')
+      queryClient.invalidateQueries({ queryKey: ['workflow-runs', projectId] })
+      queryClient.invalidateQueries({ queryKey: ['workflow-run', 'latest', projectId] })
       queryClient.invalidateQueries({ queryKey: ['workflow-graph', runId] })
     },
-    onError: () => showToast('Failed to generate recommended workflow', 'error'),
+    onError: () => showToast('Failed to create selected route', 'error'),
   })
 
   const startWorkflow = useMutation({
@@ -393,20 +374,110 @@ export function WorkflowPage() {
                   className="w-full resize-none rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
                   value={goal}
                   onChange={(e) => setGoal(e.target.value)}
-                  placeholder="Describe the design objective, e.g. generate 10,000 candidates and nominate 48 for experimental validation."
+                  placeholder="Example: Create a new anti-insect protein project, infer routes from the knowledge base, and generate an auditable workflow."
                 />
               </div>
               <button
                 type="button"
                 className="inline-flex items-center justify-center gap-2 rounded-md bg-bda-cyan px-4 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
-                disabled={generateRecommended.isPending || readOnly || !goal.trim()}
-                onClick={() => generateRecommended.mutate()}
+                disabled={generatePlan.isPending || readOnly || !goal.trim()}
+                onClick={() => generatePlan.mutate()}
               >
                 <Sparkles className="h-4 w-4" />
-                Generate recommended workflow
+                Plan routes
               </button>
             </div>
-            <p className="mt-3 text-xs text-bda-muted">For new projects, generate a project-bound workflow here. Active workflow runs are shown directly on the canvas.</p>
+            {routePlan ? (
+              <div className="mt-4 grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(280px,360px)]">
+                <div className="grid gap-3">
+                  <div className="flex flex-wrap gap-2">
+                    {routePlan.route_options.map((route) => (
+                      <button
+                        key={route.route_id}
+                        type="button"
+                        className={`rounded-md border px-3 py-2 text-left text-sm ${
+                          route.route_id === selectedRouteId
+                            ? 'border-bda-cyan bg-bda-cyan/10 text-bda-cyan'
+                            : 'border-bda-border text-bda-text hover:border-bda-cyan/50'
+                        }`}
+                        onClick={() => {
+                          setSelectedRouteId(route.route_id)
+                          setSelectedModuleIds(route.modules.filter((module) => module.available).map((module) => module.module_id))
+                        }}
+                      >
+                        <span className="block font-medium">{route.label}</span>
+                        <span className="block text-xs text-bda-muted">{route.estimated_steps} modules</span>
+                      </button>
+                    ))}
+                  </div>
+                  {selectedRoute ? (
+                    <div className="grid gap-3">
+                      <div>
+                        <p className="text-sm text-bda-text">{selectedRoute.summary}</p>
+                        <ul className="mt-2 grid gap-1 text-xs text-bda-muted">
+                          {selectedRoute.rationale.map((item) => <li key={item}>{item}</li>)}
+                        </ul>
+                      </div>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectedRoute.modules.map((module) => (
+                          <label
+                            key={module.module_id}
+                            className={`flex items-start gap-2 rounded-md border border-bda-border bg-bda-bg p-3 text-sm ${
+                              module.available ? 'text-bda-text' : 'text-bda-muted opacity-70'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="mt-1"
+                              disabled={!module.available}
+                              checked={selectedModuleIds.includes(module.module_id)}
+                              onChange={(event) => {
+                                setSelectedModuleIds((current) =>
+                                  event.target.checked
+                                    ? [...new Set([...current, module.module_id])]
+                                    : current.filter((id) => id !== module.module_id),
+                                )
+                              }}
+                            />
+                            <span>
+                              <span className="block font-medium">{module.model_name}</span>
+                              <span className="block text-xs text-bda-muted">{module.summary}</span>
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                      <button
+                        type="button"
+                        className="inline-flex w-fit items-center gap-2 rounded-md bg-bda-green px-3 py-2 text-sm font-medium text-bda-bg disabled:opacity-50"
+                        disabled={applyPlannedRoute.isPending || selectedModuleIds.length === 0}
+                        onClick={() => applyPlannedRoute.mutate()}
+                      >
+                        <Sparkles className="h-4 w-4" />
+                        Create workflow from selected route
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+                <aside className="grid gap-3 text-xs text-bda-muted">
+                  <div>
+                    <p className="mb-1 uppercase tracking-wide text-bda-cyan">Knowledge used</p>
+                    <ul className="grid gap-1">
+                      {routePlan.knowledge_context.map((item) => (
+                        <li key={item.knowledge_entry_id}>{item.title}</li>
+                      ))}
+                    </ul>
+                  </div>
+                  <div>
+                    <p className="mb-1 uppercase tracking-wide text-bda-cyan">Analysis process</p>
+                    <ol className="grid gap-1">
+                      {routePlan.analysis_trace.map((item) => <li key={item}>{item}</li>)}
+                    </ol>
+                  </div>
+                </aside>
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-bda-muted">New projects can build a knowledge-guided route first, choose modules, and then create a workflow graph for script preview and submission.</p>
+            )}
           </section>
         ) : null}
 
