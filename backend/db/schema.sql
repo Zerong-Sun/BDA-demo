@@ -1,5 +1,13 @@
 PRAGMA foreign_keys = ON;
 
+CREATE TABLE IF NOT EXISTS app_settings (
+  namespace TEXT NOT NULL,
+  key TEXT NOT NULL,
+  value TEXT NOT NULL,
+  updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (namespace, key)
+);
+
 CREATE TABLE IF NOT EXISTS projects (
   project_id TEXT PRIMARY KEY,
   project_name TEXT NOT NULL,

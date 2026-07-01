@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { Send } from 'lucide-react'
+import { RotateCcw, Send } from 'lucide-react'
 import { useCopilotChat } from './useCopilotChat'
 import { useProjectContext } from '../../lib/hooks/useProjectContext'
 
 export function CopilotChat({ pageContext }: { pageContext?: string }) {
   const { projectId } = useProjectContext()
-  const { messages, loading, error, send } = useCopilotChat(projectId, pageContext)
-  const [input, setInput] = useState('Explain why c4361 should anchor round two')
+  const { messages, loading, error, send, resetMessages } = useCopilotChat(projectId, pageContext)
+  const [input, setInput] = useState('')
 
   const handleSend = async () => {
     const trimmed = input.trim()
@@ -17,6 +17,21 @@ export function CopilotChat({ pageContext }: { pageContext?: string }) {
 
   return (
     <div className="flex h-full min-h-[480px] flex-col">
+      <div className="flex items-center justify-between border-b border-bda-border px-4 py-2">
+        <span className="text-xs text-bda-muted">
+          {projectId ? `Project ${projectId}` : 'Select a project for project-aware answers'}
+        </span>
+        <button
+          type="button"
+          aria-label="Reset Copilot conversation"
+          title="Reset Copilot conversation"
+          className="rounded-md border border-bda-border p-1.5 text-bda-muted hover:bg-bda-panel-hover hover:text-bda-text"
+          disabled={loading}
+          onClick={resetMessages}
+        >
+          <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {error ? (
           <div className="rounded-lg border border-bda-red/40 bg-bda-panel p-3 text-sm text-bda-red">
@@ -43,7 +58,7 @@ export function CopilotChat({ pageContext }: { pageContext?: string }) {
         <input
           id="copilot-input"
           aria-label="Ask the Copilot a question"
-          placeholder="Ask about candidates, results, or next steps…"
+          placeholder="Ask about this project, route, file, result, or next step..."
           className="flex-1 rounded-md border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-text"
           value={input}
           disabled={loading}
@@ -54,7 +69,7 @@ export function CopilotChat({ pageContext }: { pageContext?: string }) {
           type="button"
           aria-label="Send message"
           className="rounded-md border border-bda-border p-2 hover:bg-bda-panel-hover disabled:opacity-50"
-          disabled={loading}
+          disabled={loading || !input.trim()}
           onClick={() => void handleSend()}
         >
           <Send className="h-4 w-4" aria-hidden="true" />

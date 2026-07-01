@@ -36,11 +36,10 @@ class OpenAICompatibleProvider:
             kwargs["tool_choice"] = "auto"
         if response_format:
             kwargs["response_format"] = response_format
-        if self._is_deepseek and (tools or response_format):
-            # DeepSeek defaults to thinking mode. Structured extraction does not
-            # benefit from hidden reasoning, and tool turns require preserving
-            # reasoning_content across messages. Disable thinking for these
-            # compatibility-sensitive paths.
+        if self._is_deepseek:
+            # DeepSeek's thinking mode requires reasoning_content to be carried
+            # across tool turns. BDA does not persist provider-specific hidden
+            # reasoning in chat history, so keep Copilot requests in normal mode.
             kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
         response = self._client.chat.completions.create(**kwargs)
         message = response.choices[0].message
@@ -51,11 +50,10 @@ class OpenAICompatibleProvider:
         )
 
     def stream(self, messages: list[dict], tools: list | None = None):
-        stream = self._client.chat.completions.create(
-            model=self._model,
-            messages=messages,
-            stream=True,
-        )
+        kwargs: dict = {"model": self._model, "messages": messages, "stream": True}
+        if self._is_deepseek:
+            kwargs["extra_body"] = {"thinking": {"type": "disabled"}}
+        stream = self._client.chat.completions.create(**kwargs)
         for chunk in stream:
             delta = chunk.choices[0].delta
             if delta.content:

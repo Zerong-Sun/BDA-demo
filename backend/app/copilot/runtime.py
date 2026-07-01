@@ -71,6 +71,63 @@ def result_interpret_message(connection: sqlite3.Connection, project_id: str | N
     )
 
 
+def _json_object(value) -> dict:
+    if isinstance(value, str):
+        try:
+            parsed = json.loads(value)
+        except json.JSONDecodeError:
+            return {}
+        return parsed if isinstance(parsed, dict) else {}
+    return value if isinstance(value, dict) else {}
+
+
+def _has_result_evidence(summary: dict) -> bool:
+    return bool(
+        summary.get("hit_count")
+        or summary.get("ordered_count")
+        or summary.get("best_kd_candidate")
+        or summary.get("experiment_summary")
+    )
+
+
+def project_next_step_message(connection: sqlite3.Connection, project_id: str | None, query: str = "") -> str:
+    if not project_id:
+        return (
+            "Select or create a project first. Then I can use the same Copilot context across research, "
+            "workflow, candidates, and results to recommend the next biomaterials action."
+        )
+
+    normalized_query = query.lower()
+    if "file" in normalized_query or "artifact" in normalized_query or "文件" in query or "上传" in query:
+        return (
+            "Check the uploaded artifact list first, select the file to inspect, and connect it to the workflow node "
+            "that consumes that format. I will keep that file context available when you move to workflow or results."
+        )
+
+    package = catalog.get_project_delivery_package(connection, project_id)
+    constraints = _json_object((package or {}).get("redesign_constraints"))
+    preserve = constraints.get("preserve_candidate") or constraints.get("preserve_motif")
+    if preserve:
+        return (
+            f"Keep {preserve} as the design anchor, check that the required structure/sequence files are attached, "
+            "then plan a workflow route that records the selected modules and parameters before execution."
+        )
+
+    summary = catalog.get_project_results_summary(connection, project_id)
+    if _has_result_evidence(summary):
+        return (
+            f"For this project, start from the current result decision: {summary['decision_detail']} "
+            "Next, review the workflow route and uploaded artifacts, confirm the candidate or scaffold to preserve, "
+            "then generate an auditable route plan before submitting compute."
+        )
+
+    return (
+        "Use the current project context to define the target, choose a route from the knowledge base, confirm the "
+        "input files and module parameters, then create the workflow graph. I can carry that plan into candidates, "
+        "results, and cluster job review."
+    )
+
+
 def knowledge_message(connection: sqlite3.Connection, query: str) -> str:
     items = knowledge.search_entries(connection, query, limit=3)
     if not items:
@@ -127,7 +184,7 @@ def _rule_based_chat(connection: sqlite3.Connection, payload) -> dict:
             "PDB context and candidate structure files."
         )
     else:
-        message = top_candidates_message(connection, payload.project_id)
+        message = project_next_step_message(connection, payload.project_id, last_message)
 
     return {
         "mode": "rule_based_demo",

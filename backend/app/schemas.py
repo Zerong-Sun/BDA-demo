@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -43,19 +43,19 @@ class ResultInterpretationRequest(BaseModel):
 
 
 class CopilotMessage(BaseModel):
-    role: str
-    content: str
+    role: Literal["user", "assistant", "system"]
+    content: str = Field(min_length=1, max_length=20000)
 
 
 class CopilotChatRequest(BaseModel):
     messages: list[CopilotMessage]
     project_id: str | None = None
-    skill: str | None = None
+    skill: str | None = Field(default=None, max_length=120)
 
 
 class CopilotConfigUpdateRequest(BaseModel):
     llm_api_base: str | None = Field(default=None, min_length=1)
-    llm_api_key: str | None = Field(default=None, min_length=1)
+    llm_api_key: str | None = Field(default=None, max_length=4096)
     llm_model: str | None = Field(default=None, min_length=1)
 
 

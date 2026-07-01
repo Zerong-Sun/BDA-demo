@@ -36,12 +36,71 @@ from ..utils.response import envelope
 
 router = APIRouter(prefix="/copilot")
 
+COPILOT_CONFIG_NAMESPACE = "copilot"
+COPILOT_CONFIG_KEYS = ("llm_api_base", "llm_model", "llm_api_key")
+
+
 def _ensure_project_access(connection: sqlite3.Connection, user: dict, project_id: str | None) -> None:
     if project_id and not verify_project_access(connection, user, project_id):
         raise HTTPException(status_code=403, detail="forbidden")
 
 
-def _copilot_config_payload() -> dict:
+def _ensure_app_settings_table(connection: sqlite3.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_settings (
+          namespace TEXT NOT NULL,
+          key TEXT NOT NULL,
+          value TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (namespace, key)
+        )
+        """
+    )
+
+
+def _load_persisted_copilot_config(connection: sqlite3.Connection) -> None:
+    _ensure_app_settings_table(connection)
+    rows = connection.execute(
+        """
+        SELECT key, value
+        FROM app_settings
+        WHERE namespace = ? AND key IN (?, ?, ?)
+        """,
+        (COPILOT_CONFIG_NAMESPACE, *COPILOT_CONFIG_KEYS),
+    ).fetchall()
+    if not rows:
+        return
+    settings = get_settings()
+    for key, value in rows:
+        if key == "llm_api_base":
+            settings.llm_api_base = value
+        elif key == "llm_model":
+            settings.llm_model = value
+        elif key == "llm_api_key":
+            settings.llm_api_key = value
+
+
+def _persist_copilot_config(connection: sqlite3.Connection, values: dict[str, str]) -> None:
+    _ensure_app_settings_table(connection)
+    for key, value in values.items():
+        if key not in COPILOT_CONFIG_KEYS:
+            continue
+        connection.execute(
+            """
+            INSERT INTO app_settings (namespace, key, value, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(namespace, key)
+            DO UPDATE SET value = excluded.value, updated_at = CURRENT_TIMESTAMP
+            """,
+            (COPILOT_CONFIG_NAMESPACE, key, value),
+        )
+    connection.commit()
+
+
+def _copilot_config_payload(connection: sqlite3.Connection | None = None) -> dict:
+    if connection is not None:
+        _load_persisted_copilot_config(connection)
     settings = get_settings()
     return {
         "llm_api_base": settings.llm_api_base,
@@ -54,29 +113,41 @@ def _copilot_config_payload() -> dict:
 
 
 @router.get("/config")
-def get_copilot_config(_admin: dict = Depends(require_role("admin"))):
-    return envelope(_copilot_config_payload())
+def get_copilot_config(
+    connection: sqlite3.Connection = Depends(get_connection),
+    _admin: dict = Depends(require_role("admin")),
+):
+    return envelope(_copilot_config_payload(connection))
 
 
 @router.put("/config")
 def update_copilot_config(
     payload: CopilotConfigUpdateRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
     _admin: dict = Depends(require_role("admin")),
 ):
     settings = get_settings()
+    updates: dict[str, str] = {}
     if payload.llm_api_base is not None:
         settings.llm_api_base = payload.llm_api_base.strip()
+        updates["llm_api_base"] = settings.llm_api_base
     if payload.llm_model is not None:
         settings.llm_model = payload.llm_model.strip()
+        updates["llm_model"] = settings.llm_model
     if payload.llm_api_key is not None:
         settings.llm_api_key = payload.llm_api_key.strip()
-    return envelope(_copilot_config_payload())
+        updates["llm_api_key"] = settings.llm_api_key
+    if updates:
+        _persist_copilot_config(connection, updates)
+    return envelope(_copilot_config_payload(connection))
 
 
 @router.post("/config/test")
 def test_copilot_config(
+    connection: sqlite3.Connection = Depends(get_connection),
     _admin: dict = Depends(require_role("admin")),
 ):
+    _load_persisted_copilot_config(connection)
     settings = get_settings()
     if not settings.llm_api_key:
         return envelope({
@@ -504,6 +575,7 @@ def copilot_chat(
     user: dict = Depends(get_current_user),
 ):
     _ensure_project_access(connection, user, payload.project_id)
+    _load_persisted_copilot_config(connection)
     return envelope(resolve_copilot_chat(connection, payload))
 
 
@@ -514,6 +586,7 @@ async def copilot_chat_stream(
     user: dict = Depends(get_current_user),
 ):
     _ensure_project_access(connection, user, payload.project_id)
+    _load_persisted_copilot_config(connection)
     result = await run_in_threadpool(resolve_copilot_chat, connection, payload)
 
     async def event_generator():
@@ -533,6 +606,7 @@ def copilot_chat_sync(
     user: dict = Depends(get_current_user),
 ):
     _ensure_project_access(connection, user, payload.project_id)
+    _load_persisted_copilot_config(connection)
     return envelope(resolve_copilot_chat(connection, payload))
 
 

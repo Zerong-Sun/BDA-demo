@@ -1,6 +1,6 @@
 import { HashRouter, Navigate, Outlet, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { Topbar } from './components/ui/Topbar'
 import { Toast } from './components/ui/Toast'
 import { CopilotDrawer } from './components/ui/CopilotDrawer'
@@ -67,7 +67,20 @@ function AppShell() {
   const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
   const location = useLocation()
   const { projectId, activeProject } = useProjectContext()
-  const pageContext = `route=${location.pathname}; project_id=${projectId}; project_name=${activeProject?.project_name ?? 'unknown'}; query=${location.search || 'none'}`
+  const pageContext = useMemo(() => {
+    const entries = [
+      `route=${location.pathname}`,
+      `query=${location.search || 'none'}`,
+      `project_id=${projectId || 'none'}`,
+      `project_name=${activeProject?.project_name ?? 'unknown'}`,
+      `project_type=${activeProject?.project_type ?? 'unknown'}`,
+      `project_status=${activeProject?.status ?? 'unknown'}`,
+    ]
+    if (activeProject?.summary) {
+      entries.push(`project_summary=${activeProject.summary}`)
+    }
+    return entries.join('; ')
+  }, [activeProject, location.pathname, location.search, projectId])
 
   return (
     <>

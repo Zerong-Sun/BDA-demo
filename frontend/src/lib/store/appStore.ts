@@ -3,12 +3,25 @@ import { persist } from 'zustand/middleware'
 
 export type Language = 'en' | 'zh'
 export type AppMode = 'application' | 'demo'
+export interface CopilotChatMessage {
+  role: 'user' | 'assistant' | 'system'
+  content: string
+}
+
+export const defaultCopilotMessages: CopilotChatMessage[] = [
+  {
+    role: 'assistant',
+    content:
+      'I am BDA Copilot for this project. Ask me to plan a route, inspect uploaded files, explain workflow state, draft an LSF job, or summarize biomaterials evidence. I will keep the same conversation as you move between pages.',
+  },
+]
 
 interface AppState {
   language: Language
   appMode: AppMode
   activeProjectId: string
   workflowRunIdsByProject: Record<string, string>
+  copilotMessages: CopilotChatMessage[]
   copilotOpen: boolean
   settingsOpen: boolean
   copilotWidth: number
@@ -17,6 +30,12 @@ interface AppState {
   setAppMode: (mode: AppMode) => void
   setActiveProjectId: (projectId: string) => void
   setProjectWorkflowRunId: (projectId: string, workflowRunId: string) => void
+  setCopilotMessages: (
+    messages:
+      | CopilotChatMessage[]
+      | ((messages: CopilotChatMessage[]) => CopilotChatMessage[]),
+  ) => void
+  resetCopilotMessages: () => void
   setCopilotOpen: (open: boolean) => void
   setSettingsOpen: (open: boolean) => void
   setCopilotWidth: (width: number) => void
@@ -30,6 +49,7 @@ export const useAppStore = create<AppState>()(
       appMode: 'application',
       activeProjectId: '',
       workflowRunIdsByProject: {},
+      copilotMessages: defaultCopilotMessages,
       copilotOpen: true,
       settingsOpen: false,
       copilotWidth: 380,
@@ -44,6 +64,14 @@ export const useAppStore = create<AppState>()(
             [projectId]: workflowRunId,
           },
         })),
+      setCopilotMessages: (messages) =>
+        set((state) => ({
+          copilotMessages:
+            typeof messages === 'function'
+              ? messages(state.copilotMessages)
+              : messages,
+        })),
+      resetCopilotMessages: () => set({ copilotMessages: defaultCopilotMessages }),
       setCopilotOpen: (copilotOpen) => set({ copilotOpen }),
       setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
       setCopilotWidth: (copilotWidth) => set({ copilotWidth }),
@@ -56,6 +84,7 @@ export const useAppStore = create<AppState>()(
         appMode: state.appMode,
         activeProjectId: state.activeProjectId,
         workflowRunIdsByProject: state.workflowRunIdsByProject,
+        copilotMessages: state.copilotMessages,
         copilotOpen: state.copilotOpen,
         settingsOpen: state.settingsOpen,
         copilotWidth: state.copilotWidth,

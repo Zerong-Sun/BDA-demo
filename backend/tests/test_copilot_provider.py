@@ -1,4 +1,9 @@
 from backend.app.copilot import provider
+from backend.app.copilot.biomaterials_skill import is_programmable_biomaterials_question
+
+
+def test_project_followup_is_in_biomaterials_scope():
+    assert is_programmable_biomaterials_question("这个项目下一步怎么做？")
 
 
 def test_deepseek_structured_calls_disable_thinking(monkeypatch):

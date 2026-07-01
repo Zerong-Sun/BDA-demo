@@ -247,6 +247,27 @@ def _manifest_outputs(output_manifest: dict[str, Any]) -> list[dict[str, Any]]:
     return normalized
 
 
+def _resolve_output_source(output_dir: Path, raw_path: str) -> tuple[Path, str] | None:
+    source = Path(raw_path)
+    if source.is_absolute():
+        output_root = output_dir.resolve()
+        try:
+            relative = source.resolve().relative_to(output_root)
+            return source, relative.as_posix()
+        except ValueError:
+            try:
+                source = output_dir / source.relative_to("/output")
+            except ValueError:
+                return None
+    else:
+        source = output_dir / source
+    try:
+        relative = source.resolve().relative_to(output_dir.resolve())
+    except ValueError:
+        return None
+    return source, relative.as_posix()
+
+
 def _candidate_family_for_artifact(entry: dict[str, Any], artifact: dict[str, Any], job: dict[str, Any]) -> str:
     metadata = artifact.get("metadata_json") or {}
     if isinstance(metadata, str):
@@ -292,7 +313,7 @@ def _register_generated_candidate(
             candidate_id = f"cand_{candidate_id}"
         storage_uri = str(artifact.get("storage_uri") or "")
         structure_file_path = storage_uri[len(ARTIFACT_STORAGE_PREFIX):] if storage_uri.startswith(ARTIFACT_STORAGE_PREFIX) else storage_uri
-        connection.execute(
+        cursor = connection.execute(
             """
             UPDATE candidates
             SET complex_file_path = ?,
@@ -302,6 +323,33 @@ def _register_generated_candidate(
             WHERE candidate_id = ? AND project_id = ?
             """,
             (structure_file_path, metadata.get("plddt"), candidate_id, project_id),
+        )
+        if cursor.rowcount:
+            return
+        task = catalog.get_project_design_task(connection, project_id)
+        if task is None:
+            return
+        connection.execute(
+            """
+            INSERT INTO candidates (
+                candidate_id, project_id, task_id, workflow_run_id, family, sequence,
+                structure_file_path, complex_file_path, interface_score, pred_kd,
+                plddt, interface_pae, rosetta_score, interface_energy, clash_count,
+                buried_sasa, solubility_score, aggregation_risk, expression_risk,
+                status, decision, next_action
+            ) VALUES (?, ?, ?, ?, ?, ?, NULL, ?, NULL, NULL, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL,
+                      'folded', 'Review', 'Review AlphaFold2/Superfold pLDDT and continue developability scoring.')
+            """,
+            (
+                candidate_id,
+                project_id,
+                task["task_id"],
+                job["workflow_run_id"],
+                _candidate_family_for_artifact(entry, artifact, job),
+                entry.get("sequence") or metadata.get("sequence"),
+                structure_file_path,
+                metadata.get("plddt"),
+            ),
         )
         return
     if artifact_format not in {"pdb", "mmcif", "cif"} and not any(
@@ -375,22 +423,19 @@ def collect_job_outputs(connection: sqlite3.Connection, job_id: str) -> dict[str
         raw_path = entry.get("path")
         if not raw_path:
             continue
-        source = Path(raw_path)
-        if source.is_absolute():
-            try:
-                source = output_dir / source.relative_to("/output")
-            except ValueError:
-                source = output_dir / source.name
-        else:
-            source = output_dir / source
+        resolved = _resolve_output_source(output_dir, str(raw_path))
+        if resolved is None:
+            continue
+        source, output_relative_path = resolved
         if not source.exists() or not source.is_file():
             continue
         artifact_format = entry.get("format") or artifact_format_for_filename(source.name)
-        relative_path = f"jobs/{job_id}/outputs/{source.name}"
+        relative_path = f"jobs/{job_id}/outputs/{output_relative_path}"
         store.save_file(relative_path, source)
         metadata = {
             **infer_artifact_metadata(source, artifact_format),
             **(entry.get("metadata") or {}),
+            "output_relative_path": output_relative_path,
             "source_job_id": job_id,
             "source_port": entry.get("port"),
         }

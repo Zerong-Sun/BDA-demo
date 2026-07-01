@@ -213,10 +213,17 @@ export function WorkflowPage() {
         objective: goal,
       }),
     onSuccess: (plan) => {
+      const recommended = plan.route_options.find((route) => route.recommended) ?? plan.route_options[0]
       setRoutePlan(plan)
+      setSelectedRouteId(recommended?.route_id ?? '')
+      setSelectedModuleIds(recommended?.modules.filter((module) => module.available).map((module) => module.module_id) ?? [])
       showToast('Route options prepared from project knowledge', 'success')
     },
-    onError: () => showToast('Failed to prepare route options', 'error'),
+    onError: (error) =>
+      showToast(
+        error instanceof Error ? `Failed to prepare route options: ${error.message}` : 'Failed to prepare route options',
+        'error',
+      ),
   })
 
   const applyPlannedRoute = useMutation({
