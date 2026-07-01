@@ -30,6 +30,7 @@ interface AppState {
   setAppMode: (mode: AppMode) => void
   setActiveProjectId: (projectId: string) => void
   setProjectWorkflowRunId: (projectId: string, workflowRunId: string) => void
+  clearProjectState: (projectId: string) => void
   setCopilotMessages: (
     messages:
       | CopilotChatMessage[]
@@ -64,6 +65,15 @@ export const useAppStore = create<AppState>()(
             [projectId]: workflowRunId,
           },
         })),
+      clearProjectState: (projectId) =>
+        set((state) => {
+          const workflowRunIdsByProject = { ...state.workflowRunIdsByProject }
+          delete workflowRunIdsByProject[projectId]
+          return {
+            activeProjectId: state.activeProjectId === projectId ? '' : state.activeProjectId,
+            workflowRunIdsByProject,
+          }
+        }),
       setCopilotMessages: (messages) =>
         set((state) => ({
           copilotMessages:

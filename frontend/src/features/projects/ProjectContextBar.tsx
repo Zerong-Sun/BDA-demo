@@ -19,7 +19,7 @@ export function ProjectContextBar() {
         </span>
       </div>
       <Link to="/experiments" className="text-xs text-bda-cyan hover:underline">
-        Switch or create project
+        Manage projects
       </Link>
     </div>
   )

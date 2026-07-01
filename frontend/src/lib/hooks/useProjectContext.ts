@@ -32,18 +32,40 @@ export function useProjectContext() {
   }, [projects])
 
   const urlProjectId = searchParams.get('project')
+  const projectIds = useMemo(() => new Set(sortedProjects.map((project) => project.project_id)), [sortedProjects])
+  const projectsReady = !projectsLoading && !projectsError
+  const staleUrlProject = Boolean(projectsReady && urlProjectId && !projectIds.has(urlProjectId))
+  const staleActiveProject = Boolean(projectsReady && activeProjectId && !projectIds.has(activeProjectId))
 
   const projectId = useMemo(() => {
-    const exists = (id: string) => sortedProjects.some((p) => p.project_id === id)
-    if (urlProjectId && exists(urlProjectId)) return urlProjectId
-    if (activeProjectId && exists(activeProjectId)) return activeProjectId
+    if (urlProjectId && projectIds.has(urlProjectId)) return urlProjectId
+    if (activeProjectId && projectIds.has(activeProjectId)) return activeProjectId
     return ''
-  }, [activeProjectId, urlProjectId, sortedProjects])
+  }, [activeProjectId, projectIds, urlProjectId])
 
   useEffect(() => {
     if (projectsLoading || !projectId) return
     if (activeProjectId !== projectId) setActiveProjectId(projectId)
   }, [activeProjectId, projectId, projectsLoading, setActiveProjectId])
+
+  useEffect(() => {
+    if (!projectsReady) return
+    if (!staleUrlProject && !staleActiveProject) return
+    if (staleActiveProject && !projectId) setActiveProjectId('')
+    if (staleUrlProject) {
+      const next = new URLSearchParams(searchParams)
+      next.delete('project')
+      setSearchParams(next, { replace: true })
+    }
+  }, [
+    projectId,
+    projectsReady,
+    searchParams,
+    setActiveProjectId,
+    setSearchParams,
+    staleActiveProject,
+    staleUrlProject,
+  ])
 
   const activeProject = sortedProjects.find((p) => p.project_id === projectId) ?? null
 
@@ -64,6 +86,7 @@ export function useProjectContext() {
     projectsQueryError,
     refetchProjects,
     setProjectId,
+    hasStaleProjectReference: staleUrlProject || staleActiveProject,
     hasProject: Boolean(activeProject),
   }
 }

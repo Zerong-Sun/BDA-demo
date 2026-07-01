@@ -37,7 +37,7 @@ export function Topbar() {
   const logout = () => {
     sessionStorage.removeItem('bda_token')
     sessionStorage.removeItem('bda_user')
-    navigate('/login')
+    navigate('/login', { replace: true })
   }
 
   return (

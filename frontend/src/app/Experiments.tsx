@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { LoaderCircle, Trash2 } from 'lucide-react'
 import { getProjectOverview } from '../lib/api/projects'
+import { useDeleteProjectLifecycle } from '../lib/hooks/useDeleteProjectLifecycle'
 import { useProjectContext } from '../lib/hooks/useProjectContext'
 import { useAppStore } from '../lib/store/appStore'
 import { useI18n } from '../lib/i18n'
@@ -48,10 +50,14 @@ function ProjectCard({
   project,
   openLabel,
   onOpen,
+  onDelete,
+  isDeleting,
 }: {
   project: Project
   openLabel: string
   onOpen: (projectId: string) => void
+  onDelete: (project: Project) => void
+  isDeleting: boolean
 }) {
   const card = projectCard(project)
   return (
@@ -65,13 +71,28 @@ function ProjectCard({
           <StatusPill label={project.status} tone={statusTone(project.status)} />
         </div>
         <p className="line-clamp-3 text-sm text-bda-muted">{project.summary || 'No project summary yet.'}</p>
-        <Link
-          to={`/workflow?project=${encodeURIComponent(project.project_id)}`}
-          className="mt-auto inline-flex w-fit rounded-md border border-bda-border px-3 py-1.5 text-sm hover:bg-bda-panel-hover"
-          onClick={() => onOpen(project.project_id)}
-        >
-          {card.action ?? openLabel}
-        </Link>
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2">
+          <Link
+            to={`/workflow?project=${encodeURIComponent(project.project_id)}`}
+            className="inline-flex rounded-md border border-bda-border px-3 py-1.5 text-sm hover:bg-bda-panel-hover"
+            onClick={() => onOpen(project.project_id)}
+          >
+            {card.action ?? openLabel}
+          </Link>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded-md border border-bda-red/40 px-2.5 py-1.5 text-sm text-bda-red hover:bg-bda-red/10 disabled:opacity-50"
+            disabled={isDeleting}
+            onClick={() => onDelete(project)}
+          >
+            {isDeleting ? (
+              <LoaderCircle className="h-4 w-4 animate-spin" />
+            ) : (
+              <Trash2 className="h-4 w-4" />
+            )}
+            Move to trash
+          </button>
+        </div>
       </div>
     </article>
   )
@@ -82,6 +103,7 @@ export function ExperimentsPage() {
   const setCopilotOpen = useAppStore((s) => s.setCopilotOpen)
   const { projects, projectsLoading, projectsError, projectsQueryError, refetchProjects, projectId, setProjectId } =
     useProjectContext()
+  const projectDelete = useDeleteProjectLifecycle()
 
   const {
     data: overview,
@@ -114,6 +136,18 @@ export function ExperimentsPage() {
           description="Select or create a project. Workflows, candidates, experimental results, and delivery packages are archived under the active project."
           compact
         />
+        {projectDelete.isSuccess ? (
+          <p className="mt-2 text-xs text-bda-muted">
+            Project moved to {projectDelete.data.workspace.trash_root ?? 'project trash'}.
+          </p>
+        ) : null}
+        {projectDelete.isError ? (
+          <p className="mt-2 text-xs text-bda-red">
+            {projectDelete.error instanceof Error
+              ? projectDelete.error.message
+              : 'Project deletion failed. Check the backend service.'}
+          </p>
+        ) : null}
       </div>
       <section className="mb-6 rounded-lg border border-bda-border bg-bda-panel p-4">
         <p className="text-xs uppercase tracking-wide text-bda-cyan">AI Beagle Copilot</p>
@@ -177,6 +211,8 @@ export function ExperimentsPage() {
                 project={project}
                 openLabel={t.common.openProject}
                 onOpen={setProjectId}
+                onDelete={projectDelete.confirmAndDeleteProject}
+                isDeleting={projectDelete.deletingProjectId === project.project_id && projectDelete.isPending}
               />
             ))}
           </div>
