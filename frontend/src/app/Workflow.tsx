@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Play, Plus, Sparkles } from 'lucide-react'
 import { WorkflowCanvas, type WorkflowCanvasHandle } from '../features/workflow/WorkflowCanvas'
@@ -183,6 +183,17 @@ export function WorkflowPage() {
   const readOnly = isDemoMode || workflowRun?.status === 'completed'
 
   const selectedRoute = routePlan?.route_options.find((route) => route.route_id === selectedRouteId) ?? null
+
+  useEffect(() => {
+    const recommended = routePlan?.route_options.find((route) => route.recommended) ?? routePlan?.route_options[0]
+    if (!recommended) {
+      setSelectedRouteId('')
+      setSelectedModuleIds([])
+      return
+    }
+    setSelectedRouteId(recommended.route_id)
+    setSelectedModuleIds(recommended.modules.filter((module) => module.available).map((module) => module.module_id))
+  }, [routePlan])
 
   const createWorkflow = useMutation({
     mutationFn: () => createWorkflowRun(projectId),
