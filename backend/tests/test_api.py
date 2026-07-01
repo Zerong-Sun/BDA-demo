@@ -98,8 +98,8 @@ def test_candidates_invalid_sort(client: TestClient, auth_headers: dict[str, str
 
 
 def test_copilot_chat(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_api_key = settings.llm_api_key
@@ -145,8 +145,8 @@ def test_copilot_rejects_out_of_domain_chat(client: TestClient, auth_headers: di
 
 
 def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original = {
@@ -189,8 +189,8 @@ def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str
 
 
 def test_copilot_config_can_clear_api_key(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_key = settings.llm_api_key
@@ -229,8 +229,8 @@ def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, st
 
 
 def test_copilot_uses_biomaterials_knowledge_base(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_api_key = settings.llm_api_key
