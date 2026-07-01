@@ -8,6 +8,7 @@ export default defineConfig({
     alias: {
       debug: '/src/vendor/debug-browser-default.ts',
       'debug/src/browser.js': '/src/vendor/debug-browser-default.ts',
+      'h264-mp4-encoder': '/src/vendor/h264-mp4-encoder-browser-stub.ts',
       'mutative/dist/index.js': 'mutative/dist/mutative.esm.mjs',
       'style-to-js': '/src/vendor/style-to-js-default.ts',
       'style-to-js/cjs/index.js': '/src/vendor/style-to-js-default.ts',
@@ -27,6 +28,19 @@ export default defineConfig({
     exclude: ['molstar'],
   },
   build: {
-    chunkSizeWarningLimit: 2000,
+    chunkSizeWarningLimit: 4000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return undefined
+          if (id.includes('/node_modules/molstar/')) return 'vendor-molstar'
+          if (id.includes('/node_modules/@tanstack/')) return 'vendor-query'
+          if (id.includes('/node_modules/react') || id.includes('/node_modules/react-dom')) return 'vendor-react'
+          if (id.includes('/node_modules/lucide-react/')) return 'vendor-icons'
+          if (id.includes('/node_modules/zod/')) return 'vendor-zod'
+          return 'vendor'
+        },
+      },
+    },
   },
 })
