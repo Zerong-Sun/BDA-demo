@@ -26,7 +26,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
 
   if (!candidate) {
     return (
-      <aside className="rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted">
+      <aside className="min-h-[18rem] rounded-lg border border-bda-border bg-bda-panel p-4 text-sm text-bda-muted xl:min-h-0">
         Select a candidate to view structure, scores, and next action.
       </aside>
     )
@@ -70,7 +70,7 @@ export function CandidateDetail({ candidate, projectId }: CandidateDetailProps) 
   }
 
   return (
-    <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
+    <aside className="min-h-[32rem] overflow-y-auto rounded-lg border border-bda-border bg-bda-panel p-4 xl:min-h-0">
       {hasStructure ? (
         <>
           {hasMonomer && hasComplex ? (

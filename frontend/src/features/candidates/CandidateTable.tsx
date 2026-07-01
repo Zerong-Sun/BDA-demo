@@ -140,12 +140,12 @@ export function CandidateTable({
   })
 
   return (
-    <div className="rounded-lg border border-bda-border bg-bda-panel">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel">
       <p className="px-3 pt-2 text-xs text-bda-muted sm:hidden" aria-hidden="true">
         Swipe horizontally to see all columns →
       </p>
       <div
-        className="overflow-x-auto"
+        className="min-h-0 flex-1 overflow-auto"
         role="region"
         aria-label="Candidate results table (scrollable)"
         tabIndex={0}

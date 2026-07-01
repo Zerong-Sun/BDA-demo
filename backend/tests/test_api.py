@@ -98,8 +98,8 @@ def test_candidates_invalid_sort(client: TestClient, auth_headers: dict[str, str
 
 
 def test_copilot_chat(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_api_key = settings.llm_api_key
@@ -145,8 +145,8 @@ def test_copilot_rejects_out_of_domain_chat(client: TestClient, auth_headers: di
 
 
 def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original = {
@@ -189,8 +189,8 @@ def test_copilot_config_masks_api_key(client: TestClient, auth_headers: dict[str
 
 
 def test_copilot_config_can_clear_api_key(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_key = settings.llm_api_key
@@ -228,9 +228,51 @@ def test_copilot_knowledge_search(client: TestClient, auth_headers: dict[str, st
     assert any(item["knowledge_entry_id"] == "kb_proteinmpnn" for item in data["items"])
 
 
+def test_copilot_knowledge_manual_crud(client: TestClient, auth_headers: dict[str, str]):
+    entry_id = "kb_manual_test_entry"
+    payload = {
+        "knowledge_entry_id": entry_id,
+        "title": "Manual BDA knowledge entry",
+        "category": "workflow",
+        "subcategory": "manual",
+        "summary": "Manual curated entries are available to Copilot and page search.",
+        "content": "Use manual curated knowledge for stable BDA operating guidance before automated literature evidence is accepted.",
+        "tags": ["manual", "curated", "copilot"],
+        "source_type": "curated",
+        "citation": "BDA manual run test.",
+        "confidence": "curated",
+        "metadata": {"owner": "test"},
+    }
+
+    created = client.post(f"{API}/copilot/knowledge", headers=auth_headers, json=payload)
+    assert created.status_code == 200
+    data = created.json()["data"]
+    assert data["knowledge_entry_id"] == entry_id
+    assert data["tags_json"] == ["manual", "curated", "copilot"]
+
+    search = client.get(f"{API}/copilot/knowledge?q=stable BDA operating guidance", headers=auth_headers)
+    assert search.status_code == 200
+    assert any(item["knowledge_entry_id"] == entry_id for item in search.json()["data"]["items"])
+
+    updated = client.put(
+        f"{API}/copilot/knowledge/{entry_id}",
+        headers=auth_headers,
+        json={**payload, "summary": "Updated manual curated summary."},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["data"]["summary"] == "Updated manual curated summary."
+
+    archived = client.delete(f"{API}/copilot/knowledge/{entry_id}", headers=auth_headers)
+    assert archived.status_code == 200
+    assert archived.json()["data"]["status"] == "archived"
+
+    missing = client.get(f"{API}/copilot/knowledge/{entry_id}", headers=auth_headers)
+    assert missing.status_code == 404
+
+
 def test_copilot_uses_biomaterials_knowledge_base(client: TestClient, auth_headers: dict[str, str]):
-    from backend.scripts.init_db import DB_PATH
     from backend.app.settings import get_settings
+    from backend.scripts.init_db import DB_PATH
 
     settings = get_settings()
     original_api_key = settings.llm_api_key

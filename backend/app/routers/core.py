@@ -124,6 +124,40 @@ def sync_project(
     return envelope(project_storage.sync_project_manifest(item, target=payload.target))
 
 
+@router.delete("/projects/{project_id}")
+def delete_project(
+    project_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    user: dict = Depends(require_project_access),
+):
+    item = catalog.get_project_record(connection, project_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    owner_row = connection.execute(
+        """
+        SELECT 1 FROM project_members
+        WHERE project_id = ? AND user_id = ? AND role = 'owner'
+        LIMIT 1
+        """,
+        (project_id, user.get("user_id")),
+    ).fetchone()
+    can_delete = user.get("role") == "admin" or item.get("owner_id") == user.get("user_id") or owner_row is not None
+    if not can_delete:
+        raise HTTPException(status_code=403, detail="forbidden")
+    deleted = catalog.delete_project(connection, project_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="project_not_found")
+    workspace = project_storage.trash_project_workspace(
+        project_id,
+        deleted_by=user.get("user_id") or user.get("username"),
+    )
+    return envelope({
+        "project_id": project_id,
+        "deleted": True,
+        "workspace": workspace,
+    })
+
+
 @router.get("/projects/{project_id}")
 def project(
     project_id: str,

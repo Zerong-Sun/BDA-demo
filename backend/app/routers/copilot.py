@@ -24,6 +24,7 @@ from ..schemas import (
     ClusterDraftRequest,
     CopilotChatRequest,
     CopilotConfigUpdateRequest,
+    KnowledgeEntryUpsertRequest,
     LiteratureIngestRequest,
     LiteratureSubscriptionRequest,
     ResultInterpretationRequest,
@@ -197,6 +198,40 @@ def get_knowledge_entry(
     _user: dict = Depends(get_current_user),
 ):
     item = knowledge.get_entry(connection, knowledge_entry_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="knowledge_entry_not_found")
+    return envelope(item)
+
+
+@router.post("/knowledge")
+def create_knowledge_entry(
+    payload: KnowledgeEntryUpsertRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_role("admin", "researcher")),
+):
+    return envelope(knowledge.upsert_entry(connection, payload))
+
+
+@router.put("/knowledge/{knowledge_entry_id}")
+def update_knowledge_entry(
+    knowledge_entry_id: str,
+    payload: KnowledgeEntryUpsertRequest,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_role("admin", "researcher")),
+):
+    payload.knowledge_entry_id = knowledge_entry_id
+    if knowledge.get_entry(connection, knowledge_entry_id) is None:
+        raise HTTPException(status_code=404, detail="knowledge_entry_not_found")
+    return envelope(knowledge.upsert_entry(connection, payload))
+
+
+@router.delete("/knowledge/{knowledge_entry_id}")
+def archive_knowledge_entry(
+    knowledge_entry_id: str,
+    connection: sqlite3.Connection = Depends(get_connection),
+    _user: dict = Depends(require_role("admin", "researcher")),
+):
+    item = knowledge.archive_entry(connection, knowledge_entry_id)
     if item is None:
         raise HTTPException(status_code=404, detail="knowledge_entry_not_found")
     return envelope(item)

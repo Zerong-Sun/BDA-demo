@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { FolderPlus, FlaskConical, LoaderCircle } from 'lucide-react'
-import { createProject } from '../../lib/api/projects'
+import { FolderPlus, FlaskConical, LoaderCircle, Trash2 } from 'lucide-react'
+import { createProject, deleteProject } from '../../lib/api/projects'
 import { useProjectContext } from '../../lib/hooks/useProjectContext'
 import { useAppStore } from '../../lib/store/appStore'
 
@@ -19,6 +19,7 @@ export function ProjectChooser({
   const queryClient = useQueryClient()
   const { projects, projectId, setProjectId } = useProjectContext()
   const appMode = useAppStore((state) => state.appMode)
+  const selectedProject = projects.find((project) => project.project_id === projectId) ?? null
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [projectType, setProjectType] = useState('protein_design')
@@ -39,6 +40,26 @@ export function ProjectChooser({
       setSummary('')
     },
   })
+  const remove = useMutation({
+    mutationFn: (deleteProjectId: string) => deleteProject(deleteProjectId),
+    onSuccess: async () => {
+      setProjectId('')
+      await queryClient.invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
+  const chooseProject = (nextProjectId: string) => {
+    remove.reset()
+    setProjectId(nextProjectId)
+  }
+
+  const confirmDelete = () => {
+    if (!selectedProject) return
+    const ok = window.confirm(
+      `Move "${selectedProject.project_name}" to project trash?\n\nThe database project and its linked workflow data will be removed. The local workspace will be moved to backend/artifacts/project_trash for recovery.`,
+    )
+    if (ok) remove.mutate(selectedProject.project_id)
+  }
 
   return (
     <section className={`rounded-lg border border-bda-border bg-bda-panel ${compact ? 'p-3' : 'p-5'}`}>
@@ -57,7 +78,7 @@ export function ProjectChooser({
             aria-label="Select research project"
             className="rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text"
             value={projectId}
-            onChange={(event) => setProjectId(event.target.value)}
+            onChange={(event) => chooseProject(event.target.value)}
           >
             <option value="">Select a project...</option>
             {projects.map((project) => (
@@ -77,6 +98,32 @@ export function ProjectChooser({
           {appMode === 'demo' ? 'Read-only demo' : 'Create project'}
         </button>
       </div>
+      {selectedProject ? (
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 rounded-md border border-bda-border bg-bda-bg px-3 py-2 text-xs text-bda-muted">
+          <span className="min-w-0 truncate">
+            Local workspace: {selectedProject.local_workspace?.root ?? 'pending'}
+          </span>
+          <button
+            type="button"
+            className="inline-flex items-center gap-1.5 rounded border border-bda-red/40 px-2 py-1 text-bda-red hover:bg-bda-red/10 disabled:opacity-50"
+            disabled={appMode === 'demo' || remove.isPending}
+            onClick={confirmDelete}
+          >
+            {remove.isPending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+            Move to trash
+          </button>
+        </div>
+      ) : null}
+      {remove.isSuccess ? (
+        <p className="mt-2 text-xs text-bda-muted">
+          Project moved to {remove.data.workspace.trash_root ?? 'project trash'}.
+        </p>
+      ) : null}
+      {remove.isError ? (
+        <p className="mt-2 text-xs text-bda-red">
+          {remove.error instanceof Error ? remove.error.message : 'Project deletion failed. Check the backend service.'}
+        </p>
+      ) : null}
 
       {creating ? (
         <div className="mt-4 grid gap-3 rounded-md border border-bda-border bg-bda-bg p-4">

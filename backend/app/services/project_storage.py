@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -8,6 +9,7 @@ from typing import Any
 from ..config import ARTIFACTS_ROOT
 
 PROJECTS_ROOT = ARTIFACTS_ROOT / "projects"
+PROJECT_TRASH_ROOT = ARTIFACTS_ROOT / "project_trash"
 PROJECT_SUBDIRS = ("metadata", "inputs", "workflows", "jobs", "results", "research", "exports")
 MANIFEST_VERSION = 1
 
@@ -18,6 +20,11 @@ def now_iso() -> str:
 
 def project_root(project_id: str) -> Path:
     return PROJECTS_ROOT / project_id
+
+
+def project_trash_root(project_id: str, *, deleted_at: str | None = None) -> Path:
+    stamp = (deleted_at or now_iso()).replace(":", "").replace(".", "").replace("+", "Z")
+    return PROJECT_TRASH_ROOT / f"{stamp}_{project_id}"
 
 
 def project_manifest_path(project_id: str) -> Path:
@@ -134,3 +141,56 @@ def sync_project_manifest(project: dict[str, Any], *, target: str = "local") -> 
             "manifest": manifest,
         }
     return {"target": target, "status": "unsupported_target", "manifest": manifest}
+
+
+def trash_project_workspace(project_id: str, *, deleted_by: str | None = None) -> dict[str, Any]:
+    """Move a local project workspace out of the active project index."""
+    root = project_root(project_id)
+    if not root.exists():
+        return {
+            "status": "missing",
+            "backend": "local",
+            "root": relative_to_artifacts(root),
+            "trash_root": None,
+        }
+
+    deleted_at = now_iso()
+    PROJECT_TRASH_ROOT.mkdir(parents=True, exist_ok=True)
+    target = project_trash_root(project_id, deleted_at=deleted_at)
+    target_name = target.name
+    suffix = 1
+    while target.exists():
+        target = PROJECT_TRASH_ROOT / f"{target_name}_{suffix}"
+        suffix += 1
+
+    metadata_dir = root / "metadata"
+    metadata_dir.mkdir(parents=True, exist_ok=True)
+    deletion_path = metadata_dir / "deletion.json"
+    deletion_path.write_text(
+        json.dumps(
+            {
+                "project_id": project_id,
+                "deleted_at": deleted_at,
+                "deleted_by": deleted_by,
+                "status": "trashed",
+                "original_root": relative_to_artifacts(root),
+                "trash_root": relative_to_artifacts(target),
+            },
+            indent=2,
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    try:
+        shutil.move(str(root), str(target))
+    except Exception:
+        deletion_path.unlink(missing_ok=True)
+        raise
+    return {
+        "status": "trashed",
+        "backend": "local",
+        "root": relative_to_artifacts(root),
+        "trash_root": relative_to_artifacts(target),
+        "deleted_at": deleted_at,
+    }

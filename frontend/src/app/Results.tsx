@@ -178,14 +178,14 @@ export function ResultsPage() {
         <ExperimentUpload projectId={projectId} onUploaded={invalidateResults} />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-        <div>
+      <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-28rem)] xl:min-h-[28rem] xl:grid-cols-[minmax(0,1.35fr)_minmax(340px,0.9fr)]">
+        <div className="min-h-0">
           {resultsError ? (
             <InlineError message={resultsErrorMessage} onRetry={() => void refetchResults()} />
           ) : null}
           <ValidationTable results={results} loading={resultsLoading} isError={resultsError} />
         </div>
-        <div>
+        <div className="min-h-0">
           {packageError ? (
             <InlineError message={packageErrorMessage} onRetry={() => void refetchPackage()} />
           ) : null}

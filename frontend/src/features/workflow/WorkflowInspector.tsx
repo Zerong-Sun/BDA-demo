@@ -125,7 +125,7 @@ function WorkflowInspectorContent({ workflowRunId, selectedNode, selectedArtifac
   }
 
   return (
-    <aside className="space-y-4">
+    <aside className="h-full min-h-[32rem] space-y-4 overflow-y-auto pr-1 2xl:min-h-0">
       <section className="rounded-lg border border-bda-border bg-bda-panel p-3">
         <div className="mb-3 flex items-center gap-2">
           <Info className="h-4 w-4 text-bda-cyan" />

@@ -51,6 +51,22 @@ export const CopilotKnowledgeEntrySchema = z.object({
 
 export type CopilotKnowledgeEntry = z.infer<typeof CopilotKnowledgeEntrySchema>
 
+export interface CopilotKnowledgeEntryUpsert {
+  knowledge_entry_id?: string
+  title: string
+  category: string
+  subcategory?: string
+  summary: string
+  content: string
+  tags?: string[]
+  related_model_plugins?: string[]
+  related_method_plugins?: string[]
+  source_type?: string
+  citation?: string
+  confidence?: string
+  metadata?: Record<string, unknown>
+}
+
 export interface CopilotConfigUpdate {
   llm_api_base?: string
   llm_api_key?: string
@@ -155,6 +171,30 @@ export function searchCopilotKnowledge(query: string, category?: string) {
       total: z.number(),
       query: z.string(),
     }),
+  )
+}
+
+export function createCopilotKnowledgeEntry(payload: CopilotKnowledgeEntryUpsert) {
+  return apiRequest<CopilotKnowledgeEntry>(
+    '/copilot/knowledge',
+    { method: 'POST', body: JSON.stringify(payload) },
+    CopilotKnowledgeEntrySchema,
+  )
+}
+
+export function updateCopilotKnowledgeEntry(entryId: string, payload: CopilotKnowledgeEntryUpsert) {
+  return apiRequest<CopilotKnowledgeEntry>(
+    `/copilot/knowledge/${entryId}`,
+    { method: 'PUT', body: JSON.stringify(payload) },
+    CopilotKnowledgeEntrySchema,
+  )
+}
+
+export function archiveCopilotKnowledgeEntry(entryId: string) {
+  return apiRequest<CopilotKnowledgeEntry>(
+    `/copilot/knowledge/${entryId}`,
+    { method: 'DELETE' },
+    CopilotKnowledgeEntrySchema,
   )
 }
 

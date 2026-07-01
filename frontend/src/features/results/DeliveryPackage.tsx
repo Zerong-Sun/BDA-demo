@@ -59,7 +59,7 @@ export function DeliveryPackage({ packageData, loading, projectId }: DeliveryPac
   ].filter((item) => item.path)
 
   return (
-    <article className="rounded-lg border border-bda-border bg-bda-panel p-4">
+    <article className="h-full min-h-[24rem] overflow-y-auto rounded-lg border border-bda-border bg-bda-panel p-4 xl:min-h-0">
       <h2 className="mb-3 text-lg font-semibold">Delivery package</h2>
       {loading ? (
         <p className="text-sm text-bda-muted">Loading delivery package...</p>

@@ -37,12 +37,12 @@ export function ValidationTable({ results, loading, isError }: ValidationTablePr
       : []
 
   return (
-    <article className="rounded-lg border border-bda-border bg-bda-panel p-4">
-      <h2 className="mb-3 text-lg font-semibold">Validation readouts</h2>
+    <article className="flex h-full min-h-[24rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 xl:min-h-0">
+      <h2 className="mb-3 shrink-0 text-lg font-semibold">Validation readouts</h2>
       {rows.length === 0 ? (
         <p className="text-sm text-bda-muted">No experiment results uploaded yet.</p>
       ) : (
-        <div className="overflow-x-auto">
+        <div className="min-h-0 flex-1 overflow-auto">
           <table className="min-w-full text-sm">
             <thead className="text-left text-xs uppercase tracking-wide text-bda-muted">
               <tr>

@@ -36,6 +36,29 @@ name, type, status, owner, summary, local storage root, and cloud sync status.
 
 The front end displays the local workspace status in the project selector.
 
+## Deletion flow
+
+`DELETE /api/v1/projects/{project_id}` removes the project database record and
+lets SQLite cascade linked project data such as targets, workflow runs,
+candidates, artifacts, campaigns, and research briefs.
+
+The local workspace is not physically erased by default. The backend moves:
+
+```text
+backend/artifacts/projects/<project_id>/
+```
+
+to:
+
+```text
+backend/artifacts/project_trash/<deleted_at>_<project_id>/
+```
+
+The trash folder includes `metadata/deletion.json` with the original root,
+trash root, deletion timestamp, and actor id. Moving the workspace out of
+`backend/artifacts/projects/` prevents the local recovery scanner from
+recreating a database row for a project the user intentionally deleted.
+
 ## Recovery flow
 
 `GET /api/v1/projects/local-index` scans local manifests and restores minimal

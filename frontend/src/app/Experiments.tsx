@@ -55,19 +55,19 @@ function ProjectCard({
 }) {
   const card = projectCard(project)
   return (
-    <article className="overflow-hidden rounded-lg border border-bda-border bg-bda-panel">
+    <article className="flex min-h-[21rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel">
       <div className="flex h-36 items-center justify-center bg-gradient-to-br from-bda-panel-hover to-bda-bg px-4 text-center text-sm text-bda-muted">
         {card.preview}
       </div>
-      <div className="space-y-3 p-4">
+      <div className="flex min-h-0 flex-1 flex-col space-y-3 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h2 className="text-lg font-semibold">{project.project_name}</h2>
+          <h2 className="line-clamp-2 min-w-0 text-lg font-semibold leading-snug">{project.project_name}</h2>
           <StatusPill label={project.status} tone={statusTone(project.status)} />
         </div>
-        <p className="text-sm text-bda-muted">{project.summary}</p>
+        <p className="line-clamp-3 text-sm text-bda-muted">{project.summary || 'No project summary yet.'}</p>
         <Link
           to={`/workflow?project=${encodeURIComponent(project.project_id)}`}
-          className="inline-flex rounded-md border border-bda-border px-3 py-1.5 text-sm hover:bg-bda-panel-hover"
+          className="mt-auto inline-flex w-fit rounded-md border border-bda-border px-3 py-1.5 text-sm hover:bg-bda-panel-hover"
           onClick={() => onOpen(project.project_id)}
         >
           {card.action ?? openLabel}

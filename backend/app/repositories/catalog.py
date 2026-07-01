@@ -35,6 +35,10 @@ def get_project(connection: sqlite3.Connection, project_id: str) -> dict | None:
     return _with_storage_status(item) if item else None
 
 
+def get_project_record(connection: sqlite3.Connection, project_id: str) -> dict | None:
+    return get_by_id(connection, "projects", "project_id", project_id)
+
+
 def _with_storage_status(project: dict) -> dict:
     project_storage.ensure_project_directory(project, source="catalog")
     return {
@@ -149,6 +153,26 @@ def create_project(
     if project:
         project_storage.ensure_project_directory(project, source="api")
     return get_project(connection, project_id) or {}
+
+
+def delete_project(connection: sqlite3.Connection, project_id: str) -> bool:
+    row = connection.execute("SELECT 1 FROM projects WHERE project_id = ? LIMIT 1", (project_id,)).fetchone()
+    if row is None:
+        return False
+    connection.execute(
+        """
+        DELETE FROM jobs
+        WHERE workflow_run_id IN (
+            SELECT wr.workflow_run_id
+            FROM workflow_runs wr
+            JOIN design_tasks dt ON dt.task_id = wr.task_id
+            WHERE dt.project_id = ?
+        )
+        """,
+        (project_id,),
+    )
+    connection.execute("DELETE FROM projects WHERE project_id = ?", (project_id,))
+    return True
 
 
 def ensure_project_workspace(

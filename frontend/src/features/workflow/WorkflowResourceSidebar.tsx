@@ -40,7 +40,7 @@ export function WorkflowResourceSidebar({
   const visibleArtifacts = selectedNode ? nodeArtifacts : artifacts
 
   return (
-    <aside className="space-y-4">
+    <aside className="h-full min-h-[32rem] space-y-4 overflow-y-auto pr-1 2xl:min-h-0">
       <section className="rounded-lg border border-bda-border bg-bda-panel p-3">
         <div className="mb-3 flex items-center gap-2">
           <Layers3 className="h-4 w-4 text-bda-cyan" />
@@ -73,7 +73,7 @@ export function WorkflowResourceSidebar({
             <h2 className="text-sm font-semibold">Model catalog</h2>
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
           {plugins.length === 0 ? (
             <p className="rounded border border-dashed border-bda-border px-3 py-4 text-center text-xs text-bda-muted">
               Loading or no plugins registered.

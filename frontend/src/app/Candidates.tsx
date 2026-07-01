@@ -213,9 +213,9 @@ export function CandidatesPage() {
       />
 
       <ApiState isLoading={isLoading} isError={isError} error={candidatesError} onRetry={() => void refetch()}>
-        <div className="grid gap-4 xl:grid-cols-[1.4fr_1fr]">
-          <div className="space-y-4">
-            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-muted">
+        <div className="grid min-h-0 gap-4 xl:h-[calc(100vh-22rem)] xl:min-h-[34rem] xl:grid-cols-[minmax(0,1.35fr)_minmax(360px,0.9fr)]">
+          <div className="flex min-h-[34rem] flex-col gap-4 overflow-hidden xl:min-h-0">
+            <div className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border border-bda-border bg-bda-panel px-3 py-2 text-sm text-bda-muted">
               <span>{selectedCount} selected</span>
               <button
                 type="button"
@@ -233,15 +233,17 @@ export function CandidatesPage() {
                 Clear all
               </button>
             </div>
-            <CandidateTable
-              data={candidates}
-              selectedId={activeCandidate?.candidate_id}
-              selectedIds={selectedIds}
-              onSelect={setSelected}
-              onToggleCandidate={toggleCandidate}
-              onTogglePage={togglePage}
-            />
-            <div className="flex items-center justify-between text-sm text-bda-muted">
+            <div className="min-h-0 flex-1">
+              <CandidateTable
+                data={candidates}
+                selectedId={activeCandidate?.candidate_id}
+                selectedIds={selectedIds}
+                onSelect={setSelected}
+                onToggleCandidate={toggleCandidate}
+                onTogglePage={togglePage}
+              />
+            </div>
+            <div className="shrink-0 flex items-center justify-between text-sm text-bda-muted">
               <span>
                 Showing {page * PAGE_SIZE + 1}-{Math.min((page + 1) * PAGE_SIZE, totalCount)} of {totalCount}
               </span>

@@ -29,6 +29,22 @@ export function createProject(payload: CreateProjectPayload): Promise<Project> {
   )
 }
 
+export interface DeleteProjectResult {
+  project_id: string
+  deleted: boolean
+  workspace: {
+    status: string
+    backend: string
+    root: string
+    trash_root?: string | null
+    deleted_at?: string
+  }
+}
+
+export function deleteProject(projectId: string): Promise<DeleteProjectResult> {
+  return apiRequest<DeleteProjectResult>(`/projects/${projectId}`, { method: 'DELETE' })
+}
+
 export function getProjectOverview(projectId: string) {
   return apiRequest<ProjectOverview>(`/projects/${projectId}/overview`, {}, ProjectOverviewSchema)
 }

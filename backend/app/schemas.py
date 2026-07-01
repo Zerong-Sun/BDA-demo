@@ -59,6 +59,22 @@ class CopilotConfigUpdateRequest(BaseModel):
     llm_model: str | None = Field(default=None, min_length=1)
 
 
+class KnowledgeEntryUpsertRequest(BaseModel):
+    knowledge_entry_id: str | None = Field(default=None, min_length=3, max_length=120)
+    title: str = Field(min_length=1, max_length=240)
+    category: str = Field(min_length=1, max_length=80)
+    subcategory: str | None = Field(default=None, max_length=80)
+    summary: str = Field(min_length=1, max_length=2000)
+    content: str = Field(min_length=1, max_length=20000)
+    tags: list[str] = Field(default_factory=list, max_length=40)
+    related_model_plugins: list[str] = Field(default_factory=list, max_length=40)
+    related_method_plugins: list[str] = Field(default_factory=list, max_length=40)
+    source_type: str = Field(default="curated", min_length=1, max_length=80)
+    citation: str | None = Field(default=None, max_length=1000)
+    confidence: str = Field(default="curated", min_length=1, max_length=80)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+
+
 class LiteratureIngestRequest(BaseModel):
     query: str = Field(min_length=2, max_length=500)
     limit: int = Field(default=5, ge=1, le=10)

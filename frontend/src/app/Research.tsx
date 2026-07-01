@@ -1,8 +1,10 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, ExternalLink, LoaderCircle, MessageSquare, Play, Search, X } from 'lucide-react'
+import { Archive, BookOpen, Check, ExternalLink, LoaderCircle, MessageSquare, Play, Save, Search, X } from 'lucide-react'
 
 import {
+  archiveCopilotKnowledgeEntry,
+  createCopilotKnowledgeEntry,
   createLiteratureSubscription,
   detectLiteratureRelations,
   ingestLiterature,
@@ -12,8 +14,11 @@ import {
   reviewLiteratureClaim,
   reviewLiteratureRelation,
   runLiteratureSubscription,
+  searchCopilotKnowledge,
   searchLiteratureLibrary,
+  updateCopilotKnowledgeEntry,
   updateLiteratureSubscription,
+  type CopilotKnowledgeEntry,
 } from '../lib/api/copilot'
 import {
   createCampaign,
@@ -75,6 +80,127 @@ function currentRole() {
   } catch {
     return ''
   }
+}
+
+function commaList(value: string) {
+  return value.split(',').map((item) => item.trim()).filter(Boolean)
+}
+
+function KnowledgePanel() {
+  const client = useQueryClient()
+  const isAdmin = currentRole() === 'admin'
+  const canEdit = isAdmin || currentRole() === 'researcher'
+  const [query, setQuery] = useState('workflow ProteinMPNN RFdiffusion')
+  const [selectedId, setSelectedId] = useState('')
+  const [entryId, setEntryId] = useState('')
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState('workflow')
+  const [subcategory, setSubcategory] = useState('')
+  const [summary, setSummary] = useState('')
+  const [content, setContent] = useState('')
+  const [tags, setTags] = useState('manual, curated')
+  const [citation, setCitation] = useState('BDA manual curated knowledge.')
+  const knowledge = useQuery({
+    queryKey: ['copilot-knowledge', query],
+    queryFn: () => searchCopilotKnowledge(query),
+  })
+  const resetForm = () => {
+    setSelectedId('')
+    setEntryId('')
+    setTitle('')
+    setCategory('workflow')
+    setSubcategory('')
+    setSummary('')
+    setContent('')
+    setTags('manual, curated')
+    setCitation('BDA manual curated knowledge.')
+  }
+  const loadEntry = (item: CopilotKnowledgeEntry) => {
+    setSelectedId(item.knowledge_entry_id)
+    setEntryId(item.knowledge_entry_id)
+    setTitle(item.title)
+    setCategory(item.category)
+    setSubcategory(item.subcategory ?? '')
+    setSummary(item.summary)
+    setContent(item.content)
+    setTags((item.tags_json ?? []).join(', '))
+    setCitation(item.citation ?? '')
+  }
+  const payload = () => ({
+    knowledge_entry_id: entryId.trim() || undefined,
+    title: title.trim(),
+    category: category.trim(),
+    subcategory: subcategory.trim() || undefined,
+    summary: summary.trim(),
+    content: content.trim(),
+    tags: commaList(tags),
+    source_type: 'curated',
+    citation: citation.trim() || undefined,
+    confidence: 'curated',
+    metadata: { entry_mode: 'manual' },
+  })
+  const save = useMutation({
+    mutationFn: () => selectedId ? updateCopilotKnowledgeEntry(selectedId, payload()) : createCopilotKnowledgeEntry(payload()),
+    onSuccess: (item) => {
+      loadEntry(item)
+      client.invalidateQueries({ queryKey: ['copilot-knowledge'] })
+    },
+  })
+  const archive = useMutation({
+    mutationFn: () => archiveCopilotKnowledgeEntry(selectedId),
+    onSuccess: () => {
+      resetForm()
+      client.invalidateQueries({ queryKey: ['copilot-knowledge'] })
+    },
+  })
+
+  return (
+    <div className="grid min-h-0 gap-4 lg:h-[calc(100vh-12rem)] lg:grid-cols-[360px_1fr]">
+      <aside className="flex min-h-[28rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
+        <h2 className="font-semibold"><BookOpen className="mr-1 inline h-4 w-4" />Curated knowledge</h2>
+        <div className="mt-3 flex gap-2">
+          <input className="min-w-0 flex-1 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm" value={query} onChange={(event) => setQuery(event.target.value)} />
+          <button className="rounded border border-bda-border px-3 py-2 text-sm" onClick={() => knowledge.refetch()}><Search className="h-4 w-4" /></button>
+        </div>
+        <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
+          {knowledge.data?.items.map((item) => (
+            <button key={item.knowledge_entry_id} className="w-full rounded border border-bda-border p-3 text-left text-sm hover:border-bda-cyan/60" onClick={() => loadEntry(item)}>
+              <strong>{item.title}</strong>
+              <p className="mt-1 line-clamp-2 text-xs text-bda-muted">{item.summary}</p>
+              <span className="mt-2 inline-block text-[10px] uppercase text-bda-cyan">{item.category}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+      <section className="flex min-h-[32rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">{selectedId ? 'Edit knowledge entry' : 'Add knowledge entry'}</h2>
+          <button className="rounded border border-bda-border px-3 py-1.5 text-sm" onClick={resetForm}>New entry</button>
+        </div>
+        <div className="mt-3 grid min-h-0 flex-1 gap-3 overflow-y-auto pr-1 md:grid-cols-2">
+          <label className="grid gap-1 text-xs text-bda-muted">Entry ID<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={entryId} disabled={Boolean(selectedId)} onChange={(event) => setEntryId(event.target.value)} placeholder="optional, generated if empty" /></label>
+          <label className="grid gap-1 text-xs text-bda-muted">Category<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={category} onChange={(event) => setCategory(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted md:col-span-2">Title<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={title} onChange={(event) => setTitle(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted">Subcategory<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={subcategory} onChange={(event) => setSubcategory(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted">Tags<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={tags} onChange={(event) => setTags(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted md:col-span-2">Summary<textarea className="min-h-20 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={summary} onChange={(event) => setSummary(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted md:col-span-2">Content<textarea className="min-h-44 rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={content} onChange={(event) => setContent(event.target.value)} /></label>
+          <label className="grid gap-1 text-xs text-bda-muted md:col-span-2">Citation<input className="rounded border border-bda-border bg-bda-bg px-3 py-2 text-sm text-bda-text" value={citation} onChange={(event) => setCitation(event.target.value)} /></label>
+        </div>
+        {!canEdit ? <p className="mt-3 text-xs text-bda-muted">Manual knowledge editing requires administrator or researcher privileges.</p> : null}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg disabled:opacity-50" disabled={!canEdit || save.isPending || !title.trim() || !summary.trim() || !content.trim()} onClick={() => save.mutate()}>
+            {save.isPending ? <LoaderCircle className="mr-1 inline h-4 w-4 animate-spin" /> : <Save className="mr-1 inline h-4 w-4" />}Save
+          </button>
+          <button className="rounded border border-bda-border px-3 py-2 text-sm disabled:opacity-50" disabled={!canEdit || !selectedId || archive.isPending} onClick={() => archive.mutate()}>
+            <Archive className="mr-1 inline h-4 w-4" />Archive
+          </button>
+        </div>
+        {save.isSuccess ? <p className="mt-2 text-xs text-bda-green">Knowledge entry saved.</p> : null}
+        {save.isError || archive.isError ? <p className="mt-2 text-xs text-bda-red">Knowledge action failed.</p> : null}
+      </section>
+    </div>
+  )
 }
 
 function DecisionReview({
@@ -225,8 +351,8 @@ function LiteraturePanel() {
   const referenceLinks = sourceRefs.flatMap((source) => jsonArray(source.references)).filter((item): item is string => typeof item === 'string')
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
+    <div className="grid min-h-0 gap-4 lg:h-[calc(100vh-12rem)] lg:grid-rows-[auto_minmax(0,1fr)]">
+      <section className="overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-xs uppercase tracking-wide text-bda-cyan">Current project research</p>
@@ -243,7 +369,7 @@ function LiteraturePanel() {
           </div>
         </div>
         {projectResearch.data?.findings.length ? (
-          <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          <div className="mt-4 grid max-h-72 gap-3 overflow-y-auto pr-1 lg:grid-cols-2">
             {projectResearch.data.findings.slice(0, 6).map((item) => (
               <article key={text(item.research_finding_id)} className="rounded border border-bda-border bg-bda-bg p-3 text-sm">
                 <div className="flex items-start justify-between gap-2">
@@ -292,7 +418,8 @@ function LiteraturePanel() {
         ) : null}
       </section>
 
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
+      <section className="grid min-h-0 gap-4 overflow-hidden lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+        <div className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
         <h2 className="font-semibold">Literature ingestion and automated surveillance</h2>
         <p className="mt-1 text-xs leading-relaxed text-bda-muted">
           Local search queries the curated project library. Ingest now searches Europe PMC with the current query and writes reviewed metadata into the local literature store. Copilot can help formulate search strings, interpret papers, or prepare summaries before ingestion.
@@ -312,68 +439,75 @@ function LiteraturePanel() {
         {ingest.isError || createSubscription.isError ? (
           <p className="mt-2 text-xs text-bda-red">Literature task failed. Check permissions, network access, and model configuration.</p>
         ) : null}
-        {search.data?.items.map((item, index) => (
-          <div key={`${text(item.document_id)}-${index}`} className="mt-3 rounded border border-bda-border p-3 text-sm">
-            <strong>{claimTitle(item)}</strong>
-            <p className="mt-1 text-bda-muted">{text(item.statement) || text(item.abstract_text)}</p>
-            <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
-            {text(item.doi) || text(item.pmid) ? (
-              <a
-                className="mt-1 inline-flex items-center gap-1 text-xs text-bda-cyan hover:underline"
-                href={text(item.doi) ? `https://doi.org/${text(item.doi)}` : `https://pubmed.ncbi.nlm.nih.gov/${text(item.pmid)}/`}
-                target="_blank"
-                rel="noreferrer"
-              >
-                <ExternalLink className="h-3 w-3" />
-                {text(item.doi) || `PMID:${text(item.pmid)}`}
-              </a>
-            ) : null}
-          </div>
-        ))}
-        {subscriptions.data?.items.map((item) => (
-          <div key={item.subscription_id} className="mt-3 flex items-center justify-between rounded border border-bda-border p-3 text-sm">
-            <div><strong>{item.name}</strong><p className="text-xs text-bda-muted">Every {item.interval_hours} hours · next run {item.next_run_at}</p></div>
-            <div className="flex gap-2">
-              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? 'Pause' : 'Enable'}</button>
-              <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />Run now</button>
-            </div>
-          </div>
-        ))}
-      </section>
-
-      <section className="grid gap-4 lg:grid-cols-2">
-        <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <h2 className="font-semibold">Scientific claims awaiting review</h2>
-          {claims.data?.items.map((item) => (
-            <article key={text(item.claim_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
+        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          {search.data?.items.map((item, index) => (
+            <div key={`${text(item.document_id)}-${index}`} className="rounded border border-bda-border p-3 text-sm">
               <strong>{claimTitle(item)}</strong>
-              <p className="mt-1">{text(item.statement)}</p>
+              <p className="mt-1 text-bda-muted">{text(item.statement) || text(item.abstract_text)}</p>
               <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
-              <blockquote className="mt-2 border-l-2 border-bda-cyan pl-2 text-xs text-bda-muted">{text(item.evidence_excerpt)}</blockquote>
-              <div className="mt-2 flex gap-2">
-                <button className="text-bda-green" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'accepted' })}><Check className="inline h-4 w-4" /> Accept</button>
-                <button className="text-bda-red" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'rejected' })}><X className="inline h-4 w-4" /> Reject</button>
+              {text(item.doi) || text(item.pmid) ? (
+                <a
+                  className="mt-1 inline-flex items-center gap-1 text-xs text-bda-cyan hover:underline"
+                  href={text(item.doi) ? `https://doi.org/${text(item.doi)}` : `https://pubmed.ncbi.nlm.nih.gov/${text(item.pmid)}/`}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  <ExternalLink className="h-3 w-3" />
+                  {text(item.doi) || `PMID:${text(item.pmid)}`}
+                </a>
+              ) : null}
+            </div>
+          ))}
+          {subscriptions.data?.items.map((item) => (
+            <div key={item.subscription_id} className="flex items-center justify-between gap-3 rounded border border-bda-border p-3 text-sm">
+              <div className="min-w-0"><strong className="block truncate">{item.name}</strong><p className="text-xs text-bda-muted">Every {item.interval_hours} hours · next run {item.next_run_at}</p></div>
+              <div className="flex shrink-0 gap-2">
+                <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => toggleSubscription.mutate(item)}>{item.enabled ? 'Pause' : 'Enable'}</button>
+                <button className="rounded border border-bda-border px-2 py-1 text-xs" onClick={() => runSubscription.mutate(item.subscription_id)}><Play className="mr-1 inline h-3 w-3" />Run now</button>
               </div>
-            </article>
+            </div>
           ))}
         </div>
-        <div className="rounded-lg border border-bda-border bg-bda-panel p-4">
-          <div className="flex items-center justify-between">
+        </div>
+
+        <div className="grid min-h-0 gap-4 lg:grid-rows-2">
+        <div className="flex min-h-[20rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
+          <h2 className="font-semibold">Scientific claims awaiting review</h2>
+          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {claims.data?.items.map((item) => (
+              <article key={text(item.claim_id)} className="rounded border border-bda-border p-3 text-sm">
+                <strong>{claimTitle(item)}</strong>
+                <p className="mt-1">{text(item.statement)}</p>
+                <p className="mt-1 text-xs text-bda-muted">{text(item.title)}</p>
+                <blockquote className="mt-2 border-l-2 border-bda-cyan pl-2 text-xs text-bda-muted">{text(item.evidence_excerpt)}</blockquote>
+                <div className="mt-2 flex gap-2">
+                  <button className="text-bda-green" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'accepted' })}><Check className="inline h-4 w-4" /> Accept</button>
+                  <button className="text-bda-red" onClick={() => reviewClaim.mutate({ id: text(item.claim_id), status: 'rejected' })}><X className="inline h-4 w-4" /> Reject</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
+        <div className="flex min-h-[20rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
+          <div className="flex items-center justify-between gap-3">
             <h2 className="font-semibold">Claim relationships awaiting review</h2>
             <button className="rounded border border-bda-border px-2 py-1 text-xs disabled:opacity-50" disabled={!isAdmin || detectRelations.isPending} onClick={() => detectRelations.mutate()}>
               Detect relationships
             </button>
           </div>
-          {relations.data?.items.map((item) => (
-            <article key={text(item.relation_id)} className="mt-3 rounded border border-bda-border p-3 text-sm">
-              <span className="text-xs uppercase text-bda-cyan">{text(item.relation_type)}</span>
-              <p>{text(item.source_statement)}</p><p className="text-bda-muted">↔ {text(item.target_statement)}</p>
-              <div className="mt-2 flex gap-2">
-                <button className="text-bda-green" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'accepted' })}>Accept</button>
-                <button className="text-bda-red" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'rejected' })}>Reject</button>
-              </div>
-            </article>
-          ))}
+          <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+            {relations.data?.items.map((item) => (
+              <article key={text(item.relation_id)} className="rounded border border-bda-border p-3 text-sm">
+                <span className="text-xs uppercase text-bda-cyan">{text(item.relation_type)}</span>
+                <p>{text(item.source_statement)}</p><p className="text-bda-muted">↔ {text(item.target_statement)}</p>
+                <div className="mt-2 flex gap-2">
+                  <button className="text-bda-green" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'accepted' })}>Accept</button>
+                  <button className="text-bda-red" onClick={() => reviewRelation.mutate({ id: text(item.relation_id), status: 'rejected' })}>Reject</button>
+                </div>
+              </article>
+            ))}
+          </div>
+        </div>
         </div>
       </section>
     </div>
@@ -425,16 +559,18 @@ function CampaignPanel() {
   const campaign = detail.data as Campaign | undefined
   const actionError = create.error || evaluate.error || review.error || updateDecision.error
   return (
-    <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
-      <aside className="rounded-lg border border-bda-border bg-bda-panel p-4">
+    <div className="grid min-h-0 gap-4 lg:h-[calc(100vh-12rem)] lg:grid-cols-[320px_1fr]">
+      <aside className="flex min-h-[24rem] flex-col overflow-hidden rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
         <button className="w-full rounded bg-bda-cyan px-3 py-2 text-sm text-bda-bg" disabled={!projectId || create.isPending} onClick={() => create.mutate()}>Create closed-loop campaign</button>
-        {campaigns.data?.items.map((item) => (
-          <button key={item.campaign_id} className="mt-3 w-full rounded border border-bda-border p-3 text-left" onClick={() => setSelected(item.campaign_id)}>
-            <strong>{item.name}</strong><p className="text-xs text-bda-muted">Round {item.current_round}/{item.max_rounds} · {item.status}</p>
-          </button>
-        ))}
+        <div className="mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+          {campaigns.data?.items.map((item) => (
+            <button key={item.campaign_id} className="w-full rounded border border-bda-border p-3 text-left" onClick={() => setSelected(item.campaign_id)}>
+              <strong>{item.name}</strong><p className="text-xs text-bda-muted">Round {item.current_round}/{item.max_rounds} · {item.status}</p>
+            </button>
+          ))}
+        </div>
       </aside>
-      <section className="rounded-lg border border-bda-border bg-bda-panel p-4">
+      <section className="min-h-[32rem] overflow-y-auto rounded-lg border border-bda-border bg-bda-panel p-4 lg:min-h-0">
         {actionError ? <p className="mb-3 rounded border border-bda-red/40 p-2 text-sm text-bda-red">{actionError.message}</p> : null}
         {!campaign ? <p className="text-bda-muted">Select or create a campaign.</p> : (
           <>
@@ -472,17 +608,18 @@ function CampaignPanel() {
 }
 
 export function ResearchPage() {
-  const [tab, setTab] = useState<'literature' | 'campaigns'>('literature')
+  const [tab, setTab] = useState<'knowledge' | 'literature' | 'campaigns'>('knowledge')
   return (
     <div>
       <div className="mb-6 flex items-end justify-between">
         <div><p className="text-xs uppercase tracking-wide text-bda-cyan">Research automation</p><h1 className="text-2xl font-semibold">Knowledge learning and closed-loop development</h1></div>
         <div className="flex gap-2">
+          <button className={`rounded px-3 py-2 text-sm ${tab === 'knowledge' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('knowledge')}>Curated knowledge</button>
           <button className={`rounded px-3 py-2 text-sm ${tab === 'literature' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('literature')}>Literature and evidence</button>
           <button className={`rounded px-3 py-2 text-sm ${tab === 'campaigns' ? 'bg-bda-cyan text-bda-bg' : 'border border-bda-border'}`} onClick={() => setTab('campaigns')}>Campaign loop</button>
         </div>
       </div>
-      {tab === 'literature' ? <LiteraturePanel /> : <CampaignPanel />}
+      {tab === 'knowledge' ? <KnowledgePanel /> : tab === 'literature' ? <LiteraturePanel /> : <CampaignPanel />}
     </div>
   )
 }

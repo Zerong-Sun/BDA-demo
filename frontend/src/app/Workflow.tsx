@@ -483,8 +483,8 @@ export function WorkflowPage() {
           </div>
         ) : null}
 
-        <div className="grid gap-4 2xl:grid-cols-[320px_minmax(0,1fr)_360px]">
-          <div className="order-2 2xl:order-1">
+        <div className="grid min-h-0 gap-4 2xl:h-[calc(100vh-15rem)] 2xl:min-h-[38rem] 2xl:grid-cols-[320px_minmax(0,1fr)_360px]">
+          <div className="order-2 min-h-0 2xl:order-1">
             <WorkflowResourceSidebar
               projectId={projectId}
               artifacts={visibleArtifacts}
@@ -553,7 +553,7 @@ export function WorkflowPage() {
             )}
           </main>
 
-          <div className="order-3">
+          <div className="order-3 min-h-0">
             <WorkflowInspector
               workflowRunId={workflowRunId}
               selectedNode={selectedNode}

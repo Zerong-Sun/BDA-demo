@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import json
 import re
 import sqlite3
+import uuid
 
 from .base import decode_row, decode_rows
 
@@ -58,6 +60,71 @@ def list_entries(
 def get_entry(connection: sqlite3.Connection, knowledge_entry_id: str) -> dict | None:
     row = connection.execute(
         "SELECT * FROM knowledge_entries WHERE knowledge_entry_id = ? AND status = 'active'",
+        (knowledge_entry_id,),
+    ).fetchone()
+    return decode_row(row)
+
+
+def upsert_entry(connection: sqlite3.Connection, payload) -> dict:
+    knowledge_entry_id = payload.knowledge_entry_id or f"kb_manual_{uuid.uuid4().hex[:12]}"
+    connection.execute(
+        """
+        INSERT INTO knowledge_entries (
+            knowledge_entry_id, title, category, subcategory, summary, content,
+            tags_json, related_model_plugins, related_method_plugins, source_type,
+            citation, confidence, metadata_json, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active')
+        ON CONFLICT(knowledge_entry_id) DO UPDATE SET
+            title=excluded.title,
+            category=excluded.category,
+            subcategory=excluded.subcategory,
+            summary=excluded.summary,
+            content=excluded.content,
+            tags_json=excluded.tags_json,
+            related_model_plugins=excluded.related_model_plugins,
+            related_method_plugins=excluded.related_method_plugins,
+            source_type=excluded.source_type,
+            citation=excluded.citation,
+            confidence=excluded.confidence,
+            metadata_json=excluded.metadata_json,
+            status='active',
+            updated_at=CURRENT_TIMESTAMP
+        """,
+        (
+            knowledge_entry_id,
+            payload.title.strip(),
+            payload.category.strip(),
+            payload.subcategory.strip() if payload.subcategory else None,
+            payload.summary.strip(),
+            payload.content.strip(),
+            json.dumps([tag.strip() for tag in payload.tags if tag.strip()]),
+            json.dumps([item.strip() for item in payload.related_model_plugins if item.strip()]),
+            json.dumps([item.strip() for item in payload.related_method_plugins if item.strip()]),
+            payload.source_type.strip(),
+            payload.citation.strip() if payload.citation else None,
+            payload.confidence.strip(),
+            json.dumps(payload.metadata),
+        ),
+    )
+    connection.commit()
+    item = get_entry(connection, knowledge_entry_id)
+    if item is None:
+        raise ValueError("knowledge_entry_upsert_failed")
+    return item
+
+
+def archive_entry(connection: sqlite3.Connection, knowledge_entry_id: str) -> dict | None:
+    connection.execute(
+        """
+        UPDATE knowledge_entries
+        SET status = 'archived', updated_at = CURRENT_TIMESTAMP
+        WHERE knowledge_entry_id = ? AND status = 'active'
+        """,
+        (knowledge_entry_id,),
+    )
+    connection.commit()
+    row = connection.execute(
+        "SELECT * FROM knowledge_entries WHERE knowledge_entry_id = ?",
         (knowledge_entry_id,),
     ).fetchone()
     return decode_row(row)
